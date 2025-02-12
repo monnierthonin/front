@@ -3,7 +3,7 @@
 ## Phase 1: Configuration initiale
 - [x] Mise en place du repository GitHub
 - [x] Configuration de l'environnement de développement Node.js
-- [ ] Configuration de la base de données MongoDB
+- [x] Configuration de la base de données MongoDB
 - [ ] Création des fichiers Docker et docker-compose.yml
 - [ ] Configuration de la documentation Swagger pour l'API
 

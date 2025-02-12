@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # Service API Node.js
+  api:
+    build: 
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: supchat-api
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - MONGODB_URI=${MONGODB_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - CLIENT_URL=http://localhost:8080
+    ports:
+      - "3000:3000"
+    networks:
+      - supchat-network
+
+  # Service Web Vue.js
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: supchat-web
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    networks:
+      - supchat-network
+
+networks:
+  supchat-network:
+    driver: bridge

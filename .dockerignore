@@ -1,0 +1,18 @@
+# Dépendances
+node_modules
+npm-debug.log
+
+# Environnement
+.env
+.env.*
+
+# Git
+.git
+.gitignore
+
+# Divers
+.DS_Store
+README.md
+DEVBOOK.md
+CDC.md
+*.log
