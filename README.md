@@ -32,7 +32,6 @@ supchat/
 ├── api/                # API Node.js
 ├── web/               # Application Vue.js
 ├── mobile/            # Application Kotlin
-├── docker/            # Fichiers Docker
 ├── CDC.md            # Cahier des charges
 ├── DEVBOOK.md        # Suivi du développement
 └── README.md         # Documentation
@@ -44,25 +43,55 @@ supchat/
 
 ### Développement
 
-*À venir - Les commandes pour lancer le projet en mode développement*
+#### Démarrer l'API (Node.js)
+```powershell
+cd api
+npm run dev
+```
 
-### Production
+L'API sera accessible sur :
+- API : http://localhost:3000
+- Documentation Swagger : http://localhost:3000/api-docs
+- Spécification OpenAPI : http://localhost:3000/api-docs.json
 
-*À venir - Les commandes pour déployer le projet en production*
+### Production avec Docker
 
-## 🧪 Tests
+Pour démarrer tous les services avec Docker :
+```powershell
+docker-compose up -d
+```
+
+Pour arrêter les services :
+```powershell
+docker-compose down
+```
+
+## Tests
 
 *À venir - Les commandes pour exécuter les tests*
 
 ## 📝 Documentation API
 
-*À venir - Lien vers la documentation Swagger*
+La documentation de l'API est disponible via Swagger UI à l'adresse : http://localhost:3000/api-docs
 
 ## 🤝 Contribution
 
-1. Créer une branche pour votre fonctionnalité (`git checkout -b feature/ma-fonctionnalite`)
-2. Commiter vos changements (`git commit -m 'feat: Ajout de ma-fonctionnalite'`)
-3. Pousser vers la branche (`git push origin feature/ma-fonctionnalite`)
+1. Créer une branche pour votre fonctionnalité
+```powershell
+git checkout -b feature/nom-de-la-fonctionnalite
+```
+
+2. Commiter vos changements
+```powershell
+git add .
+git commit -m "description: Description des changements"
+```
+
+3. Pousser vers la branche
+```powershell
+git push origin feature/nom-de-la-fonctionnalite
+```
+
 4. Ouvrir une Pull Request
 
 ## 📜 Licence

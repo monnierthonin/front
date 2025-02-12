@@ -5,7 +5,7 @@
 - [x] Configuration de l'environnement de développement Node.js
 - [x] Configuration de la base de données MongoDB
 - [x] Création des fichiers Docker et docker-compose.yml
-- [ ] Configuration de la documentation Swagger pour l'API
+- [x] Configuration de la documentation Swagger pour l'API
 
 ## Phase 2: Développement API RESTful (Node.js)
 ### Configuration API
