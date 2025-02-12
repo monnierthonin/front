@@ -6,28 +6,34 @@ const options = {
     info: {
       title: 'API SUPCHAT',
       version: '1.0.0',
-      description: 'API de messagerie professionnelle SUPCHAT',
+      description: 'Documentation de l\'API SUPCHAT',
       contact: {
         name: 'Support SUPCHAT',
-      },
+        email: 'support@supchat.com'
+      }
     },
     servers: [
       {
         url: process.env.API_URL || 'http://localhost:3000',
-        description: 'Serveur de développement',
-      },
+        description: 'Serveur de développement'
+      }
     ],
     components: {
       securitySchemes: {
-        bearerAuth: {
+        BearerAuth: {
           type: 'http',
           scheme: 'bearer',
-          bearerFormat: 'JWT',
+          bearerFormat: 'JWT'
         },
-      },
+        CookieAuth: {
+          type: 'apiKey',
+          in: 'cookie',
+          name: 'jwt'
+        }
+      }
     },
     security: [{
-      bearerAuth: [],
+      BearerAuth: [],
     }],
     tags: [
       {
@@ -52,7 +58,10 @@ const options = {
       },
     ],
   },
-  apis: ['./src/routes/*.js'], // Chemins des fichiers contenant les annotations Swagger
+  apis: [
+    './src/routes/*.js',
+    './src/docs/*.swagger.js'
+  ]
 };
 
 const swaggerSpec = swaggerJsdoc(options);

@@ -117,6 +117,8 @@ L'API sera documentée au moyen d'une documentation Swagger, afin de répertorie
 
 Le développement sera piloté en TDD (Test Driven Development). Les tests doivent être valides avant de développer une fonctionnalité. Cela permettra de garantir la qualité du développement et éviter des régressions de code. S'il est possible, le code sera refactorisé afin de faciliter la lecture et la maintenance.
 
+Toutes les données arrivant par les champs des formulaires devront être nettoyés afin de garantir la qualité des données et la sécurité des utilisateurs. Les mots de passe seront haché et n'apparaitront pas dans le code. Les tentatives d'injection SQL ou les failles XSS seront interceptées et traitées grâce au nettoyage des données.
+
 Les noms des variables et des fonctions seront en francais, décrivant explicitement ce qu'elles contiennent. Des commentaires seraient souhaitables pour expliquer le fonctionnement des fonctions et des variables, si le contexte le permet. Eviter de trop commenter le code pour ne pas encombrer la lecture et la maintenance.
 
 Le projet est versionné sur GitHub. Cela permettra de garder un historique des versions et de suivre l'évolution du projet. Un rollback sera possible en cas de dysfonctionnement. Les commits se feront dans la langue "francaise" afin de faciliter la compréhension de l'équipe. Des branches seront créées pour chaque fonctionnalité afin de ne pas pertuber l'existant. Lorsque les fonctionnalités seront valables, les branches seront supprimées.

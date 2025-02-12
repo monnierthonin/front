@@ -1,0 +1,57 @@
+const express = require('express');
+const router = express.Router();
+const authController = require('../controllers/authController');
+const { nettoyerEntrees, validationInscription, validationConnexion, validationMiseAJourProfil, validerResultat } = require('../middleware/validateur');
+const { proteger } = require('../middleware/auth');
+
+// Routes publiques
+router.post('/inscription',
+  nettoyerEntrees,
+  validationInscription,
+  validerResultat,
+  authController.inscription
+);
+
+router.post('/connexion',
+  nettoyerEntrees,
+  validationConnexion,
+  validerResultat,
+  authController.connexion
+);
+
+router.get('/deconnexion',
+  authController.deconnexion
+);
+
+router.get('/verifier-email/:token',
+  authController.verifierEmail
+);
+
+// Route de développement pour vérifier directement un utilisateur
+if (process.env.NODE_ENV !== 'production') {
+  router.get('/dev/verifier/:email',
+    authController.verifierUtilisateurDev
+  );
+}
+
+router.post('/mot-de-passe-oublie',
+  nettoyerEntrees,
+  authController.demanderReinitialisationMotDePasse
+);
+
+router.patch('/reinitialiser-mot-de-passe/:token',
+  nettoyerEntrees,
+  authController.reinitialiserMotDePasse
+);
+
+// Routes protégées (nécessitent une authentification)
+router.use(proteger); // Protège toutes les routes suivantes
+
+router.patch('/mettre-a-jour-mot-de-passe',
+  nettoyerEntrees,
+  validationMiseAJourProfil,
+  validerResultat,
+  authController.mettreAJourMotDePasse
+);
+
+module.exports = router;
