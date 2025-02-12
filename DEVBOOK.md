@@ -1,7 +1,7 @@
 # DEVBOOK - SUPCHAT Project Checklist
 
 ## Phase 1: Configuration initiale
-- [ ] Mise en place du repository GitHub
+- [x] Mise en place du repository GitHub
 - [ ] Configuration de l'environnement de développement Node.js
 - [ ] Configuration de la base de données MongoDB
 - [ ] Création des fichiers Docker et docker-compose.yml

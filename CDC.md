@@ -119,7 +119,7 @@ Le développement sera piloté en TDD (Test Driven Development). Les tests doive
 
 Les noms des variables et des fonctions seront en francais, décrivant explicitement ce qu'elles contiennent. Des commentaires seraient souhaitables pour expliquer le fonctionnement des fonctions et des variables, si le contexte le permet. Eviter de trop commenter le code pour ne pas encombrer la lecture et la maintenance.
 
-Le projet est versionné sur GitHub. Cela permettra de garder un historique des versions et de suivre l'évolution du projet. Un rollback sera possible en cas de dysfonctionnement.
+Le projet est versionné sur GitHub. Cela permettra de garder un historique des versions et de suivre l'évolution du projet. Un rollback sera possible en cas de dysfonctionnement. Les commits se feront dans la langue "francaise" afin de faciliter la compréhension de l'équipe.
 
 Le projet doit comporter un fichier docker-compose.yml à la racine du projet permettant de déployer au moins 3 services Docker distincts, respectivement pour le serveur, le client web et la base de données.
 L'application doit pouvoir être lancée intégralement via docker compose et être fonctionnelle. Les fichiers Dockerfile et docker-compose.yml doivent être optimisés pour une meilleure performance, et complets en terme de script.
