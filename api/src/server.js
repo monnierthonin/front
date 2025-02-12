@@ -1,6 +1,7 @@
 const app = require('./app');
 const http = require('http');
 const socketIo = require('socket.io');
+const initialiserBaseDeDonnees = require('./config/database');
 
 // Configuration du port
 const PORT = process.env.PORT || 3000;
@@ -15,6 +16,9 @@ const io = socketIo(server, {
     methods: ["GET", "POST"]
   }
 });
+
+// Initialisation de la base de données
+initialiserBaseDeDonnees();
 
 // Gestion des connexions Socket.IO
 io.on('connection', (socket) => {

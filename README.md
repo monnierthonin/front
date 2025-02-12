@@ -21,7 +21,7 @@ Ce projet est actuellement en phase de développement initial. Les fonctionnalit
 
 1. Cloner le repository
 ```bash
-git clone [URL_DU_REPO]
+git clone https://github.com/alexandre-juillard/3proj_SUPCHAT.git
 cd supchat
 ```
 
