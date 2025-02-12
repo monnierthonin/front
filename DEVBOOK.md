@@ -4,7 +4,7 @@
 - [x] Mise en place du repository GitHub
 - [x] Configuration de l'environnement de développement Node.js
 - [x] Configuration de la base de données MongoDB
-- [ ] Création des fichiers Docker et docker-compose.yml
+- [x] Création des fichiers Docker et docker-compose.yml
 - [ ] Configuration de la documentation Swagger pour l'API
 
 ## Phase 2: Développement API RESTful (Node.js)
