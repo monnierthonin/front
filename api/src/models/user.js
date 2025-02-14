@@ -19,10 +19,6 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Le mot de passe est requis'],
     minlength: [8, 'Le mot de passe doit contenir au moins 8 caractères'],
     maxlength: [72, 'Le mot de passe ne peut pas dépasser 72 caractères'], // Limite bcrypt
-    match: [
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-      'Le mot de passe doit contenir au moins une majuscule, une minuscule, un chiffre et un caractère spécial'
-    ],
     select: false
   },
   username: {

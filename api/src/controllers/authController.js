@@ -145,16 +145,28 @@ exports.connexion = async (req, res) => {
 };
 
 // Déconnexion
-exports.deconnexion = (req, res) => {
-  res.cookie('jwt', 'deconnexion', {
-    expires: new Date(Date.now() + 1000),
-    httpOnly: true
-  });
+exports.deconnexion = async (req, res) => {
+  try {
+    // Mettre à jour le statut de l'utilisateur à "offline"
+    await User.findByIdAndUpdate(req.user.id, { status: 'offline' });
 
-  res.status(200).json({
-    success: true,
-    message: 'Déconnexion réussie'
-  });
+    // Supprimer le cookie JWT
+    res.cookie('jwt', 'deconnexion', {
+      expires: new Date(Date.now() + 1000),
+      httpOnly: true
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Déconnexion réussie'
+    });
+  } catch (erreur) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la déconnexion',
+      error: process.env.NODE_ENV === 'development' ? erreur.message : undefined
+    });
+  }
 };
 
 // Vérifier l'email
