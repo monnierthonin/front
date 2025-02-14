@@ -22,6 +22,8 @@ initialiserBaseDeDonnees();
 
 // Gestion des connexions Socket.IO
 io.on('connection', (socket) => {
+  // Configuration CORS pour Socket.IO
+  socket.handshake.headers.origin = process.env.CLIENT_URL;
   console.log('Un client s\'est connecté');
 
   socket.on('disconnect', () => {

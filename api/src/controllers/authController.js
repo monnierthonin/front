@@ -1,6 +1,7 @@
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { envoyerEmailVerification } = require('../services/emailService');
 
 // Générer un token JWT
 const genererToken = (id) => {
@@ -55,7 +56,17 @@ exports.inscription = async (req, res) => {
 
     await nouvelUtilisateur.save();
 
-    // TODO: Envoyer l'email de vérification
+    // Envoyer l'email de vérification
+    try {
+      await envoyerEmailVerification(
+        nouvelUtilisateur.email,
+        nouvelUtilisateur.username,
+        verificationToken
+      );
+    } catch (erreurEmail) {
+      console.error('Erreur lors de l\'envoi de l\'email:', erreurEmail);
+      // On continue malgré l'erreur d'envoi d'email
+    }
     
     envoyerToken(nouvelUtilisateur, 201, res);
   } catch (erreur) {
@@ -183,25 +194,27 @@ exports.verifierEmail = async (req, res) => {
     });
 
     if (!utilisateur) {
-      return res.status(400).json({
-        success: false,
-        message: 'Token invalide ou expiré'
-      });
+      // Rediriger vers la page de connexion avec un message d'erreur
+      return res.redirect(`${process.env.CLIENT_URL}/login?error=token_invalide`);
     }
 
+    // Si l'utilisateur est déjà vérifié
+    if (utilisateur.isVerified) {
+      return res.redirect(`${process.env.CLIENT_URL}/login?message=deja_verifie`);
+    }
+
+    // Mettre à jour le statut de vérification
     utilisateur.isVerified = true;
     utilisateur.verificationToken = undefined;
     utilisateur.verificationTokenExpires = undefined;
 
     await utilisateur.save({ validateBeforeSave: false });
 
-    envoyerToken(utilisateur, 200, res);
+    // Rediriger vers la page de connexion avec un message de succès
+    res.redirect(`${process.env.CLIENT_URL}/login?message=email_verifie`);
   } catch (erreur) {
-    res.status(400).json({
-      success: false,
-      message: 'Erreur lors de la vérification de l\'email',
-      error: process.env.NODE_ENV === 'development' ? erreur.message : undefined
-    });
+    console.error('Erreur lors de la vérification de l\'email:', erreur);
+    res.redirect(`${process.env.CLIENT_URL}/login?error=erreur_verification`);
   }
 };
 

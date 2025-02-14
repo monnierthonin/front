@@ -9,15 +9,19 @@
 
 ## Phase 2: Développement API RESTful (Node.js)
 ### Configuration API
-- [ ] Structure du projet Node.js
-- [ ] Configuration des middlewares
-- [ ] Configuration de la connexion MongoDB
+- [x] Structure du projet Node.js
+- [x] Configuration des middlewares
+- [x] Configuration de la connexion MongoDB
 - [ ] Mise en place des tests unitaires
-- [ ] Configuration des routes de base
+- [x] Configuration des routes de base
 
 ### Authentification API
-- [ ] Endpoints d'inscription
-- [ ] Endpoints de connexion basique
+- [x] Endpoints d'inscription avec validation des données
+- [x] Endpoints de connexion avec JWT et cookies sécurisés
+- [x] Gestion du statut utilisateur (online/offline)
+- [ ] Configuration du service d'envoi d'emails
+- [ ] Implémentation de la vérification par email
+- [ ] Endpoints de réinitialisation de mot de passe
 - [ ] Endpoints OAuth2 (Google, Microsoft, Facebook)
 - [ ] Endpoints de gestion du profil utilisateur
 - [ ] Tests unitaires authentification

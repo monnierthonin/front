@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -5,7 +7,6 @@ const cookieParser = require('cookie-parser');
 const configurerSwagger = require('./middleware/swagger');
 const indexRouter = require('./routes/index');
 const authRouter = require('./routes/auth');
-require('dotenv').config();
 
 // Initialisation de l'application Express
 const app = express();
@@ -15,7 +16,7 @@ app.use(helmet());
 
 // Configuration CORS avec support des cookies
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:8080',
+  origin: process.env.CLIENT_URL,
   credentials: true
 }));
 
