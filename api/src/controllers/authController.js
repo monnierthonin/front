@@ -380,6 +380,23 @@ exports.verifierUtilisateurDev = async (req, res) => {
   }
 };
 
+// Callback Google OAuth2
+exports.googleCallback = (req, res) => {
+  try {
+    // L'utilisateur est déjà authentifié par passport à ce stade
+    const token = genererToken(req.user._id);
+
+    // Définir le cookie JWT
+    res.cookie('jwt', token, cookieOptions);
+
+    // Rediriger vers le frontend Vue.js en utilisant FRONTEND_URL
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?message=google_auth_success&token=${token}`);
+  } catch (erreur) {
+    console.error('Erreur lors du callback Google:', erreur);
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?error=google_auth_error`);
+  }
+};
+
 module.exports = {
   inscription: exports.inscription,
   connexion: exports.connexion,
@@ -388,5 +405,6 @@ module.exports = {
   demanderReinitialisationMotDePasse: exports.demanderReinitialisationMotDePasse,
   reinitialiserMotDePasse: exports.reinitialiserMotDePasse,
   mettreAJourMotDePasse: exports.mettreAJourMotDePasse,
-  verifierUtilisateurDev: exports.verifierUtilisateurDev
+  verifierUtilisateurDev: exports.verifierUtilisateurDev,
+  googleCallback: exports.googleCallback
 };
