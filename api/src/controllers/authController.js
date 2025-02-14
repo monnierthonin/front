@@ -1,7 +1,7 @@
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { envoyerEmailVerification } = require('../services/emailService');
+const { envoyerEmailVerification, envoyerEmailReinitialisationMotDePasse } = require('../services/emailService');
 
 // Générer un token JWT
 const genererToken = (id) => {
@@ -230,15 +230,38 @@ exports.demanderReinitialisationMotDePasse = async (req, res) => {
       });
     }
 
-    const resetToken = utilisateur.createPasswordResetToken();
+    // Générer un token de réinitialisation
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    utilisateur.resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+    
+    // Expiration dans 1 heure
+    utilisateur.resetPasswordExpires = Date.now() + 3600000;
     await utilisateur.save({ validateBeforeSave: false });
 
-    // TODO: Envoyer l'email de réinitialisation
+    try {
+      await envoyerEmailReinitialisationMotDePasse(
+        utilisateur.email,
+        utilisateur.firstName || utilisateur.username,
+        resetToken
+      );
 
-    res.status(200).json({
-      success: true,
-      message: 'Email de réinitialisation envoyé'
-    });
+      res.status(200).json({
+        success: true,
+        message: 'Email de réinitialisation envoyé'
+      });
+    } catch (erreurEmail) {
+      utilisateur.resetPasswordToken = undefined;
+      utilisateur.resetPasswordExpires = undefined;
+      await utilisateur.save({ validateBeforeSave: false });
+
+      return res.status(500).json({
+        success: false,
+        message: 'Erreur lors de l\'envoi de l\'email de réinitialisation'
+      });
+    }
   } catch (erreur) {
     res.status(400).json({
       success: false,
@@ -262,9 +285,20 @@ exports.reinitialiserMotDePasse = async (req, res) => {
     });
 
     if (!utilisateur) {
+      return res.redirect(`${process.env.CLIENT_URL}/login?error=token_invalide`);
+    }
+
+    if (!req.body.password || !req.body.confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Token invalide ou expiré'
+        message: 'Veuillez fournir un nouveau mot de passe et sa confirmation'
+      });
+    }
+
+    if (req.body.password !== req.body.confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Les mots de passe ne correspondent pas'
       });
     }
 
@@ -274,13 +308,11 @@ exports.reinitialiserMotDePasse = async (req, res) => {
 
     await utilisateur.save();
 
-    envoyerToken(utilisateur, 200, res);
+    // Rediriger vers la page de connexion avec un message de succès
+    res.redirect(`${process.env.CLIENT_URL}/login?message=mot_de_passe_reinitialise`);
   } catch (erreur) {
-    res.status(400).json({
-      success: false,
-      message: 'Erreur lors de la réinitialisation du mot de passe',
-      error: process.env.NODE_ENV === 'development' ? erreur.message : undefined
-    });
+    console.error('Erreur lors de la réinitialisation du mot de passe:', erreur);
+    res.redirect(`${process.env.CLIENT_URL}/login?error=erreur_reinitialisation`);
   }
 };
 

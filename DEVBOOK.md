@@ -19,9 +19,9 @@
 - [x] Endpoints d'inscription avec validation des données
 - [x] Endpoints de connexion avec JWT et cookies sécurisés
 - [x] Gestion du statut utilisateur (online/offline)
-- [ ] Configuration du service d'envoi d'emails
-- [ ] Implémentation de la vérification par email
-- [ ] Endpoints de réinitialisation de mot de passe
+- [x] Configuration du service d'envoi d'emails
+- [x] Implémentation de la vérification par email
+- [x] Endpoints de réinitialisation de mot de passe
 - [ ] Endpoints OAuth2 (Google, Microsoft, Facebook)
 - [ ] Endpoints de gestion du profil utilisateur
 - [ ] Tests unitaires authentification

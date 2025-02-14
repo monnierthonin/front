@@ -78,6 +78,48 @@ const envoyerEmailVerification = async (email, nom, token) => {
   }
 };
 
+// Fonction pour envoyer un email de réinitialisation de mot de passe
+const envoyerEmailReinitialisationMotDePasse = async (email, nom, token) => {
+  if (!transporter) {
+    throw new Error('Le service d\'email n\'est pas configuré correctement');
+  }
+
+  const clientUrl = process.env.CLIENT_URL;
+
+  try {
+    const info = await transporter.sendMail({
+      from: `"SupChat" <${process.env.SMTP_FROM || 'noreply@supchat.com'}>`,
+      to: email,
+      subject: 'Réinitialisation de votre mot de passe SupChat',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Réinitialisation de mot de passe</h2>
+          <p>Bonjour ${nom},</p>
+          <p>Vous avez demandé à réinitialiser votre mot de passe SupChat. Cliquez sur le bouton ci-dessous pour procéder :</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${clientUrl}/api/v1/auth/reinitialiser-mot-de-passe/${token}" 
+               style="background-color: #4CAF50; color: white; padding: 14px 20px; text-decoration: none; border-radius: 4px;">
+              Réinitialiser mon mot de passe
+            </a>
+          </div>
+          <p>Si le bouton ne fonctionne pas, vous pouvez copier et coller le lien suivant dans votre navigateur :</p>
+          <p>${clientUrl}/api/v1/auth/reinitialiser-mot-de-passe/${token}</p>
+          <p>Ce lien expirera dans 1 heure.</p>
+          <p>Si vous n'avez pas demandé à réinitialiser votre mot de passe, vous pouvez ignorer cet email en toute sécurité.</p>
+          <hr style="margin: 30px 0;">
+          <p style="color: #666; font-size: 12px;">Ceci est un email automatique, merci de ne pas y répondre.</p>
+        </div>
+      `
+    });
+
+    return info;
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de l\'email:', error);
+    throw new Error('Erreur lors de l\'envoi de l\'email de réinitialisation');
+  }
+};
+
 module.exports = {
-  envoyerEmailVerification
+  envoyerEmailVerification,
+  envoyerEmailReinitialisationMotDePasse
 };

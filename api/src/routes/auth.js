@@ -39,7 +39,7 @@ router.post('/mot-de-passe-oublie',
   authController.demanderReinitialisationMotDePasse
 );
 
-router.patch('/reinitialiser-mot-de-passe/:token',
+router.post('/reinitialiser-mot-de-passe/:token',
   nettoyerEntrees,
   authController.reinitialiserMotDePasse
 );
