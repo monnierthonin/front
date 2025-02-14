@@ -2,67 +2,155 @@
 
 Application de messagerie professionnelle basée sur une architecture client-serveur, utilisant Node.js (API), Vue.js (Web), Kotlin (Mobile) et MongoDB.
 
-## 🚧 État du Projet
+## État du Projet
 
 Ce projet est actuellement en phase de développement initial. Les fonctionnalités sont implémentées progressivement selon le plan défini dans le fichier `DEVBOOK.md`.
 
-## 📋 Prérequis
-
-*Cette section sera mise à jour au fur et à mesure que de nouvelles dépendances seront ajoutées.*
+## Prérequis
 
 - Git
-- Node.js (dernière version LTS)
+- Node.js (v18 LTS ou supérieur)
 - MongoDB
-- Docker et Docker Compose
-- Vue.js CLI
+- Docker (v20.10 ou supérieur)
+- Docker Compose (v2.0 ou supérieur)
+- Vue.js CLI (pour le développement frontend)
 - Android Studio (pour le développement mobile)
+- Un compte Mailtrap (pour les tests d'envoi d'emails)
 
-## 🛠️ Installation
+## Installation
 
-1. Cloner le repository
+### 1. Cloner le repository
 ```bash
 git clone https://github.com/alexandre-juillard/3proj_SUPCHAT.git
-cd supchat
+cd 3proj_SUPCHAT
 ```
 
-## 📁 Structure du Projet
+### 2. Configuration de l'environnement
+
+#### API (Backend)
+```bash
+cd api
+
+# Installer les dépendances
+npm install
+
+# Copier le fichier d'environnement exemple
+cp .env.example .env
+
+# Éditer le fichier .env avec vos configurations
+# Notamment :
+# - MONGODB_URI
+# - JWT_SECRET
+# - SMTP_USER et SMTP_PASS (depuis Mailtrap)
+```
+
+#### Web (Frontend)
+```bash
+cd web
+
+# Installer les dépendances
+npm install
+
+# Copier le fichier d'environnement exemple
+cp .env.example .env
+```
+
+## Démarrage
+
+### Mode Développement
+
+#### Démarrer l'API (Node.js)
+```bash
+cd api
+npm run dev
+```
+
+L'API sera accessible sur `http://localhost:3000`
+
+#### Démarrer le Frontend (Vue.js)
+```bash
+cd web
+npm run serve
+```
+
+Le frontend sera accessible sur `http://localhost:8080`
+
+### Mode Production avec Docker
+
+#### 1. Builder et démarrer les conteneurs
+```bash
+# À la racine du projet
+docker-compose build
+docker-compose up -d
+```
+
+Les services seront accessibles sur :
+- API : `http://localhost:3000`
+- Frontend : `http://localhost:8080`
+
+#### 2. Vérifier les logs
+```bash
+# Tous les services
+docker-compose logs -f
+
+# Service spécifique
+docker-compose logs -f api
+docker-compose logs -f web
+```
+
+#### 3. Arrêter les conteneurs
+```bash
+docker-compose down
+```
+
+## Structure du Projet
 
 ```
 supchat/
 ├── api/                # API Node.js
+│   ├── src/           # Code source
+│   ├── tests/         # Tests
+│   ├── Dockerfile     # Configuration Docker
+│   └── package.json   # Dépendances
 ├── web/               # Application Vue.js
 ├── mobile/            # Application Kotlin
+├── docker-compose.yml # Configuration Docker Compose
 ├── CDC.md            # Cahier des charges
 ├── DEVBOOK.md        # Suivi du développement
 └── README.md         # Documentation
 ```
 
-## 🚀 Démarrage
+## Scripts Disponibles
 
-*Les commandes de démarrage seront ajoutées au fur et à mesure du développement de chaque composant.*
+### API (dans le dossier `/api`)
+- `npm install` : Installe les dépendances
+- `npm run dev` : Démarre le serveur en mode développement
+- `npm start` : Démarre le serveur en mode production
+- `npm test` : Lance les tests
+- `npm run lint` : Vérifie le style du code
 
-### Développement
+### Web (dans le dossier `/web`)
+- `npm install` : Installe les dépendances
+- `npm run serve` : Démarre le serveur de développement
+- `npm run build` : Compile pour la production
+- `npm run test:unit` : Lance les tests unitaires
+- `npm run lint` : Vérifie le style du code
 
-#### Démarrer l'API (Node.js)
-```powershell
-cd api
-npm run dev
-```
+## Résolution des problèmes courants
 
-L'API sera accessible sur :
-- API : http://localhost:3000
-- Documentation Swagger : http://localhost:3000/api-docs
-- Spécification OpenAPI : http://localhost:3000/api-docs.json
+### Erreur de connexion à MongoDB
+1. Vérifiez que MongoDB est en cours d'exécution
+2. Vérifiez que l'URI MongoDB dans `.env` est correct
+3. Assurez-vous que l'utilisateur MongoDB a les bonnes permissions
 
-### Production avec Docker
+### Erreur d'envoi d'email
+1. Vérifiez vos identifiants Mailtrap dans `.env`
+2. Assurez-vous que les variables SMTP_USER et SMTP_PASS sont correctement définies
 
-Pour démarrer tous les services avec Docker :
-```powershell
-docker-compose up -d
-```
-
-Pour arrêter les services :
-```powershell
+### Problèmes avec Docker
+1. Vérifiez que Docker et Docker Compose sont installés et en cours d'exécution
+2. Nettoyez les conteneurs et images existants :
+```bash
 docker-compose down
 ```
 
@@ -76,25 +164,12 @@ La documentation de l'API est disponible via Swagger UI à l'adresse : http://lo
 
 ## 🤝 Contribution
 
-1. Créer une branche pour votre fonctionnalité
-```powershell
-git checkout -b feature/nom-de-la-fonctionnalite
-```
+1. Créez une branche pour votre fonctionnalité (`git checkout -b feature/ma-fonctionnalite`)
+2. Committez vos changements (`git commit -am 'Ajout de ma fonctionnalité'`)
+3. Poussez la branche (`git push origin feature/ma-fonctionnalite`)
+4. Créez une Pull Request
 
-2. Commiter vos changements
-```powershell
-git add .
-git commit -m "description: Description des changements"
-```
-
-3. Pousser vers la branche
-```powershell
-git push origin feature/nom-de-la-fonctionnalite
-```
-
-4. Ouvrir une Pull Request
-
-## 📜 Licence
+## Licence
 
 *À définir*
 
