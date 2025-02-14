@@ -71,4 +71,12 @@ router.patch('/mettre-a-jour-mot-de-passe',
   authController.mettreAJourMotDePasse
 );
 
+// Route pour délier un compte OAuth
+router.delete('/oauth/:provider',
+  nettoyerEntrees,
+  validationMiseAJourProfil,
+  validerResultat,
+  authController.delierCompteOAuth
+);
+
 module.exports = router;

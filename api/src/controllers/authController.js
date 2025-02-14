@@ -341,6 +341,78 @@ exports.mettreAJourMotDePasse = async (req, res) => {
   }
 };
 
+// Délier un compte OAuth
+exports.delierCompteOAuth = async (req, res) => {
+  try {
+    const { provider } = req.params;
+    const user = await User.findById(req.user.id).select('+password');
+
+    // Vérifier que le provider est valide
+    if (!['google', 'microsoft', 'facebook'].includes(provider)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Provider OAuth invalide'
+      });
+    }
+
+    // Vérifier si l'utilisateur a un mot de passe configuré
+    if (!user.password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vous devez configurer un mot de passe avant de délier votre compte ' + provider
+      });
+    }
+
+    // Vérifier si l'utilisateur a le provider à délier
+    const oauthProfile = user.oauthProfiles.find(p => p.provider === provider);
+    if (!oauthProfile) {
+      return res.status(404).json({
+        success: false,
+        message: `Aucun compte ${provider} n'est lié à votre compte`
+      });
+    }
+
+    // Si c'est le seul moyen de connexion, empêcher la suppression
+    if (user.oauthProfiles.length === 1 && !user.password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Impossible de délier le compte : c\'est votre seule méthode de connexion'
+      });
+    }
+
+    try {
+      // Révoquer le token d'accès Google
+      if (provider === 'google' && oauthProfile.accessToken) {
+        await fetch(`https://accounts.google.com/o/oauth2/revoke?token=${oauthProfile.accessToken}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors de la révocation du token:', error);
+      // On continue même si la révocation échoue
+    }
+
+    // Retirer le profil OAuth
+    user.oauthProfiles = user.oauthProfiles.filter(p => p.provider !== provider);
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Compte ${provider} délié avec succès`
+    });
+  } catch (error) {
+    console.error('Erreur lors de la déliaison du compte OAuth:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la déliaison du compte',
+      error: error.message
+    });
+  }
+};
+
 // Route de développement pour vérifier directement un utilisateur
 exports.verifierUtilisateurDev = async (req, res) => {
   // Ne permettre cette route qu'en développement
@@ -405,6 +477,7 @@ module.exports = {
   demanderReinitialisationMotDePasse: exports.demanderReinitialisationMotDePasse,
   reinitialiserMotDePasse: exports.reinitialiserMotDePasse,
   mettreAJourMotDePasse: exports.mettreAJourMotDePasse,
+  delierCompteOAuth: exports.delierCompteOAuth,
   verifierUtilisateurDev: exports.verifierUtilisateurDev,
   googleCallback: exports.googleCallback
 };

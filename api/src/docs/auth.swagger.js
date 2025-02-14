@@ -237,4 +237,147 @@
  *         description: Mot de passe mis à jour avec succès
  *       401:
  *         description: Mot de passe actuel incorrect
+ *
+ * @swagger
+ * /api/v1/auth/google:
+ *   get:
+ *     tags:
+ *       - Authentification
+ *     summary: Initier l'authentification avec Google
+ *     description: |
+ *       Redirige l'utilisateur vers la page de connexion Google.
+ *       Après une connexion réussie, l'utilisateur sera redirigé vers l'application
+ *       avec un token JWT.
+ *     responses:
+ *       302:
+ *         description: Redirection vers Google pour l'authentification
+ *       500:
+ *         description: Erreur serveur
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ * 
+ * @swagger
+ * /api/v1/auth/google/callback:
+ *   get:
+ *     tags:
+ *       - Authentification
+ *     summary: Callback pour l'authentification Google
+ *     description: |
+ *       Point de terminaison appelé par Google après une authentification réussie.
+ *       - Si l'utilisateur n'existe pas, un nouveau compte sera créé
+ *       - Si l'utilisateur existe avec le même email, le compte Google sera lié
+ *       - Si l'utilisateur est déjà lié à Google, ses tokens seront mis à jour
+ *     responses:
+ *       302:
+ *         description: Redirection vers l'application avec le token JWT
+ *       500:
+ *         description: Erreur serveur
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ * 
+ * @swagger
+ * /api/v1/auth/oauth/{provider}:
+ *   delete:
+ *     tags:
+ *       - Authentification
+ *     summary: Délier un compte OAuth
+ *     description: |
+ *       Permet de délier un compte OAuth (Google, Microsoft, Facebook) de votre compte.
+ *       Conditions :
+ *       - Vous devez avoir un mot de passe configuré
+ *       - Ce ne doit pas être votre seule méthode de connexion
+ *       - Le provider doit être actuellement lié à votre compte
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: provider
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [google, microsoft, facebook]
+ *         description: Le provider OAuth à délier
+ *     responses:
+ *       200:
+ *         description: Compte OAuth délié avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Compte Google délié avec succès
+ *       400:
+ *         description: Erreur de validation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Vous devez configurer un mot de passe avant de délier votre compte Google
+ *       401:
+ *         description: Non authentifié
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Provider non trouvé
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Aucun compte Google n'est lié à votre compte
+ *       500:
+ *         description: Erreur serveur
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *
+ * @swagger
+ * components:
+ *   schemas:
+ *     OAuthProfile:
+ *       type: object
+ *       properties:
+ *         provider:
+ *           type: string
+ *           enum: [google, microsoft, facebook]
+ *           description: Le provider OAuth
+ *         id:
+ *           type: string
+ *           description: L'identifiant unique du provider
+ *         email:
+ *           type: string
+ *           description: L'email associé au compte OAuth
+ *         name:
+ *           type: string
+ *           description: Le nom complet de l'utilisateur
+ *         picture:
+ *           type: string
+ *           description: L'URL de la photo de profil
+ *         lastUsed:
+ *           type: string
+ *           format: date-time
+ *           description: La dernière utilisation de cette méthode de connexion
  */
