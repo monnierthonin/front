@@ -280,6 +280,47 @@
  *               $ref: '#/components/schemas/Error'
  * 
  * @swagger
+ * /api/v1/auth/microsoft:
+ *   get:
+ *     tags:
+ *       - Authentification
+ *     summary: Initier l'authentification avec Microsoft
+ *     description: |
+ *       Redirige l'utilisateur vers la page de connexion Microsoft.
+ *       Après une connexion réussie, l'utilisateur sera redirigé vers l'application
+ *       avec un token JWT.
+ *     responses:
+ *       302:
+ *         description: Redirection vers Microsoft pour l'authentification
+ *       500:
+ *         description: Erreur serveur
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ * 
+ * @swagger
+ * /api/v1/auth/microsoft/callback:
+ *   get:
+ *     tags:
+ *       - Authentification
+ *     summary: Callback pour l'authentification Microsoft
+ *     description: |
+ *       Point de terminaison appelé par Microsoft après une authentification réussie.
+ *       - Si l'utilisateur n'existe pas, un nouveau compte sera créé
+ *       - Si l'utilisateur existe avec le même email, le compte Microsoft sera lié
+ *       - Si l'utilisateur est déjà lié à Microsoft, ses tokens seront mis à jour
+ *     responses:
+ *       302:
+ *         description: Redirection vers l'application avec le token JWT
+ *       500:
+ *         description: Erreur serveur
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *
+ * @swagger
  * /api/v1/auth/oauth/{provider}:
  *   delete:
  *     tags:

@@ -35,11 +35,11 @@
   - [x] Connexion avec Google
   - [x] Liaison/Déliaison de compte
   - [x] Documentation Swagger
-- [ ] Authentification OAuth avec Microsoft
-  - [ ] Configuration Azure AD
-  - [ ] Implémentation de la stratégie Microsoft
-  - [ ] Routes de connexion/callback
-  - [ ] Documentation Swagger
+- [x] Authentification OAuth avec Microsoft
+  - [x] Configuration Azure AD
+  - [x] Implémentation de la stratégie Microsoft
+  - [x] Routes de connexion/callback
+  - [x] Documentation Swagger
 - [ ] Authentification OAuth avec Facebook (optionnel)
 - [ ] Gestion du profil utilisateur
   - [ ] Mise à jour des informations
@@ -100,6 +100,40 @@
 - [ ] Recherche par canal
 - [ ] Filtres avancés
 - [ ] Tests unitaires
+
+## Documentation API
+
+### Authentification
+
+#### OAuth2
+
+##### Microsoft OAuth2
+
+L'authentification Microsoft a été implémentée en utilisant la stratégie `passport-microsoft`. Les fonctionnalités incluent :
+
+- Connexion avec un compte Microsoft (personnel ou professionnel)
+- Création automatique de compte lors de la première connexion
+- Liaison de compte Microsoft à un compte existant
+- Possibilité de délier le compte Microsoft
+- Gestion des tokens d'accès et de rafraîchissement
+
+Configuration requise dans le fichier `.env` :
+```
+MICROSOFT_CLIENT_ID=votre_client_id
+MICROSOFT_CLIENT_SECRET=votre_client_secret
+```
+
+Routes disponibles :
+- `GET /api/v1/auth/microsoft` : Initier l'authentification Microsoft
+- `GET /api/v1/auth/microsoft/callback` : Callback après authentification réussie
+- `DELETE /api/v1/auth/oauth/microsoft` : Délier le compte Microsoft
+
+Les scopes utilisés :
+- `openid`
+- `offline_access`
+- `profile`
+- `email`
+- `user.read`
 
 ## Phase 3: Développement Frontend Web (Vue.js)
 - [ ] Configuration du projet Vue.js

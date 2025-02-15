@@ -453,19 +453,24 @@ exports.verifierUtilisateurDev = async (req, res) => {
 };
 
 // Callback Google OAuth2
-exports.googleCallback = (req, res) => {
+exports.googleCallback = async (req, res) => {
   try {
-    // L'utilisateur est déjà authentifié par passport à ce stade
-    const token = genererToken(req.user._id);
+    const token = genererToken(req.user);
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+  } catch (error) {
+    console.error('Erreur lors du callback Google:', error);
+    res.redirect(`${process.env.FRONTEND_URL}/auth/error`);
+  }
+};
 
-    // Définir le cookie JWT
-    res.cookie('jwt', token, cookieOptions);
-
-    // Rediriger vers le frontend Vue.js en utilisant FRONTEND_URL
-    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?message=google_auth_success&token=${token}`);
-  } catch (erreur) {
-    console.error('Erreur lors du callback Google:', erreur);
-    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?error=google_auth_error`);
+// Callback Microsoft OAuth2
+exports.microsoftCallback = async (req, res) => {
+  try {
+    const token = genererToken(req.user);
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+  } catch (error) {
+    console.error('Erreur lors du callback Microsoft:', error);
+    res.redirect(`${process.env.FRONTEND_URL}/auth/error`);
   }
 };
 
@@ -479,5 +484,6 @@ module.exports = {
   mettreAJourMotDePasse: exports.mettreAJourMotDePasse,
   delierCompteOAuth: exports.delierCompteOAuth,
   verifierUtilisateurDev: exports.verifierUtilisateurDev,
-  googleCallback: exports.googleCallback
+  googleCallback: exports.googleCallback,
+  microsoftCallback: exports.microsoftCallback
 };

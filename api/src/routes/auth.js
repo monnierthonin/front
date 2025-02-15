@@ -44,6 +44,18 @@ router.get('/google/callback',
   authController.googleCallback
 );
 
+// Routes Microsoft OAuth
+router.get('/microsoft',
+  passport.authenticate('microsoft', { 
+    scope: ['openid', 'offline_access', 'profile', 'email', 'user.read']
+  })
+);
+
+router.get('/microsoft/callback',
+  passport.authenticate('microsoft', { session: false }),
+  authController.microsoftCallback
+);
+
 // Route de développement pour vérifier directement un utilisateur
 if (process.env.NODE_ENV !== 'production') {
   router.get('/dev/verifier/:email',
