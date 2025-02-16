@@ -45,10 +45,56 @@
   - [x] Implémentation de la stratégie Facebook
   - [x] Routes de connexion/callback
   - [x] Documentation Swagger
-- [ ] Gestion du profil utilisateur
-  - [ ] Mise à jour des informations
-  - [ ] Upload de photo de profil
-  - [ ] Préférences utilisateur
+- [x] Gestion du profil utilisateur
+  - [x] Mise à jour des informations
+  - [x] Upload de photo de profil
+  - [x] Préférences utilisateur
+
+### Gestion des Profils Utilisateurs
+
+#### Routes Disponibles
+
+- `GET /api/v1/users/profile` : Récupérer les informations du profil de l'utilisateur connecté
+- `PUT /api/v1/users/profile` : Mettre à jour les informations du profil (username, email)
+- `PUT /api/v1/users/profile/picture` : Mettre à jour la photo de profil
+- `PUT /api/v1/users/profile/password` : Définir ou modifier le mot de passe
+- `DELETE /api/v1/users/profile` : Supprimer le compte utilisateur
+
+#### Fonctionnalités
+
+1. **Récupération du Profil**
+   - Retourne toutes les informations du profil sauf le mot de passe
+   - Nécessite d'être authentifié
+
+2. **Mise à Jour du Profil**
+   - Permet de modifier le nom d'utilisateur et l'email
+   - Validation des données avant mise à jour
+   - Nécessite d'être authentifié
+
+3. **Gestion de la Photo de Profil**
+   - Upload d'images via multer
+   - Validation du type et de la taille des fichiers
+   - Suppression automatique de l'ancienne photo
+   - Conservation des photos de profil OAuth
+
+4. **Gestion du Mot de Passe**
+   - Pour les comptes OAuth sans mot de passe :
+     - Permet de définir un mot de passe initial sans vérification
+   - Pour les comptes avec mot de passe :
+     - Nécessite l'ancien mot de passe pour la modification
+     - Hashage sécurisé avec bcrypt
+
+5. **Suppression de Compte**
+   - Suppression complète du compte utilisateur
+   - Suppression des fichiers associés (photos de profil)
+   - Nécessite d'être authentifié
+
+#### Sécurité
+
+- Toutes les routes sont protégées par authentification JWT
+- Validation des entrées utilisateur
+- Gestion sécurisée des mots de passe avec bcrypt
+- Protection contre les injections et les attaques XSS
 
 ### Workspaces API
 - [ ] Endpoints CRUD des workspaces

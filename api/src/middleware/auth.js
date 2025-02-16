@@ -1,57 +1,43 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 
-// Middleware pour protéger les routes
-exports.proteger = async (req, res, next) => {
+/**
+ * Middleware d'authentification
+ * Vérifie le token JWT et ajoute l'utilisateur à la requête
+ */
+exports.authenticate = async (req, res, next) => {
   try {
-    let token;
-
-    // Vérifier si le token existe
-    if (req.headers.authorization?.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
-    } else if (req.cookies.jwt) {
-      token = req.cookies.jwt;
-    }
-
-    if (!token) {
+    // Vérifier la présence du token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
         success: false,
-        message: 'Vous n\'êtes pas connecté. Veuillez vous connecter pour accéder à cette ressource.'
+        message: 'Token d\'authentification manquant'
       });
     }
 
-    // Vérifier le token
+    // Extraire et vérifier le token
+    const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Vérifier si l'utilisateur existe toujours
-    const utilisateurCourant = await User.findById(decoded.id);
-    if (!utilisateurCourant) {
+    // Vérifier que l'utilisateur existe toujours
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'L\'utilisateur appartenant à ce token n\'existe plus.'
+        message: 'Utilisateur non trouvé'
       });
     }
 
-    // Donner accès à l'utilisateur dans la requête
-    req.user = utilisateurCourant;
+    // Ajouter l'utilisateur à la requête
+    req.user = user;
     next();
-  } catch (erreur) {
-    if (erreur.name === 'JsonWebTokenError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Token invalide'
-      });
-    }
-    if (erreur.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Votre session a expiré. Veuillez vous reconnecter.'
-      });
-    }
+  } catch (error) {
+    console.error('Erreur d\'authentification:', error);
     res.status(401).json({
       success: false,
-      message: 'Non autorisé',
-      error: process.env.NODE_ENV === 'development' ? erreur.message : undefined
+      message: 'Token invalide ou expiré',
+      error: error.message
     });
   }
 };

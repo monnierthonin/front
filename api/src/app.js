@@ -13,6 +13,8 @@ require('./config/passport'); // Importer la configuration Passport
 const configurerSwagger = require('./middleware/swagger');
 const indexRouter = require('./routes/index');
 const authRouter = require('./routes/auth');
+const userRouter = require('./routes/user');
+const multer = require('multer'); // Importer multer
 
 // Initialisation de l'application Express
 const app = express();
@@ -36,13 +38,31 @@ app.use(passport.initialize());
 
 // Configuration Swagger
 configurerSwagger(app);
+require('./docs/auth.swagger');
+require('./docs/user.swagger');
 
 // Routes
 app.use('/', indexRouter);
 app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/users', userRouter);
 
 // Gestion des erreurs globale
 app.use((err, req, res, next) => {
+  // Gestion des erreurs Multer
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        message: 'Le fichier est trop volumineux (maximum 5MB)'
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: 'Erreur lors de l\'upload du fichier',
+      error: err.message
+    });
+  }
+  
   console.error(err.stack);
   res.status(500).json({
     success: false,

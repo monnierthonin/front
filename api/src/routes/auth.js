@@ -3,7 +3,7 @@ const router = express.Router();
 const passport = require('passport');
 const authController = require('../controllers/authController');
 const { nettoyerEntrees, validationInscription, validationConnexion, validationMiseAJourProfil, validerResultat } = require('../middleware/validateur');
-const { proteger } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 
 // Routes publiques
 router.post('/inscription',
@@ -86,7 +86,7 @@ router.post('/reinitialiser-mot-de-passe/:token',
 );
 
 // Routes protégées (nécessitent une authentification)
-router.use(proteger); // Protège toutes les routes suivantes
+router.use(authenticate); // Protège toutes les routes suivantes
 
 router.patch('/mettre-a-jour-mot-de-passe',
   nettoyerEntrees,

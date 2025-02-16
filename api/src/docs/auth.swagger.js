@@ -7,7 +7,6 @@
  *       required:
  *         - email
  *         - username
- *         - password
  *       properties:
  *         email:
  *           type: string
@@ -22,13 +21,30 @@
  *           type: string
  *           format: password
  *           minLength: 8
- *           description: Mot de passe
- *         firstName:
+ *           description: Mot de passe (optionnel pour les comptes OAuth)
+ *         profilePicture:
  *           type: string
- *           description: Prénom
- *         lastName:
+ *           description: URL de la photo de profil
+ *         role:
  *           type: string
- *           description: Nom
+ *           enum: [user, admin]
+ *           description: Rôle de l'utilisateur
+ *         isVerified:
+ *           type: boolean
+ *           description: Indique si l'email est vérifié
+ *         oauthProfiles:
+ *           type: array
+ *           description: Liste des profils OAuth liés
+ *           items:
+ *             type: object
+ *             properties:
+ *               provider:
+ *                 type: string
+ *                 enum: [google, facebook, microsoft]
+ *               id:
+ *                 type: string
+ *               picture:
+ *                 type: string
  *
  *   securitySchemes:
  *     BearerAuth:
@@ -42,8 +58,10 @@
  *
  * @swagger
  * tags:
- *   name: Authentification
- *   description: API d'authentification
+ *   - name: Authentification
+ *     description: Gestion de l'authentification (inscription, connexion, OAuth)
+ *   - name: Profil
+ *     description: Gestion du profil utilisateur (informations, photo, mot de passe)
  *
  * @swagger
  * /api/v1/auth/inscription:
@@ -241,125 +259,62 @@
  * @swagger
  * /api/v1/auth/google:
  *   get:
- *     tags:
- *       - Authentification
- *     summary: Initier l'authentification avec Google
- *     description: |
- *       Redirige l'utilisateur vers la page de connexion Google.
- *       Après une connexion réussie, l'utilisateur sera redirigé vers l'application
- *       avec un token JWT.
+ *     summary: Authentification avec Google
+ *     tags: [Authentification]
  *     responses:
  *       302:
- *         description: Redirection vers Google pour l'authentification
- *       500:
- *         description: Erreur serveur
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- * 
+ *         description: Redirection vers Google
+ *
  * @swagger
  * /api/v1/auth/google/callback:
  *   get:
- *     tags:
- *       - Authentification
  *     summary: Callback pour l'authentification Google
- *     description: |
- *       Point de terminaison appelé par Google après une authentification réussie.
- *       - Si l'utilisateur n'existe pas, un nouveau compte sera créé
- *       - Si l'utilisateur existe avec le même email, le compte Google sera lié
- *       - Si l'utilisateur est déjà lié à Google, ses tokens seront mis à jour
+ *     tags: [Authentification]
  *     responses:
- *       302:
- *         description: Redirection vers l'application avec le token JWT
- *       500:
- *         description: Erreur serveur
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- * 
- * @swagger
- * /api/v1/auth/microsoft:
- *   get:
- *     tags:
- *       - Authentification
- *     summary: Initier l'authentification avec Microsoft
- *     description: |
- *       Redirige l'utilisateur vers la page de connexion Microsoft.
- *       Après une connexion réussie, l'utilisateur sera redirigé vers l'application
- *       avec un token JWT.
- *     responses:
- *       302:
- *         description: Redirection vers Microsoft pour l'authentification
- *       500:
- *         description: Erreur serveur
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- * 
- * @swagger
- * /api/v1/auth/microsoft/callback:
- *   get:
- *     tags:
- *       - Authentification
- *     summary: Callback pour l'authentification Microsoft
- *     description: |
- *       Point de terminaison appelé par Microsoft après une authentification réussie.
- *       - Si l'utilisateur n'existe pas, un nouveau compte sera créé
- *       - Si l'utilisateur existe avec le même email, le compte Microsoft sera lié
- *       - Si l'utilisateur est déjà lié à Microsoft, ses tokens seront mis à jour
- *     responses:
- *       302:
- *         description: Redirection vers l'application avec le token JWT
- *       500:
- *         description: Erreur serveur
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *       200:
+ *         description: Authentification réussie
+ *       401:
+ *         description: Échec de l'authentification
  *
  * @swagger
  * /api/v1/auth/facebook:
  *   get:
- *     tags:
- *       - Authentification
- *     summary: Initier l'authentification avec Facebook
- *     description: |
- *       Redirige l'utilisateur vers la page de connexion Facebook.
- *       Après une connexion réussie, l'utilisateur sera redirigé vers l'application
- *       avec un token JWT.
+ *     summary: Authentification avec Facebook
+ *     tags: [Authentification]
  *     responses:
  *       302:
- *         description: Redirection vers Facebook pour l'authentification
- *       500:
- *         description: Erreur serveur
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- * 
+ *         description: Redirection vers Facebook
+ *
  * @swagger
  * /api/v1/auth/facebook/callback:
  *   get:
- *     tags:
- *       - Authentification
  *     summary: Callback pour l'authentification Facebook
- *     description: |
- *       Point de terminaison appelé par Facebook après une authentification réussie.
- *       - Si l'utilisateur n'existe pas, un nouveau compte sera créé
- *       - Si l'utilisateur existe avec le même email, le compte Facebook sera lié
- *       - Si l'utilisateur est déjà lié à Facebook, ses tokens seront mis à jour
+ *     tags: [Authentification]
+ *     responses:
+ *       200:
+ *         description: Authentification réussie
+ *       401:
+ *         description: Échec de l'authentification
+ *
+ * @swagger
+ * /api/v1/auth/microsoft:
+ *   get:
+ *     summary: Authentification avec Microsoft
+ *     tags: [Authentification]
  *     responses:
  *       302:
- *         description: Redirection vers l'application avec le token JWT
- *       500:
- *         description: Erreur serveur
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *         description: Redirection vers Microsoft
+ *
+ * @swagger
+ * /api/v1/auth/microsoft/callback:
+ *   get:
+ *     summary: Callback pour l'authentification Microsoft
+ *     tags: [Authentification]
+ *     responses:
+ *       200:
+ *         description: Authentification réussie
+ *       401:
+ *         description: Échec de l'authentification
  *
  * @swagger
  * /api/v1/auth/oauth/{provider}:
