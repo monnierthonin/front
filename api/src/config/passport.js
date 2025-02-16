@@ -1,6 +1,7 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const MicrosoftStrategy = require('passport-microsoft').Strategy;
+const FacebookStrategy = require('passport-facebook').Strategy;
 const User = require('../models/user');
 
 passport.serializeUser((user, done) => {
@@ -143,6 +144,85 @@ passport.use(new MicrosoftStrategy({
       return done(null, user);
     } catch (error) {
       console.error('Erreur Microsoft OAuth:', error);
+      return done(error);
+    }
+  }
+));
+
+// Stratégie Facebook OAuth2
+passport.use(new FacebookStrategy({
+    clientID: process.env.FACEBOOK_APP_ID,
+    clientSecret: process.env.FACEBOOK_APP_SECRET,
+    callbackURL: `${process.env.API_URL}/api/v1/auth/facebook/callback`,
+    profileFields: ['id', 'emails', 'name', 'picture.type(large)'],
+    enableProof: true
+  },
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+      console.log('Facebook profile:', profile);
+
+      let user = await User.findOne({
+        'oauthProfiles.provider': 'facebook',
+        'oauthProfiles.id': profile.id
+      });
+
+      if (!user) {
+        // Vérifier si un utilisateur existe avec cet email
+        const email = profile.emails?.[0]?.value;
+        if (email) {
+          user = await User.findOne({ email });
+        }
+
+        if (!user) {
+          // Créer un nouvel utilisateur
+          const profilePicture = profile.photos?.[0]?.value || 'default.jpg';
+          const username = `${profile.name.givenName} ${profile.name.familyName}`.trim() || email?.split('@')[0];
+          
+          user = new User({
+            email: email,
+            username: username, // Le middleware pre-save générera un username unique
+            profilePicture: profilePicture,
+            oauthProfiles: [{
+              provider: 'facebook',
+              id: profile.id,
+              accessToken,
+              refreshToken,
+              picture: profilePicture
+            }]
+          });
+
+          await user.save();
+        } else {
+          // Lier le compte Facebook à l'utilisateur existant
+          user.oauthProfiles.push({
+            provider: 'facebook',
+            id: profile.id,
+            accessToken,
+            refreshToken,
+            picture: profile.photos?.[0]?.value
+          });
+          await user.save();
+        }
+      } else {
+        // Mettre à jour les tokens et la photo de profil
+        const facebookProfile = user.oauthProfiles.find(p => p.provider === 'facebook');
+        if (facebookProfile) {
+          facebookProfile.accessToken = accessToken;
+          facebookProfile.refreshToken = refreshToken;
+          facebookProfile.picture = profile.photos?.[0]?.value;
+          
+          // Mettre à jour la photo de profil principale si elle n'a pas été personnalisée
+          if (user.profilePicture === 'default.jpg') {
+            user.profilePicture = profile.photos?.[0]?.value || 'default.jpg';
+          }
+          
+          await user.save();
+        }
+      }
+
+      return done(null, user);
+    } catch (error) {
+      console.error('Erreur Facebook OAuth:', error);
       return done(error);
     }
   }

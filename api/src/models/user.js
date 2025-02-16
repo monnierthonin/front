@@ -4,6 +4,18 @@ const crypto = require('crypto');
 const sanitize = require('mongo-sanitize');
 const xss = require('xss');
 
+async function generateUniqueUsername(baseUsername) {
+  let username = baseUsername;
+  let counter = 1;
+  
+  while (await mongoose.model('User').findOne({ username })) {
+    username = `${baseUsername}${counter}`;
+    counter++;
+  }
+  
+  return username;
+}
+
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -18,6 +30,8 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Le nom d\'utilisateur est requis'],
     trim: true,
+    minlength: [3, 'Le nom d\'utilisateur doit contenir au moins 3 caractères'],
+    maxlength: [50, 'Le nom d\'utilisateur ne peut pas dépasser 50 caractères'],
     validate: {
       validator: function(v) {
         // Si l'utilisateur a un compte OAuth, on accepte tous les caractères
@@ -29,7 +43,9 @@ const userSchema = new mongoose.Schema({
       },
       message: 'Le nom d\'utilisateur ne peut contenir que des lettres, chiffres, tirets et underscores'
     },
-    set: (value) => xss(sanitize(value.trim()))
+    set: function(value) {
+      return xss(sanitize(value.trim()));
+    }
   },
   password: {
     type: String,
@@ -58,9 +74,12 @@ const userSchema = new mongoose.Schema({
     default: 'default.jpg',
     validate: {
       validator: function(value) {
-        return value === 'default.jpg' || /\.(jpg|jpeg|png)$/i.test(value);
+        // Accepter les URLs pour les photos de profil OAuth
+        if (value.startsWith('http://') || value.startsWith('https://')) return true;
+        // Pour les fichiers uploadés, vérifier l'extension
+        return /\.(jpg|jpeg|png)$/i.test(value);
       },
-      message: 'Le format de l\'image n\'est pas valide (jpg, jpeg, png uniquement)'
+      message: "Le format de l'image n'est pas valide (jpg, jpeg, png uniquement)"
     }
   },
   role: {
@@ -153,6 +172,14 @@ userSchema.methods.createPasswordResetToken = function() {
   
   return resetToken;
 };
+
+// Middleware pour générer un nom d'utilisateur unique avant la création d'un utilisateur
+userSchema.pre('save', async function(next) {
+  if (!this.isNew) return next();
+
+  this.username = await generateUniqueUsername(this.username);
+  next();
+});
 
 const User = mongoose.model('User', userSchema);
 

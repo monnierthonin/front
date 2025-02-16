@@ -44,6 +44,18 @@ router.get('/google/callback',
   authController.googleCallback
 );
 
+// Routes Facebook OAuth
+router.get('/facebook',
+  passport.authenticate('facebook', { 
+    scope: ['email', 'public_profile']
+  })
+);
+
+router.get('/facebook/callback',
+  passport.authenticate('facebook', { session: false }),
+  authController.facebookCallback
+);
+
 // Routes Microsoft OAuth
 router.get('/microsoft',
   passport.authenticate('microsoft', { 

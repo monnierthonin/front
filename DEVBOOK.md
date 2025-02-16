@@ -40,7 +40,11 @@
   - [x] Implémentation de la stratégie Microsoft
   - [x] Routes de connexion/callback
   - [x] Documentation Swagger
-- [ ] Authentification OAuth avec Facebook (optionnel)
+- [x] Authentification OAuth avec Facebook
+  - [x] Configuration de l'application Facebook
+  - [x] Implémentation de la stratégie Facebook
+  - [x] Routes de connexion/callback
+  - [x] Documentation Swagger
 - [ ] Gestion du profil utilisateur
   - [ ] Mise à jour des informations
   - [ ] Upload de photo de profil
@@ -134,6 +138,31 @@ Les scopes utilisés :
 - `profile`
 - `email`
 - `user.read`
+
+##### Facebook OAuth2
+
+L'authentification Facebook a été implémentée en utilisant la stratégie `passport-facebook`. Les fonctionnalités incluent :
+
+- Connexion avec un compte Facebook
+- Création automatique de compte lors de la première connexion
+- Liaison de compte Facebook à un compte existant
+- Possibilité de délier le compte Facebook
+- Récupération de la photo de profil Facebook
+
+Configuration requise dans le fichier `.env` :
+```
+FACEBOOK_APP_ID=votre_app_id
+FACEBOOK_APP_SECRET=votre_app_secret
+```
+
+Routes disponibles :
+- `GET /api/v1/auth/facebook` : Initier l'authentification Facebook
+- `GET /api/v1/auth/facebook/callback` : Callback après authentification réussie
+- `DELETE /api/v1/auth/oauth/facebook` : Délier le compte Facebook
+
+Les scopes utilisés :
+- `email`
+- `public_profile`
 
 ## Phase 3: Développement Frontend Web (Vue.js)
 - [ ] Configuration du projet Vue.js

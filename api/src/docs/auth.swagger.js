@@ -321,6 +321,47 @@
  *               $ref: '#/components/schemas/Error'
  *
  * @swagger
+ * /api/v1/auth/facebook:
+ *   get:
+ *     tags:
+ *       - Authentification
+ *     summary: Initier l'authentification avec Facebook
+ *     description: |
+ *       Redirige l'utilisateur vers la page de connexion Facebook.
+ *       Après une connexion réussie, l'utilisateur sera redirigé vers l'application
+ *       avec un token JWT.
+ *     responses:
+ *       302:
+ *         description: Redirection vers Facebook pour l'authentification
+ *       500:
+ *         description: Erreur serveur
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ * 
+ * @swagger
+ * /api/v1/auth/facebook/callback:
+ *   get:
+ *     tags:
+ *       - Authentification
+ *     summary: Callback pour l'authentification Facebook
+ *     description: |
+ *       Point de terminaison appelé par Facebook après une authentification réussie.
+ *       - Si l'utilisateur n'existe pas, un nouveau compte sera créé
+ *       - Si l'utilisateur existe avec le même email, le compte Facebook sera lié
+ *       - Si l'utilisateur est déjà lié à Facebook, ses tokens seront mis à jour
+ *     responses:
+ *       302:
+ *         description: Redirection vers l'application avec le token JWT
+ *       500:
+ *         description: Erreur serveur
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *
+ * @swagger
  * /api/v1/auth/oauth/{provider}:
  *   delete:
  *     tags:

@@ -474,6 +474,21 @@ exports.microsoftCallback = async (req, res) => {
   }
 };
 
+// Callback Facebook OAuth2
+exports.facebookCallback = async (req, res) => {
+  try {
+    const token = genererToken(req.user);
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+  } catch (error) {
+    console.error('Erreur lors du callback Facebook:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur interne du serveur',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   inscription: exports.inscription,
   connexion: exports.connexion,
@@ -485,5 +500,6 @@ module.exports = {
   delierCompteOAuth: exports.delierCompteOAuth,
   verifierUtilisateurDev: exports.verifierUtilisateurDev,
   googleCallback: exports.googleCallback,
-  microsoftCallback: exports.microsoftCallback
+  microsoftCallback: exports.microsoftCallback,
+  facebookCallback: exports.facebookCallback
 };
