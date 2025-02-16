@@ -4,9 +4,9 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'API SUPCHAT',
+      title: 'SupChat API',
       version: '1.0.0',
-      description: 'Documentation de l\'API SUPCHAT',
+      description: 'API de messagerie en temps réel pour SupChat',
       contact: {
         name: 'Support SUPCHAT',
         email: 'support@supchat.com'
@@ -37,12 +37,12 @@ const options = {
     }],
     tags: [
       {
-        name: 'Auth',
-        description: 'Endpoints d\'authentification',
+        name: 'Authentification',
+        description: 'Gestion de l\'authentification (inscription, connexion, OAuth)'
       },
       {
-        name: 'Users',
-        description: 'Gestion des utilisateurs',
+        name: 'Profil',
+        description: 'Gestion du profil utilisateur (informations, photo, mot de passe)'
       },
       {
         name: 'Workspaces',
