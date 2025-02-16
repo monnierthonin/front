@@ -316,31 +316,6 @@ exports.reinitialiserMotDePasse = async (req, res) => {
   }
 };
 
-// Mettre à jour le mot de passe
-exports.mettreAJourMotDePasse = async (req, res) => {
-  try {
-    const utilisateur = await User.findById(req.user.id).select('+password');
-
-    if (!await utilisateur.comparePassword(req.body.currentPassword)) {
-      return res.status(401).json({
-        success: false,
-        message: 'Mot de passe actuel incorrect'
-      });
-    }
-
-    utilisateur.password = req.body.newPassword;
-    await utilisateur.save();
-
-    envoyerToken(utilisateur, 200, res);
-  } catch (erreur) {
-    res.status(400).json({
-      success: false,
-      message: 'Erreur lors de la mise à jour du mot de passe',
-      error: process.env.NODE_ENV === 'development' ? erreur.message : undefined
-    });
-  }
-};
-
 // Délier un compte OAuth
 exports.delierCompteOAuth = async (req, res) => {
   try {
@@ -496,7 +471,6 @@ module.exports = {
   verifierEmail: exports.verifierEmail,
   demanderReinitialisationMotDePasse: exports.demanderReinitialisationMotDePasse,
   reinitialiserMotDePasse: exports.reinitialiserMotDePasse,
-  mettreAJourMotDePasse: exports.mettreAJourMotDePasse,
   delierCompteOAuth: exports.delierCompteOAuth,
   verifierUtilisateurDev: exports.verifierUtilisateurDev,
   googleCallback: exports.googleCallback,

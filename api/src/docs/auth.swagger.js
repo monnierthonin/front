@@ -219,42 +219,14 @@
  *                 type: string
  *                 format: password
  *                 minLength: 8
+ *                 description: Nouveau mot de passe
  *     responses:
  *       200:
  *         description: Mot de passe réinitialisé avec succès
  *       400:
  *         description: Token invalide ou expiré
- *
- * @swagger
- * /api/v1/auth/mettre-a-jour-mot-de-passe:
- *   patch:
- *     summary: Mise à jour du mot de passe
- *     tags: [Authentification]
- *     security:
- *       - BearerAuth: []
- *       - CookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - currentPassword
- *               - newPassword
- *             properties:
- *               currentPassword:
- *                 type: string
- *                 format: password
- *               newPassword:
- *                 type: string
- *                 format: password
- *                 minLength: 8
- *     responses:
- *       200:
- *         description: Mot de passe mis à jour avec succès
- *       401:
- *         description: Mot de passe actuel incorrect
+ *       500:
+ *         description: Erreur serveur
  *
  * @swagger
  * /api/v1/auth/google:

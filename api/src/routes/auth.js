@@ -88,13 +88,6 @@ router.post('/reinitialiser-mot-de-passe/:token',
 // Routes protégées (nécessitent une authentification)
 router.use(authenticate); // Protège toutes les routes suivantes
 
-router.patch('/mettre-a-jour-mot-de-passe',
-  nettoyerEntrees,
-  validationMiseAJourProfil,
-  validerResultat,
-  authController.mettreAJourMotDePasse
-);
-
 // Route pour délier un compte OAuth
 router.delete('/oauth/:provider',
   nettoyerEntrees,
