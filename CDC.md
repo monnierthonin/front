@@ -81,11 +81,14 @@ Les notifications seront en temps réel, et seront basées sur plusieurs facteur
 
 ### Message
 
+- Créer un message
 - Réagir à un message avec un émoji (1 réaction par utilisateur par émoji)
 - Répondre à un message
 - Supprimer un message (propriétaire et rôle 'admin')
 - Modifier un message (propriétaire)
 - Messagerie en temps réel
+- Possibilité de mentionner un autre utilisateur avec l'écriture '@username'
+- Possibilité de créer un lien vers un autre canal avec l'écriture '#canalname'
 - Animation 'en cours d'écriture' en temps réel
 - Poids maximum des fichiers à définir
 - Taille maximum des messages à définir
@@ -104,6 +107,8 @@ Les notifications seront en temps réel, et seront basées sur plusieurs facteur
 - Barre de recherche dans les workspaces
 - Barre de recherche dans le menu des canaux
 - Barre de recherche générale dans l'application
+- La recherche est dynamique : les résultats sont affichés en fonction des mots-clé contenus dans les messages, fichiers ou utilisateurs.
+- Le résultat s'affiche en temps réel.
 
 ## Développement
 
