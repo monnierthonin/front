@@ -119,7 +119,108 @@ const envoyerEmailReinitialisationMotDePasse = async (email, nom, token) => {
   }
 };
 
+// Fonction pour envoyer un email d'invitation à un workspace
+const envoyerEmailInvitationWorkspace = async (email, nomInviteur, nomWorkspace, description, urlInvitation) => {
+  if (!transporter) {
+    throw new Error('Le service d\'email n\'est pas configuré correctement');
+  }
+
+  try {
+    const info = await transporter.sendMail({
+      from: `"SupChat" <${process.env.SMTP_FROM || 'noreply@supchat.com'}>`,
+      to: email,
+      subject: `Invitation à rejoindre le workspace ${nomWorkspace}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                }
+                .container {
+                    background-color: #f9f9f9;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-top: 20px;
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                }
+                .workspace-info {
+                    background-color: #fff;
+                    border-radius: 4px;
+                    padding: 15px;
+                    margin: 20px 0;
+                    border: 1px solid #eee;
+                }
+                .button {
+                    display: inline-block;
+                    padding: 12px 24px;
+                    background-color: #4CAF50;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 4px;
+                    margin: 20px 0;
+                }
+                .button:hover {
+                    background-color: #45a049;
+                }
+                .footer {
+                    margin-top: 30px;
+                    font-size: 0.9em;
+                    color: #666;
+                    text-align: center;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Invitation à rejoindre un workspace</h1>
+                </div>
+
+                <p>Bonjour,</p>
+                
+                <p><strong>${nomInviteur}</strong> vous invite à rejoindre le workspace <strong>${nomWorkspace}</strong> sur SupChat.</p>
+
+                <div class="workspace-info">
+                    <h3>${nomWorkspace}</h3>
+                    <p>${description}</p>
+                </div>
+
+                <div style="text-align: center;">
+                    <a href="${urlInvitation}" class="button">Rejoindre le workspace</a>
+                </div>
+
+                <p>Ce lien d'invitation expirera dans 24 heures.</p>
+
+                <div class="footer">
+                    <p>Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.</p>
+                    <p> 2025 SupChat. Tous droits réservés.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+      `
+    });
+
+    return info;
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de l\'email:', error);
+    throw new Error('Erreur lors de l\'envoi de l\'email d\'invitation au workspace');
+  }
+};
+
 module.exports = {
   envoyerEmailVerification,
-  envoyerEmailReinitialisationMotDePasse
+  envoyerEmailReinitialisationMotDePasse,
+  envoyerEmailInvitationWorkspace
 };

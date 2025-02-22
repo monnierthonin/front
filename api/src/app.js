@@ -13,7 +13,8 @@ require('./config/passport'); // Importer la configuration Passport
 const configurerSwagger = require('./middleware/swagger');
 const indexRouter = require('./routes/index');
 const authRouter = require('./routes/auth');
-const userRouter = require('./routes/user');
+const userRouter = require('./routes/userRoutes');
+const workspaceRouter = require('./routes/workspaceRoutes');
 const multer = require('multer'); // Importer multer
 
 // Initialisation de l'application Express
@@ -40,11 +41,13 @@ app.use(passport.initialize());
 configurerSwagger(app);
 require('./docs/auth.swagger');
 require('./docs/user.swagger');
+require('./docs/workspace.swagger');
 
 // Routes
 app.use('/', indexRouter);
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);
+app.use('/api/v1/workspaces', workspaceRouter);
 
 // Gestion des erreurs globale
 app.use((err, req, res, next) => {
