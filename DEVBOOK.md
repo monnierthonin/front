@@ -97,13 +97,13 @@
 - Protection contre les injections et les attaques XSS
 
 ### Workspaces API
-- [ ] Endpoints CRUD des workspaces
-- [ ] Gestion des membres
-  - [ ] Rôles et permissions
-  - [ ] Invitation de membres
-  - [ ] Gestion des accès
-- [ ] Paramètres du workspace
-- [ ] Tests unitaires
+- [x] Endpoints CRUD des workspaces
+- [x] Gestion des membres
+  - [x] Rôles et permissions
+  - [x] Invitation de membres
+  - [x] Gestion des accès
+- [x] Paramètres du workspace
+- [x] Tests unitaires
 
 ### Canaux API
 - [ ] Endpoints CRUD des canaux

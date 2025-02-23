@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const workspaceController = require('../controllers/workspaceController');
+const canalRouter = require('./canalRoutes');
 const { authenticate } = require('../middleware/auth');
 
 /**
  * Routes pour la gestion des workspaces
  */
+
+// Utiliser les routes de canaux pour les routes imbriquées
+router.use('/:workspaceId/canaux', canalRouter);
 
 // Obtenir tous les workspaces
 router.get('/', authenticate, workspaceController.obtenirWorkspaces);
