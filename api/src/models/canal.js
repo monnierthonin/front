@@ -120,6 +120,39 @@ const canalSchema = new mongoose.Schema({
     toObject: { virtuals: true }
 });
 
+// Middleware pour supprimer les messages et fichiers associés avant la suppression du canal
+canalSchema.pre('remove', async function(next) {
+    try {
+        // Récupérer les messages du canal pour avoir accès aux fichiers
+        const Message = require('./message');
+        const messages = await Message.find({ canal: this._id });
+
+        // Supprimer les fichiers des messages
+        const fichierService = require('../services/fichierService');
+        for (const message of messages) {
+            if (message.fichiers && message.fichiers.length > 0) {
+                for (const fichier of message.fichiers) {
+                    await fichierService.supprimerFichier(fichier.url);
+                }
+            }
+        }
+
+        // Supprimer les fichiers du canal lui-même
+        if (this.fichiers && this.fichiers.length > 0) {
+            for (const fichier of this.fichiers) {
+                await fichierService.supprimerFichier(fichier.url);
+            }
+        }
+
+        // Supprimer tous les messages du canal
+        await Message.deleteMany({ canal: this._id });
+
+        next();
+    } catch (error) {
+        next(error);
+    }
+});
+
 // Méthodes pour vérifier les permissions
 canalSchema.methods.hasPermission = function(userId, permission) {
     const membre = this.membres.find(m => m.utilisateur.toString() === userId.toString());

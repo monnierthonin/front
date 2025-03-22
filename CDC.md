@@ -84,8 +84,8 @@ Les notifications seront en temps réel, et seront basées sur plusieurs facteur
 - Créer un message
 - Réagir à un message avec un émoji (1 réaction par utilisateur par émoji)
 - Répondre à un message
-- Supprimer un message (propriétaire et rôle 'admin')
-- Modifier un message (propriétaire)
+- Supprimer un message (propriétaire du message et rôle 'admin')
+- Modifier un message (propriétaire du message)
 - Messagerie en temps réel
 - Possibilité de mentionner un autre utilisateur avec l'écriture '@username'
 - Possibilité de créer un lien vers un autre canal avec l'écriture '#canalname'

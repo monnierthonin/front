@@ -1,12 +1,16 @@
 const express = require('express');
 const router = express.Router({ mergeParams: true }); // Pour accéder aux paramètres du parent (workspaceId)
 const canalController = require('../controllers/canalController');
+const messageRoutes = require('./messageRoutes');
 const { authenticate } = require('../middleware/auth');
 const { upload } = require('../services/fichierService');
 
 /**
  * Routes pour la gestion des canaux
  */
+
+// Utiliser les routes de messages
+router.use('/:canalId/messages', messageRoutes);
 
 // Créer un nouveau canal dans un workspace
 router.post('/', authenticate, canalController.creerCanal);

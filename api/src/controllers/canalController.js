@@ -126,7 +126,8 @@ exports.supprimerCanal = catchAsync(async (req, res, next) => {
         return next(new AppError('Vous n\'avez pas la permission de supprimer ce canal', 403));
     }
 
-    await Canal.findByIdAndDelete(req.params.id);
+    // Utiliser remove() pour déclencher le middleware de suppression en cascade
+    await canal.remove();
 
     res.status(204).json({
         status: 'success',
@@ -215,7 +216,7 @@ exports.supprimerMembre = catchAsync(async (req, res, next) => {
     });
 });
 
-// Gérer l'upload de fichiers
+// Upload de fichiers
 exports.uploadFichier = catchAsync(async (req, res, next) => {
     const canal = await Canal.findById(req.params.id);
     if (!canal) {
@@ -223,29 +224,31 @@ exports.uploadFichier = catchAsync(async (req, res, next) => {
     }
 
     // Vérifier les permissions
-    if (!canal.peutGererFichiers(req.user.id)) {
-        return next(new AppError('Vous n\'avez pas la permission d\'uploader des fichiers', 403));
+    if (!canal.peutEnvoyerMessage(req.user.id)) {
+        return next(new AppError('Vous n\'avez pas la permission d\'envoyer des fichiers', 403));
     }
 
     if (!req.files || req.files.length === 0) {
-        return next(new AppError('Aucun fichier n\'a été uploadé', 400));
+        return next(new AppError('Aucun fichier fourni', 400));
     }
 
-    const fichiers = req.files.map(file => ({
-        nom: file.filename,
-        type: file.mimetype,
-        url: `/uploads/workspaces/${req.params.workspaceId}/canaux/${req.params.id}/${file.filename}`,
-        taille: file.size,
-        uploadePar: req.user.id
-    }));
+    const fichiersSauvegardes = [];
+    for (const file of req.files) {
+        const fichier = await fichierService.sauvegarderFichier(
+            file,
+            `workspaces/${canal.workspace}/canaux/${canal.id}/fichiers`
+        );
+        fichiersSauvegardes.push(fichier);
+    }
 
-    canal.fichiers.push(...fichiers);
+    // Ajouter les fichiers au canal
+    canal.fichiers.push(...fichiersSauvegardes);
     await canal.save();
 
     res.status(200).json({
         status: 'success',
         data: {
-            fichiers
+            fichiers: fichiersSauvegardes
         }
     });
 });

@@ -2,88 +2,94 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const AppError = require('../utils/appError');
+const { verifierFichier } = require('./mimeService');
+const { creerPreview } = require('./previewService');
 
 // Configuration du stockage
-const storage = multer.diskStorage({
-    destination: async function(req, file, cb) {
-        const workspaceId = req.params.workspaceId;
-        const canalId = req.params.id;
-        const uploadDir = path.join(__dirname, '..', '..', 'uploads', 'workspaces', workspaceId, 'canaux', canalId);
-        
-        try {
-            await fs.mkdir(uploadDir, { recursive: true });
-            cb(null, uploadDir);
-        } catch (error) {
-            cb(new AppError('Erreur lors de la création du dossier de stockage', 500));
-        }
-    },
-    filename: function(req, file, cb) {
-        // Générer un nom de fichier unique avec timestamp
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
-});
+const storage = multer.memoryStorage(); // Stockage en mémoire pour vérification MIME
 
-// Filtre des fichiers
-const fileFilter = (req, file, cb) => {
-    const canal = req.canal; // Le canal sera attaché par le middleware précédent
-    
-    // Vérifier si l'extension est autorisée
-    const extension = '.' + file.originalname.split('.').pop().toLowerCase();
-    if (!canal.parametres.extensionsAutorisees.includes(extension)) {
-        cb(new AppError(`Extension de fichier non autorisée: ${extension}`, 400), false);
-        return;
-    }
-
-    // Vérifier la taille du fichier
-    if (file.size > canal.parametres.tailleMaxFichier) {
-        cb(new AppError(`Fichier trop volumineux. Maximum: ${canal.parametres.tailleMaxFichier} bytes`, 400), false);
-        return;
-    }
-
-    cb(null, true);
-};
-
-// Configuration de Multer
+// Configuration de multer avec vérification MIME
 const upload = multer({
     storage: storage,
-    fileFilter: fileFilter,
-    limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB par défaut, sera vérifié plus précisément par canal
+    fileFilter: async (req, file, cb) => {
+        try {
+            // Vérification MIME du fichier
+            const resultat = await verifierFichier(
+                file.buffer,
+                file.originalname,
+                file.size
+            );
+
+            if (!resultat.valide) {
+                cb(new AppError(resultat.erreur, 400), false);
+            } else {
+                // Ajouter le vrai type MIME au fichier
+                file.detectedMimeType = resultat.mimeType;
+                cb(null, true);
+            }
+        } catch (error) {
+            cb(new AppError('Erreur lors de la vérification du fichier', 400), false);
+        }
     }
 });
 
-// Fonction pour supprimer un fichier
-const supprimerFichier = async (workspaceId, canalId, nomFichier) => {
-    const cheminFichier = path.join(__dirname, '..', '..', 'uploads', 'workspaces', workspaceId, 'canaux', canalId, nomFichier);
+// Sauvegarder le fichier sur le disque
+const sauvegarderFichier = async (file, dossier = 'uploads') => {
+    const timestamp = Date.now();
+    const extension = path.extname(file.originalname);
+    const nomFichier = `${timestamp}-${Math.random().toString(36).substring(7)}${extension}`;
+    const cheminComplet = path.join(__dirname, '..', '..', 'public', dossier, nomFichier);
     
+    // Créer le dossier s'il n'existe pas
+    await fs.mkdir(path.dirname(cheminComplet), { recursive: true });
+    
+    // Sauvegarder le fichier
+    await fs.writeFile(cheminComplet, file.buffer);
+
+    let urlPreview = null;
     try {
-        await fs.unlink(cheminFichier);
+        // Créer une prévisualisation si possible
+        urlPreview = await creerPreview(cheminComplet, file.detectedMimeType);
     } catch (error) {
-        throw new AppError('Erreur lors de la suppression du fichier', 500);
+        console.error('Erreur lors de la création de la prévisualisation:', error);
+        // Ne pas bloquer le processus si la prévisualisation échoue
     }
-};
-
-// Fonction pour obtenir l'URL d'un fichier
-const getUrlFichier = (workspaceId, canalId, nomFichier) => {
-    return `/uploads/workspaces/${workspaceId}/canaux/${canalId}/${nomFichier}`;
-};
-
-// Fonction pour vérifier si un fichier existe
-const fichierExiste = async (workspaceId, canalId, nomFichier) => {
-    const cheminFichier = path.join(__dirname, '..', '..', 'uploads', 'workspaces', workspaceId, 'canaux', canalId, nomFichier);
     
+    return {
+        nom: file.originalname,
+        type: file.detectedMimeType,
+        url: `${dossier}/${nomFichier}`,
+        urlPreview,
+        taille: file.size
+    };
+};
+
+// Supprimer un fichier et sa prévisualisation
+const supprimerFichier = async (url) => {
     try {
-        await fs.access(cheminFichier);
+        const cheminComplet = path.join(__dirname, '..', '..', 'public', url);
+        await fs.unlink(cheminComplet);
+
+        // Supprimer la prévisualisation si elle existe
+        const nomFichier = path.basename(url);
+        const nomPreview = `${path.basename(nomFichier, path.extname(nomFichier))}-preview.jpg`;
+        const cheminPreview = path.join(__dirname, '..', '..', 'public', 'previews', nomPreview);
+        
+        try {
+            await fs.unlink(cheminPreview);
+        } catch (error) {
+            // Ignorer l'erreur si la prévisualisation n'existe pas
+        }
+
         return true;
-    } catch {
+    } catch (error) {
+        console.error('Erreur lors de la suppression du fichier:', error);
         return false;
     }
 };
 
 module.exports = {
     upload,
-    supprimerFichier,
-    getUrlFichier,
-    fichierExiste
+    sauvegarderFichier,
+    supprimerFichier
 };
