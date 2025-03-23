@@ -162,11 +162,13 @@ exports.envoyerInvitation = catchAsync(async (req, res, next) => {
     await workspace.save();
 
     // Envoyer l'email d'invitation
+    const urlInvitation = `${process.env.CLIENT_URL}/workspaces/invitation/${workspace.id}/${token}`;
     await envoyerEmailInvitationWorkspace(
         utilisateurInvite.email,
-        workspace.nom,
-        token,
-        req.user.nom
+        req.user.lastName,  // nom de l'inviteur
+        workspace.nom,  // nom du workspace
+        workspace.description || '',  // description du workspace
+        urlInvitation  // URL d'invitation complète
     );
 
     res.status(200).json({
@@ -214,5 +216,166 @@ exports.accepterInvitation = catchAsync(async (req, res, next) => {
         data: {
             workspace
         }
+    });
+});
+
+// Ajouter un membre au workspace
+exports.ajouterMembre = catchAsync(async (req, res, next) => {
+    const { utilisateurId, role = 'membre' } = req.body;
+
+    // Vérifier si le workspace existe
+    const workspace = await Workspace.findById(req.params.id);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur actuel a les droits d'admin
+    const membreActuel = workspace.membres.find(
+        membre => membre.utilisateur.toString() === req.user.id
+    );
+    if (!membreActuel || membreActuel.role !== 'admin') {
+        return next(new AppError('Vous n\'avez pas les droits pour ajouter des membres', 403));
+    }
+
+    // Vérifier si l'utilisateur à ajouter existe
+    const utilisateur = await User.findById(utilisateurId);
+    if (!utilisateur) {
+        return next(new AppError('Utilisateur non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est déjà membre
+    const dejaMembre = workspace.membres.some(
+        membre => membre.utilisateur.toString() === utilisateurId
+    );
+    if (dejaMembre) {
+        return next(new AppError('L\'utilisateur est déjà membre de ce workspace', 400));
+    }
+
+    // Ajouter le nouveau membre
+    workspace.membres.push({
+        utilisateur: utilisateurId,
+        role: role
+    });
+
+    await workspace.save();
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Membre ajouté avec succès',
+        data: {
+            workspace
+        }
+    });
+});
+
+// Supprimer un membre
+exports.supprimerMembre = catchAsync(async (req, res, next) => {
+    const workspace = await Workspace.findById(req.params.id);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est admin
+    if (!workspace.estAdmin(req.user.id)) {
+        return next(new AppError('Seuls les administrateurs peuvent supprimer des membres', 403));
+    }
+
+    // Vérifier que le membre existe
+    const membre = workspace.membres.find(m => m.utilisateur.toString() === req.params.membreId);
+    if (!membre) {
+        return next(new AppError('Membre non trouvé', 404));
+    }
+
+    // Empêcher la suppression du dernier admin
+    if (membre.role === 'admin' && workspace.membres.filter(m => m.role === 'admin').length === 1) {
+        return next(new AppError('Impossible de supprimer le dernier administrateur', 400));
+    }
+
+    // Empêcher la suppression du propriétaire
+    if (workspace.proprietaire.toString() === req.params.membreId) {
+        return next(new AppError('Impossible de supprimer le propriétaire du workspace', 400));
+    }
+
+    workspace.membres = workspace.membres.filter(m => m.utilisateur.toString() !== req.params.membreId);
+    await workspace.save();
+
+    res.status(204).json({
+        status: 'success',
+        data: null
+    });
+});
+
+// Modifier le rôle d'un membre
+exports.modifierRoleMembre = catchAsync(async (req, res, next) => {
+    const workspace = await Workspace.findById(req.params.id);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est admin
+    if (!workspace.estAdmin(req.user.id)) {
+        return next(new AppError('Seuls les administrateurs peuvent modifier les rôles', 403));
+    }
+
+    // Vérifier que le rôle est valide
+    if (!['membre', 'moderateur', 'admin'].includes(req.body.role)) {
+        return next(new AppError('Rôle invalide. Doit être "membre", "moderateur" ou "admin"', 400));
+    }
+
+    // Vérifier que le membre existe
+    const membre = workspace.membres.find(m => m.utilisateur.toString() === req.params.membreId);
+    if (!membre) {
+        return next(new AppError('Membre non trouvé', 404));
+    }
+
+    // Empêcher la modification du rôle du propriétaire
+    if (workspace.proprietaire.toString() === req.params.membreId) {
+        return next(new AppError('Impossible de modifier le rôle du propriétaire', 400));
+    }
+
+    // Si on rétrograde le dernier admin
+    if (membre.role === 'admin' && req.body.role !== 'admin' && 
+        workspace.membres.filter(m => m.role === 'admin').length === 1) {
+        return next(new AppError('Impossible de rétrograder le dernier administrateur', 400));
+    }
+
+    membre.role = req.body.role;
+    await workspace.save();
+
+    res.status(200).json({
+        status: 'success',
+        data: {
+            workspace
+        }
+    });
+});
+
+// Révoquer une invitation
+exports.revoquerInvitation = catchAsync(async (req, res, next) => {
+    const workspace = await Workspace.findById(req.params.id);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est admin
+    if (!workspace.estAdmin(req.user.id)) {
+        return next(new AppError('Seuls les administrateurs peuvent révoquer des invitations', 403));
+    }
+
+    // Vérifier que l'invitation existe
+    const invitation = workspace.invitationsEnAttente.find(inv => inv.token === req.params.token);
+    if (!invitation) {
+        return next(new AppError('Invitation non trouvée', 404));
+    }
+
+    workspace.invitationsEnAttente = workspace.invitationsEnAttente.filter(
+        inv => inv.token !== req.params.token
+    );
+
+    await workspace.save();
+
+    res.status(204).json({
+        status: 'success',
+        data: null
     });
 });

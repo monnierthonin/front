@@ -45,10 +45,38 @@ class ServiceSocket {
             console.log(`Utilisateur connecté: ${socket.idUtilisateur}`);
             this.utilisateursConnectes.set(socket.idUtilisateur, socket.id);
 
+            // Gérer la connexion à un canal
+            socket.on('rejoindre-canal', async ({ canalId }) => {
+                try {
+                    console.log(`Tentative de rejoindre le canal ${canalId} par l'utilisateur ${socket.idUtilisateur}`);
+                    
+                    // Vérifier l'accès au canal
+                    const canal = await Canal.findById(canalId);
+                    if (!canal) {
+                        console.error(`Canal ${canalId} non trouvé`);
+                        return;
+                    }
+
+                    const estMembre = canal.membres.some(membre => 
+                        membre.utilisateur.toString() === socket.idUtilisateur
+                    );
+
+                    if (!estMembre) {
+                        console.error(`Utilisateur ${socket.idUtilisateur} non autorisé pour le canal ${canalId}`);
+                        return;
+                    }
+
+                    // Rejoindre la room du canal
+                    socket.join(`canal:${canalId}`);
+                    console.log(`Utilisateur ${socket.idUtilisateur} a rejoint le canal ${canalId}`);
+                } catch (error) {
+                    console.error('Erreur lors de la connexion au canal:', error);
+                }
+            });
+
             // Test d'écho
             socket.on('tester-echo', (message) => {
                 console.log('Message écho reçu:', message);
-                // Diffuser l'écho à tous les clients
                 this.io.emit('echo-reponse', {
                     message: message,
                     timestamp: new Date(),
@@ -71,45 +99,6 @@ class ServiceSocket {
                 }
             });
 
-            // Gérer les nouveaux messages
-            socket.on('envoyer-message', async (donnees) => {
-                try {
-                    const { idCanal, contenu, type = 'texte' } = donnees;
-                    
-                    const message = {
-                        expediteur: socket.idUtilisateur,
-                        contenu,
-                        type,
-                        horodatage: new Date()
-                    };
-
-                    console.log('Message reçu:', message);
-
-                    // Pour le test, on diffuse à tous les clients
-                    this.io.emit('nouveau-message', {
-                        ...message,
-                        idCanal
-                    });
-                } catch (erreur) {
-                    console.error('Erreur lors de l\'envoi du message:', erreur);
-                }
-            });
-
-            // Gérer les indicateurs de frappe
-            socket.on('debut-frappe', ({ idCanal }) => {
-                socket.to(`canal:${idCanal}`).emit('utilisateur-frappe', {
-                    idUtilisateur: socket.idUtilisateur,
-                    idCanal
-                });
-            });
-
-            socket.on('fin-frappe', ({ idCanal }) => {
-                socket.to(`canal:${idCanal}`).emit('utilisateur-arrete-frappe', {
-                    idUtilisateur: socket.idUtilisateur,
-                    idCanal
-                });
-            });
-
             // Gérer la déconnexion
             socket.on('disconnect', () => {
                 console.log(`Utilisateur déconnecté: ${socket.idUtilisateur}`);
@@ -118,20 +107,51 @@ class ServiceSocket {
         });
     }
 
-    // Méthodes utilitaires
-    obtenirIdSocketUtilisateur(idUtilisateur) {
-        return this.utilisateursConnectes.get(idUtilisateur);
+    // Méthode pour émettre un message à un canal spécifique
+    emitToCanal(idCanal, evenement, donnees) {
+        if (!this.io) {
+            console.error('Socket.IO n\'est pas initialisé');
+            return;
+        }
+        console.log(`Émission de l'événement ${evenement} au canal ${idCanal}:`, donnees);
+        this.io.to(`canal:${idCanal}`).emit(evenement, donnees);
     }
 
-    emettreVersUtilisateur(idUtilisateur, evenement, donnees) {
-        const idSocket = this.obtenirIdSocketUtilisateur(idUtilisateur);
-        if (idSocket) {
-            this.io.to(idSocket).emit(evenement, donnees);
+    // Méthode pour émettre un message à un utilisateur spécifique
+    emitToUser(idUtilisateur, evenement, donnees) {
+        if (!this.io) {
+            console.error('Socket.IO n\'est pas initialisé');
+            return;
+        }
+        const socketId = this.utilisateursConnectes.get(idUtilisateur);
+        if (socketId) {
+            console.log(`Émission de l'événement ${evenement} à l'utilisateur ${idUtilisateur}:`, donnees);
+            this.io.to(socketId).emit(evenement, donnees);
         }
     }
 
-    emettreVersCanal(idCanal, evenement, donnees) {
-        this.io.to(`canal:${idCanal}`).emit(evenement, donnees);
+    // Méthode pour faire rejoindre un canal à un utilisateur
+    joinCanal(idUtilisateur, idCanal) {
+        const socketId = this.utilisateursConnectes.get(idUtilisateur);
+        if (socketId) {
+            const socket = this.io.sockets.sockets.get(socketId);
+            if (socket) {
+                socket.join(`canal:${idCanal}`);
+                console.log(`Utilisateur ${idUtilisateur} a rejoint le canal ${idCanal}`);
+            }
+        }
+    }
+
+    // Méthode pour faire quitter un canal à un utilisateur
+    leaveCanal(idUtilisateur, idCanal) {
+        const socketId = this.utilisateursConnectes.get(idUtilisateur);
+        if (socketId) {
+            const socket = this.io.sockets.sockets.get(socketId);
+            if (socket) {
+                socket.leave(`canal:${idCanal}`);
+                console.log(`Utilisateur ${idUtilisateur} a quitté le canal ${idCanal}`);
+            }
+        }
     }
 }
 

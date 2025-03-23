@@ -1,22 +1,16 @@
 {
   "name": "supchat-api",
   "version": "1.0.0",
-  "description": "API RESTful pour l'application SUPCHAT",
+  "description": "",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "jest --detectOpenHandles",
+    "test": "echo \"Error: no test specified\" && exit 1",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
   },
-  "keywords": [
-    "chat",
-    "api",
-    "nodejs",
-    "express",
-    "mongodb"
-  ],
+  "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {

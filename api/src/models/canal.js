@@ -50,6 +50,27 @@ const canalSchema = new mongoose.Schema({
         enum: ['texte', 'vocal'],
         default: 'texte'
     },
+    visibilite: {
+        type: String,
+        enum: ['public', 'prive'],
+        default: 'public'
+    },
+    membres: [{
+        utilisateur: {
+            type: mongoose.Schema.ObjectId,
+            ref: 'User',
+            required: true
+        },
+        role: {
+            type: String,
+            enum: ['admin', 'moderateur', 'membre'],
+            default: 'membre'
+        },
+        dateAjout: {
+            type: Date,
+            default: Date.now
+        }
+    }],
     parametresVocal: {
         participantsActifs: [{
             utilisateur: {
@@ -78,22 +99,6 @@ const canalSchema = new mongoose.Schema({
             default: 25
         }
     },
-    visibilite: {
-        type: String,
-        enum: ['public', 'prive'],
-        default: 'public'
-    },
-    membres: [{
-        utilisateur: {
-            type: mongoose.Schema.ObjectId,
-            ref: 'User'
-        },
-        role: {
-            type: String,
-            enum: ['membre', 'moderateur', 'admin'],
-            default: 'membre'
-        }
-    }],
     fichiers: [{
         nom: String,
         type: String,

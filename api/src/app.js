@@ -16,9 +16,13 @@ const indexRouter = require('./routes/index');
 const authRouter = require('./routes/auth');
 const userRouter = require('./routes/userRoutes');
 const workspaceRouter = require('./routes/workspaceRoutes');
+const messageRouter = require('./routes/messageRoutes');
 const multer = require('multer'); // Importer multer
 const http = require('http');
 const serviceSocket = require('./services/serviceSocket');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./docs/swagger');
+const AppError = require('./utils/appError');
 
 // Initialisation de l'application Express
 const app = express();
@@ -63,38 +67,35 @@ require('./docs/auth.swagger');
 require('./docs/user.swagger');
 require('./docs/workspace.swagger');
 
+// Documentation Swagger
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // Initialiser Socket.IO
 serviceSocket.initialiser(serveur);
+app.set('socketService', serviceSocket);
 
 // Routes
 app.use('/', indexRouter);
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/workspaces', workspaceRouter);
+app.use('/api/v1/messages', messageRouter);
 
-// Gestion des erreurs globale
+// Gestion des erreurs
 app.use((err, req, res, next) => {
-  // Gestion des erreurs Multer
-  if (err instanceof multer.MulterError) {
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({
-        success: false,
-        message: 'Le fichier est trop volumineux (maximum 5MB)'
-      });
+    err.statusCode = err.statusCode || 500;
+    err.status = err.status || 'error';
+
+    // Si c'est une requête API
+    if (req.path.startsWith('/api/')) {
+        return res.status(err.statusCode).json({
+            status: err.status,
+            message: err.message
+        });
     }
-    return res.status(400).json({
-      success: false,
-      message: 'Erreur lors de l\'upload du fichier',
-      error: err.message
-    });
-  }
-  
-  console.error(err.stack);
-  res.status(500).json({
-    success: false,
-    message: 'Erreur interne du serveur',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
-  });
+
+    // Pour les autres requêtes (pages HTML, etc.)
+    res.status(err.statusCode).send(err.message);
 });
 
 // Exporter l'application et le serveur

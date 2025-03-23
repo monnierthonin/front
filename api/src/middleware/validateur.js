@@ -1,8 +1,10 @@
 const { validationResult, body } = require('express-validator');
 const sanitize = require('mongo-sanitize');
+const xss = require('xss');
+const mongoose = require('mongoose');
 
 // Middleware pour vérifier les erreurs de validation
-const validerResultat = (req, res, next) => {
+exports.validerResultat = (req, res, next) => {
   const erreurs = validationResult(req);
   if (!erreurs.isEmpty()) {
     return res.status(400).json({
@@ -16,16 +18,40 @@ const validerResultat = (req, res, next) => {
   next();
 };
 
-// Nettoyer toutes les entrées de la requête
-const nettoyerEntrees = (req, res, next) => {
-  req.body = sanitize(req.body);
-  req.query = sanitize(req.query);
-  req.params = sanitize(req.params);
+// Fonction pour nettoyer les données
+exports.nettoyerDonnees = (data) => {
+  if (typeof data !== 'object' || data === null) {
+    return data;
+  }
+
+  const cleaned = {};
+  for (const key in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      let value = data[key];
+      // Nettoyer les chaînes de caractères
+      if (typeof value === 'string') {
+        value = xss(value);
+      }
+      // Nettoyer récursivement les objets
+      else if (typeof value === 'object' && value !== null) {
+        value = exports.nettoyerDonnees(value);
+      }
+      cleaned[key] = value;
+    }
+  }
+  return sanitize(cleaned);
+};
+
+// Middleware pour nettoyer les entrées de la requête
+exports.nettoyerEntrees = (req, res, next) => {
+  req.body = exports.nettoyerDonnees(req.body);
+  req.query = exports.nettoyerDonnees(req.query);
+  req.params = exports.nettoyerDonnees(req.params);
   next();
 };
 
 // Règles de validation pour l'inscription
-const validationInscription = [
+exports.validationInscription = [
   // Email
   body('email')
     .trim()
@@ -86,7 +112,7 @@ const validationInscription = [
 ];
 
 // Règles de validation pour la connexion
-const validationConnexion = [
+exports.validationConnexion = [
   body('email')
     .trim()
     .toLowerCase()
@@ -100,7 +126,7 @@ const validationConnexion = [
 ];
 
 // Règles de validation pour la mise à jour du profil
-const validationMiseAJourProfil = [
+exports.validationMiseAJourProfil = [
   body('username')
     .optional()
     .trim()
@@ -150,10 +176,50 @@ const validationMiseAJourProfil = [
     .withMessage('Le nouveau mot de passe doit contenir au moins une majuscule, une minuscule, un chiffre et un caractère spécial')
 ];
 
-module.exports = {
-  validerResultat,
-  nettoyerEntrees,
-  validationInscription,
-  validationConnexion,
-  validationMiseAJourProfil
-};
+// Validation des messages (groupe et privé)
+exports.validationMessage = [
+  body('contenu')
+    .trim()
+    .notEmpty().withMessage('Le message ne peut pas être vide')
+    .isLength({ max: 2000 }).withMessage('Le message ne peut pas dépasser 2000 caractères')
+    .customSanitizer(value => {
+      // Échapper les caractères HTML
+      return xss(value);
+    })
+    .custom(value => {
+      // Vérifier les scripts malveillants
+      if (/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi.test(value)) {
+        throw new Error('Les scripts ne sont pas autorisés dans les messages');
+      }
+      // Vérifier les iframes
+      if (/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi.test(value)) {
+        throw new Error('Les iframes ne sont pas autorisés dans les messages');
+      }
+      return true;
+    }),
+];
+
+// Validation spécifique aux messages privés
+exports.validationMessagePrive = [
+  ...exports.validationMessage,
+  body('destinataire')
+    .notEmpty().withMessage('Le destinataire est requis')
+    .isMongoId().withMessage('ID de destinataire invalide')
+];
+
+// Validation spécifique aux messages de groupe
+exports.validationMessageGroupe = [
+  ...exports.validationMessage,
+  body('canal')
+    .notEmpty().withMessage('L\'ID du canal est requis')
+    .isMongoId().withMessage('ID de canal invalide'),
+  body('mentions')
+    .optional()
+    .isArray().withMessage('Les mentions doivent être un tableau')
+    .custom(value => {
+      if (!value.every(id => mongoose.Types.ObjectId.isValid(id))) {
+        throw new Error('Les IDs des mentions doivent être valides');
+      }
+      return true;
+    })
+];

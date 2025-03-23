@@ -26,10 +26,14 @@ router.patch('/:id', authenticate, workspaceController.mettreAJourWorkspace);
 // Supprimer un workspace
 router.delete('/:id', authenticate, workspaceController.supprimerWorkspace);
 
-// Envoyer une invitation à un utilisateur
-router.post('/:id/inviter/:userId', authenticate, workspaceController.envoyerInvitation);
+// Gestion des membres
+router.post('/:id/membres', authenticate, workspaceController.ajouterMembre);
+router.delete('/:id/membres/:membreId', authenticate, workspaceController.supprimerMembre);
+router.patch('/:id/membres/:membreId/role', authenticate, workspaceController.modifierRoleMembre);
 
-// Accepter une invitation
+// Gestion des invitations
+router.post('/:id/inviter/:userId', authenticate, workspaceController.envoyerInvitation);
+router.delete('/:id/invitations/:token', authenticate, workspaceController.revoquerInvitation);
 router.get('/invitation/:workspaceId/:token', authenticate, workspaceController.accepterInvitation);
 
 module.exports = router;

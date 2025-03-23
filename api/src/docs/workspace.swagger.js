@@ -212,7 +212,8 @@
  *                 type: string
  *               role:
  *                 type: string
- *                 enum: [admin, membre]
+ *                 enum: [membre, moderateur, admin]
+ *                 default: membre
  *     responses:
  *       200:
  *         description: Membre ajouté avec succès
@@ -221,7 +222,110 @@
  *       403:
  *         description: Non autorisé
  *       404:
- *         description: Workspace non trouvé
+ *         description: Workspace ou utilisateur non trouvé
+ *
+ * @swagger
+ * /api/v1/workspaces/{id}/membres/{membreId}:
+ *   delete:
+ *     summary: Supprimer un membre du workspace
+ *     description: Supprime un utilisateur du workspace
+ *     tags: [Workspaces]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: membreId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Membre supprimé avec succès
+ *       401:
+ *         description: Non authentifié
+ *       403:
+ *         description: Non autorisé
+ *       404:
+ *         description: Workspace ou membre non trouvé
+ *       400:
+ *         description: Impossible de supprimer le dernier admin ou le propriétaire
+ *
+ * @swagger
+ * /api/v1/workspaces/{id}/membres/{membreId}/role:
+ *   patch:
+ *     summary: Modifier le rôle d'un membre
+ *     description: Modifie le rôle d'un membre du workspace
+ *     tags: [Workspaces]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: membreId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - role
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [membre, moderateur, admin]
+ *     responses:
+ *       200:
+ *         description: Rôle modifié avec succès
+ *       401:
+ *         description: Non authentifié
+ *       403:
+ *         description: Non autorisé
+ *       404:
+ *         description: Workspace ou membre non trouvé
+ *       400:
+ *         description: Rôle invalide ou impossible de rétrograder le dernier admin
+ *
+ * @swagger
+ * /api/v1/workspaces/{id}/invitations/{token}:
+ *   delete:
+ *     summary: Révoquer une invitation
+ *     description: Révoque une invitation en attente pour le workspace
+ *     tags: [Workspaces]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Invitation révoquée avec succès
+ *       401:
+ *         description: Non authentifié
+ *       403:
+ *         description: Non autorisé
+ *       404:
+ *         description: Workspace ou invitation non trouvée
  *
  * @swagger
  * /api/v1/workspaces/{id}/inviter/{userId}:
