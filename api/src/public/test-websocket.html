@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test WebSocket SUPCHAT</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #messages { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; margin-bottom: 10px; }
+        #status { margin-bottom: 10px; }
+        .connected { color: green; }
+        .disconnected { color: red; }
+        .error { color: red; }
+        .echo { color: blue; }
+        .message { color: purple; }
+        .controls { margin-bottom: 10px; }
+        .controls button { margin-right: 5px; }
+    </style>
+</head>
+<body>
+    <h2>Test WebSocket SUPCHAT</h2>
+    <div id="status" class="disconnected">État: Déconnecté</div>
+    <div class="controls">
+        <button id="connectButton">Connecter</button>
+        <button id="disconnectButton">Déconnecter</button>
+        <button id="testEchoButton">Tester Echo</button>
+    </div>
+    <div id="messages"></div>
+    <div class="controls">
+        <input type="text" id="messageInput" placeholder="Message à envoyer">
+        <button id="sendButton">Envoyer</button>
+    </div>
+
+    <script>
+        let socket;
+        let authToken;
+        let echoCount = 0;
+
+        function log(message, isError = false, isEcho = false, isMessage = false) {
+            console.log(message);
+            const messagesDiv = document.getElementById('messages');
+            const className = isError ? 'error' : isEcho ? 'echo' : isMessage ? 'message' : '';
+            messagesDiv.innerHTML += `<div class="${className}">${new Date().toLocaleTimeString()} - ${message}</div>`;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function updateStatus(connected) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = connected ? 'connected' : 'disconnected';
+            statusDiv.textContent = `État: ${connected ? 'Connecté' : 'Déconnecté'}`;
+            
+            // Mettre à jour l'état des boutons
+            document.getElementById('testEchoButton').disabled = !connected;
+            document.getElementById('sendButton').disabled = !connected;
+            document.getElementById('messageInput').disabled = !connected;
+            document.getElementById('connectButton').disabled = connected;
+            document.getElementById('disconnectButton').disabled = !connected;
+        }
+
+        async function obtenirToken() {
+            try {
+                const response = await fetch('/api/v1/auth/test-token');
+                if (!response.ok) {
+                    throw new Error('Erreur lors de la récupération du token');
+                }
+                const data = await response.json();
+                return data.token;
+            } catch (error) {
+                log(`Erreur: ${error.message}`, true);
+                throw error;
+            }
+        }
+
+        function testerEcho() {
+            if (!socket) {
+                log('Non connecté au serveur', true);
+                return;
+            }
+            echoCount++;
+            const message = `Test echo #${echoCount}`;
+            log(`Envoi du message d'écho: ${message}`, false, true);
+            socket.emit('tester-echo', message);
+        }
+
+        async function connectWebSocket() {
+            try {
+                if (socket) {
+                    log('Déjà connecté');
+                    return;
+                }
+
+                log('Récupération du token d\'authentification...');
+                authToken = await obtenirToken();
+                log('Token obtenu, tentative de connexion WebSocket...');
+
+                socket = io('http://localhost:3000', {
+                    auth: {
+                        token: authToken
+                    },
+                    transports: ['websocket'],
+                    reconnection: true,
+                    reconnectionAttempts: 5,
+                    reconnectionDelay: 1000
+                });
+
+                socket.on('connect', () => {
+                    log('Connecté au serveur WebSocket');
+                    updateStatus(true);
+                });
+
+                socket.on('disconnect', () => {
+                    log('Déconnecté du serveur WebSocket');
+                    updateStatus(false);
+                });
+
+                socket.on('nouveau-message', (data) => {
+                    const isMyMessage = data.expediteur === socket.id;
+                    log(`Message ${isMyMessage ? 'envoyé' : 'reçu'}: ${data.contenu} (de: ${data.expediteur})`, false, false, true);
+                });
+
+                socket.on('echo-reponse', (data) => {
+                    log(`Écho reçu: ${data.message} (de: ${data.from}, timestamp: ${new Date(data.timestamp).toLocaleTimeString()})`, false, true);
+                });
+
+                socket.on('connect_error', (error) => {
+                    log(`Erreur de connexion: ${error.message}`, true);
+                    updateStatus(false);
+                });
+
+                socket.on('error', (error) => {
+                    log(`Erreur WebSocket: ${error.message}`, true);
+                    updateStatus(false);
+                });
+            } catch (error) {
+                log(`Erreur lors de la connexion: ${error.message}`, true);
+                updateStatus(false);
+            }
+        }
+
+        function disconnectWebSocket() {
+            if (!socket) {
+                log('Déjà déconnecté');
+                return;
+            }
+            socket.disconnect();
+            socket = null;
+            authToken = null;
+            updateStatus(false);
+        }
+
+        function sendMessage() {
+            if (!socket) {
+                log('Non connecté au serveur', true);
+                return;
+            }
+            const input = document.getElementById('messageInput');
+            const message = input.value;
+            if (message) {
+                socket.emit('envoyer-message', {
+                    idCanal: 'test-canal',
+                    contenu: message,
+                    type: 'texte'
+                });
+                log(`Message envoyé: ${message}`);
+                input.value = '';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('connectButton').addEventListener('click', connectWebSocket);
+            document.getElementById('disconnectButton').addEventListener('click', disconnectWebSocket);
+            document.getElementById('sendButton').addEventListener('click', sendMessage);
+            document.getElementById('testEchoButton').addEventListener('click', testerEcho);
+            
+            document.getElementById('messageInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+
+            // Initialiser l'état des boutons
+            updateStatus(false);
+        });
+    </script>
+</body>
+</html>

@@ -4,6 +4,7 @@ const passport = require('passport');
 const authController = require('../controllers/authController');
 const { nettoyerEntrees, validationInscription, validationConnexion, validationMiseAJourProfil, validerResultat } = require('../middleware/validateur');
 const { authenticate } = require('../middleware/auth');
+const jwt = require('jsonwebtoken'); // Ajout de la dépendance jwt
 
 // Routes publiques
 router.post('/inscription',
@@ -85,6 +86,21 @@ router.post('/reinitialiser-mot-de-passe/:token',
   nettoyerEntrees,
   authController.reinitialiserMotDePasse
 );
+
+// Route de test pour générer un token JWT valide
+router.get('/test-token', (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ message: 'Cette route n\'est pas disponible en production' });
+  }
+  
+  const token = jwt.sign(
+    { id: 'utilisateur-test' },
+    process.env.JWT_SECRET || 'supchat_secret_dev',
+    { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+  );
+  
+  res.json({ token });
+});
 
 // Routes protégées (nécessitent une authentification)
 router.use(authenticate); // Protège toutes les routes suivantes

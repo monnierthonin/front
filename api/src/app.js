@@ -2,6 +2,7 @@ const dotenv = require('dotenv');
 const dotenvExpand = require('dotenv-expand');
 const env = dotenv.config();
 dotenvExpand.expand(env);
+const path = require('path'); // Importer le module path
 
 const mongoose = require('mongoose');
 const express = require('express');
@@ -16,12 +17,29 @@ const authRouter = require('./routes/auth');
 const userRouter = require('./routes/userRoutes');
 const workspaceRouter = require('./routes/workspaceRoutes');
 const multer = require('multer'); // Importer multer
+const http = require('http');
+const serviceSocket = require('./services/serviceSocket');
 
 // Initialisation de l'application Express
 const app = express();
+const serveur = http.createServer(app);
 
 // Middleware de sécurité
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "cdn.socket.io"],
+            connectSrc: ["'self'", "ws://localhost:3000", "wss://localhost:3000", "http://localhost:3000"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrcAttr: ["'unsafe-inline'"]
+        },
+    },
+}));
+app.use(cors());
+
+// Servir les fichiers statiques
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Middleware de base
 app.use(express.json());
@@ -44,6 +62,9 @@ configurerSwagger(app);
 require('./docs/auth.swagger');
 require('./docs/user.swagger');
 require('./docs/workspace.swagger');
+
+// Initialiser Socket.IO
+serviceSocket.initialiser(serveur);
 
 // Routes
 app.use('/', indexRouter);
@@ -76,4 +97,5 @@ app.use((err, req, res, next) => {
   });
 });
 
-module.exports = app;
+// Exporter l'application et le serveur
+module.exports = { app, serveur };
