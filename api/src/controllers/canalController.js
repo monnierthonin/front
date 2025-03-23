@@ -20,6 +20,15 @@ exports.creerCanal = catchAsync(async (req, res, next) => {
         return next(new AppError('Seuls les administrateurs peuvent créer des canaux', 403));
     }
 
+    // Valider le type et la visibilité
+    if (!['texte', 'vocal'].includes(req.body.type)) {
+        return next(new AppError('Type de canal invalide. Doit être "texte" ou "vocal"', 400));
+    }
+
+    if (!['public', 'prive'].includes(req.body.visibilite)) {
+        return next(new AppError('Visibilité invalide. Doit être "public" ou "prive"', 400));
+    }
+
     const canal = await Canal.create({
         nom: req.body.nom,
         description: req.body.description,
@@ -43,6 +52,18 @@ exports.creerCanal = catchAsync(async (req, res, next) => {
 
 // Obtenir tous les canaux d'un workspace
 exports.obtenirCanaux = catchAsync(async (req, res, next) => {
+    // Vérifier d'abord si l'utilisateur a accès au workspace
+    const workspace = await Workspace.findById(req.params.workspaceId);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est membre du workspace ou si le workspace est public
+    if (workspace.visibilite !== 'public' && !workspace.estMembre(req.user.id)) {
+        return next(new AppError('Vous n\'avez pas accès à ce workspace', 403));
+    }
+
+    // Récupérer les canaux
     const canaux = await Canal.find({
         workspace: req.params.workspaceId,
         $or: [
@@ -62,13 +83,28 @@ exports.obtenirCanaux = catchAsync(async (req, res, next) => {
 
 // Obtenir un canal spécifique
 exports.obtenirCanal = catchAsync(async (req, res, next) => {
-    const canal = await Canal.findById(req.params.id);
+    // Vérifier d'abord si l'utilisateur a accès au workspace
+    const workspace = await Workspace.findById(req.params.workspaceId);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est membre du workspace ou si le workspace est public
+    if (workspace.visibilite !== 'public' && !workspace.estMembre(req.user.id)) {
+        return next(new AppError('Vous n\'avez pas accès à ce workspace', 403));
+    }
+
+    const canal = await Canal.findOne({
+        _id: req.params.id,
+        workspace: req.params.workspaceId
+    });
+
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
     }
 
-    // Vérifier l'accès
-    if (canal.visibilite === 'prive' && !canal.peutLire(req.user.id)) {
+    // Vérifier l'accès au canal
+    if (canal.visibilite === 'prive' && !canal.estMembre(req.user.id)) {
         return next(new AppError('Vous n\'avez pas accès à ce canal', 403));
     }
 
@@ -82,7 +118,22 @@ exports.obtenirCanal = catchAsync(async (req, res, next) => {
 
 // Mettre à jour un canal
 exports.mettreAJourCanal = catchAsync(async (req, res, next) => {
-    const canal = await Canal.findById(req.params.id);
+    // Vérifier d'abord si l'utilisateur a accès au workspace
+    const workspace = await Workspace.findById(req.params.workspaceId);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est membre du workspace
+    if (!workspace.estMembre(req.user.id)) {
+        return next(new AppError('Vous n\'avez pas accès à ce workspace', 403));
+    }
+
+    const canal = await Canal.findOne({
+        _id: req.params.id,
+        workspace: req.params.workspaceId
+    });
+
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
     }
@@ -116,7 +167,22 @@ exports.mettreAJourCanal = catchAsync(async (req, res, next) => {
 
 // Supprimer un canal
 exports.supprimerCanal = catchAsync(async (req, res, next) => {
-    const canal = await Canal.findById(req.params.id);
+    // Vérifier d'abord si l'utilisateur a accès au workspace
+    const workspace = await Workspace.findById(req.params.workspaceId);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est membre du workspace
+    if (!workspace.estMembre(req.user.id)) {
+        return next(new AppError('Vous n\'avez pas accès à ce workspace', 403));
+    }
+
+    const canal = await Canal.findOne({
+        _id: req.params.id,
+        workspace: req.params.workspaceId
+    });
+
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
     }
@@ -126,7 +192,6 @@ exports.supprimerCanal = catchAsync(async (req, res, next) => {
         return next(new AppError('Vous n\'avez pas la permission de supprimer ce canal', 403));
     }
 
-    // Utiliser remove() pour déclencher le middleware de suppression en cascade
     await canal.remove();
 
     res.status(204).json({
@@ -137,7 +202,22 @@ exports.supprimerCanal = catchAsync(async (req, res, next) => {
 
 // Ajouter un membre
 exports.ajouterMembre = catchAsync(async (req, res, next) => {
-    const canal = await Canal.findById(req.params.id);
+    // Vérifier d'abord si l'utilisateur a accès au workspace
+    const workspace = await Workspace.findById(req.params.workspaceId);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est membre du workspace
+    if (!workspace.estMembre(req.user.id)) {
+        return next(new AppError('Vous n\'avez pas accès à ce workspace', 403));
+    }
+
+    const canal = await Canal.findOne({
+        _id: req.params.id,
+        workspace: req.params.workspaceId
+    });
+
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
     }
@@ -147,7 +227,12 @@ exports.ajouterMembre = catchAsync(async (req, res, next) => {
         return next(new AppError('Vous n\'avez pas la permission de gérer les membres', 403));
     }
 
-    // Vérifier si l'utilisateur est déjà membre
+    // Vérifier si l'utilisateur à ajouter est membre du workspace
+    if (!workspace.estMembre(req.body.utilisateur)) {
+        return next(new AppError('L\'utilisateur doit d\'abord être membre du workspace', 400));
+    }
+
+    // Vérifier si l'utilisateur est déjà membre du canal
     if (canal.estMembre(req.body.utilisateur)) {
         return next(new AppError('L\'utilisateur est déjà membre du canal', 400));
     }
@@ -169,7 +254,22 @@ exports.ajouterMembre = catchAsync(async (req, res, next) => {
 
 // Modifier le rôle d'un membre
 exports.modifierRoleMembre = catchAsync(async (req, res, next) => {
-    const canal = await Canal.findById(req.params.id);
+    // Vérifier d'abord si l'utilisateur a accès au workspace
+    const workspace = await Workspace.findById(req.params.workspaceId);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est membre du workspace
+    if (!workspace.estMembre(req.user.id)) {
+        return next(new AppError('Vous n\'avez pas accès à ce workspace', 403));
+    }
+
+    const canal = await Canal.findOne({
+        _id: req.params.id,
+        workspace: req.params.workspaceId
+    });
+
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
     }
@@ -197,7 +297,22 @@ exports.modifierRoleMembre = catchAsync(async (req, res, next) => {
 
 // Supprimer un membre
 exports.supprimerMembre = catchAsync(async (req, res, next) => {
-    const canal = await Canal.findById(req.params.id);
+    // Vérifier d'abord si l'utilisateur a accès au workspace
+    const workspace = await Workspace.findById(req.params.workspaceId);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est membre du workspace
+    if (!workspace.estMembre(req.user.id)) {
+        return next(new AppError('Vous n\'avez pas accès à ce workspace', 403));
+    }
+
+    const canal = await Canal.findOne({
+        _id: req.params.id,
+        workspace: req.params.workspaceId
+    });
+
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
     }
@@ -218,7 +333,22 @@ exports.supprimerMembre = catchAsync(async (req, res, next) => {
 
 // Upload de fichiers
 exports.uploadFichier = catchAsync(async (req, res, next) => {
-    const canal = await Canal.findById(req.params.id);
+    // Vérifier d'abord si l'utilisateur a accès au workspace
+    const workspace = await Workspace.findById(req.params.workspaceId);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est membre du workspace
+    if (!workspace.estMembre(req.user.id)) {
+        return next(new AppError('Vous n\'avez pas accès à ce workspace', 403));
+    }
+
+    const canal = await Canal.findOne({
+        _id: req.params.id,
+        workspace: req.params.workspaceId
+    });
+
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
     }
@@ -255,7 +385,22 @@ exports.uploadFichier = catchAsync(async (req, res, next) => {
 
 // Supprimer un fichier
 exports.supprimerFichier = catchAsync(async (req, res, next) => {
-    const canal = await Canal.findById(req.params.id);
+    // Vérifier d'abord si l'utilisateur a accès au workspace
+    const workspace = await Workspace.findById(req.params.workspaceId);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est membre du workspace
+    if (!workspace.estMembre(req.user.id)) {
+        return next(new AppError('Vous n\'avez pas accès à ce workspace', 403));
+    }
+
+    const canal = await Canal.findOne({
+        _id: req.params.id,
+        workspace: req.params.workspaceId
+    });
+
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
     }
@@ -289,7 +434,22 @@ exports.supprimerFichier = catchAsync(async (req, res, next) => {
 
 // Obtenir la liste des fichiers
 exports.obtenirFichiers = catchAsync(async (req, res, next) => {
-    const canal = await Canal.findById(req.params.id);
+    // Vérifier d'abord si l'utilisateur a accès au workspace
+    const workspace = await Workspace.findById(req.params.workspaceId);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est membre du workspace
+    if (!workspace.estMembre(req.user.id)) {
+        return next(new AppError('Vous n\'avez pas accès à ce workspace', 403));
+    }
+
+    const canal = await Canal.findOne({
+        _id: req.params.id,
+        workspace: req.params.workspaceId
+    });
+
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
     }

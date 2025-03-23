@@ -60,17 +60,18 @@ workspaceSchema.index({ nom: 'text', description: 'text' });
 
 // Méthode pour vérifier si un utilisateur est membre du workspace
 workspaceSchema.methods.estMembre = function(userId) {
-    return this.membres.some(membre => 
-        membre.utilisateur.toString() === userId.toString()
-    );
+    return this.membres.some(membre => {
+        const membreId = membre.utilisateur._id || membre.utilisateur;
+        return membreId.toString() === userId.toString();
+    });
 };
 
 // Méthode pour vérifier si un utilisateur est admin du workspace
 workspaceSchema.methods.estAdmin = function(userId) {
-    return this.membres.some(membre => 
-        membre.utilisateur.toString() === userId.toString() && 
-        membre.role === 'admin'
-    );
+    return this.membres.some(membre => {
+        const membreId = membre.utilisateur._id || membre.utilisateur;
+        return membreId.toString() === userId.toString() && membre.role === 'admin';
+    });
 };
 
 // Méthode pour générer un token d'invitation

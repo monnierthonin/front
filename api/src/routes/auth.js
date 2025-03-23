@@ -20,9 +20,10 @@ router.post('/connexion',
   authController.connexion
 );
 
-router.get('/deconnexion',
-  authController.deconnexion
-);
+// Permettre GET et POST pour la déconnexion
+router.route('/deconnexion')
+  .get(authController.deconnexion)
+  .post(authController.deconnexion);
 
 router.get('/verifier-email/:token',
   authController.verifierEmail
