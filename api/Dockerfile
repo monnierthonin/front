@@ -1,20 +1,19 @@
-# Image de base Node.js LTS
-FROM node:lts-alpine
-
-# Création et définition du répertoire de travail
-WORKDIR /usr/src/app
-
-# Copie des fichiers de dépendances
+# Build stage
+FROM node:20-alpine AS builder
+WORKDIR /app
 COPY package*.json ./
-
-# Installation des dépendances
 RUN npm ci --only=production
 
-# Copie du code source
+# Production stage
+FROM node:20-alpine
+WORKDIR /app
+COPY --from=builder /app/node_modules ./node_modules
 COPY . .
+
+# Utilisateur non-root pour la sécurité
+USER node
 
 # Exposition du port
 EXPOSE 3000
 
-# Commande de démarrage
 CMD ["npm", "start"]
