@@ -220,9 +220,10 @@ export default defineComponent({
 
       loading.value = true
       try {
+        console.log('Données du canal à créer:', newCanal.value)
         await store.dispatch('canal/createCanal', {
           workspaceId: workspaceId.value,
-          ...newCanal.value
+          canalData: newCanal.value
         })
         closeCreateDialog()
         snackbar.value = {

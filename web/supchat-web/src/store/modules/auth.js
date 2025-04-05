@@ -1,102 +1,123 @@
-import axios from 'axios'
+import api from '@/plugins/axios'
 
 const state = {
-  user: JSON.parse(localStorage.getItem('user')),
-  token: localStorage.getItem('token')
+  user: null,
+  token: null,
+  isAuthenticated: false
 }
 
 const mutations = {
   SET_USER(state, user) {
     state.user = user
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user))
-    } else {
-      localStorage.removeItem('user')
-    }
+    state.isAuthenticated = !!user
   },
   SET_TOKEN(state, token) {
     state.token = token
-    if (token) {
-      localStorage.setItem('token', token)
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-    } else {
-      localStorage.removeItem('token')
-      delete axios.defaults.headers.common['Authorization']
-    }
+  },
+  LOGOUT(state) {
+    state.user = null
+    state.token = null
+    state.isAuthenticated = false
   }
 }
 
 const actions = {
   async login({ commit }, credentials) {
-    console.log('Action login appelée avec:', credentials)
     try {
-      const response = await axios.post('/auth/connexion', credentials)
-      console.log('Réponse du serveur:', response.data)
-
-      if (!response.data.data.user.isVerified) {
-        throw new Error('Veuillez vérifier votre email pour activer votre compte.')
+      const response = await api.post('/api/v1/auth/connexion', credentials)
+      if (response.data.success) {
+        commit('SET_USER', response.data.data.user)
+        commit('SET_TOKEN', response.data.data.token)
+        localStorage.setItem('token', response.data.data.token)
+        localStorage.setItem('user', JSON.stringify(response.data.data.user))
+        return response.data
+      } else {
+        throw new Error(response.data.message || 'Erreur lors de la connexion')
       }
-      
-      // D'abord définir le token pour les futures requêtes
-      commit('SET_TOKEN', response.data.token)
-      // Ensuite définir l'utilisateur
-      commit('SET_USER', response.data.data.user)
-      
-      return response.data.data
     } catch (error) {
-      console.error('Erreur dans l\'action login:', error)
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message)
-      }
+      console.error('Erreur de connexion:', error)
       throw error
     }
   },
 
   async register(_, userData) {
-    const { data } = await axios.post('/auth/inscription', userData)
-    return data.data
+    try {
+      const response = await api.post('/api/v1/auth/inscription', userData)
+      if (response.data.success) {
+        return response.data
+      } else {
+        throw new Error(response.data.message || 'Erreur lors de l\'inscription')
+      }
+    } catch (error) {
+      console.error('Erreur d\'inscription:', error)
+      throw error
+    }
   },
 
-  async logout({ commit }) {
+  async verifyEmail(_, token) {
     try {
-      // Pas besoin d'attendre la réponse du serveur pour la déconnexion locale
-      axios.post('/auth/deconnexion').catch(error => {
-        console.warn('Erreur lors de la déconnexion côté serveur:', error)
-      })
-    } finally {
-      // Dans tous les cas, on déconnecte l'utilisateur localement
-      commit('SET_TOKEN', null)
-      commit('SET_USER', null)
+      const response = await api.get(`/api/v1/auth/verify-email/${token}`)
+      return response.data
+    } catch (error) {
+      console.error('Erreur de vérification email:', error)
+      throw error
     }
+  },
+
+  async forgotPassword(_, email) {
+    try {
+      const response = await api.post('/api/v1/auth/forgot-password', { email })
+      return response.data
+    } catch (error) {
+      console.error('Erreur de demande de réinitialisation:', error)
+      throw error
+    }
+  },
+
+  async resetPassword(_, { token, password }) {
+    try {
+      const response = await api.post(`/api/v1/auth/reset-password/${token}`, { password })
+      return response.data
+    } catch (error) {
+      console.error('Erreur de réinitialisation du mot de passe:', error)
+      throw error
+    }
+  },
+
+  async updateProfile({ commit }, userData) {
+    try {
+      const response = await api.put('/api/v1/auth/profile', userData)
+      if (response.data.success) {
+        commit('SET_USER', response.data.data.user)
+        localStorage.setItem('user', JSON.stringify(response.data.data.user))
+        return response.data
+      }
+    } catch (error) {
+      console.error('Erreur de mise à jour du profil:', error)
+      throw error
+    }
+  },
+
+  logout({ commit }) {
+    commit('LOGOUT')
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
   },
 
   initAuth({ commit }) {
-    console.log('Initialisation de l\'authentification...')
     const token = localStorage.getItem('token')
     const user = localStorage.getItem('user')
-    
-    console.log('Token stocké:', token)
-    console.log('Utilisateur stocké:', user)
-    
     if (token && user) {
       commit('SET_TOKEN', token)
       commit('SET_USER', JSON.parse(user))
-      return true
     }
-    return false
   }
 }
 
 const getters = {
-  isAuthenticated: state => {
-    console.log('Vérification isAuthenticated:', { 
-      token: state.token, 
-      user: state.user,
-      isAuth: !!state.token && !!state.user 
-    })
-    return !!state.token && !!state.user
-  },
-  currentUser: state => state.user
+  isAuthenticated: state => state.isAuthenticated,
+  currentUser: state => state.user,
+  token: state => state.token
 }
 
 export default {

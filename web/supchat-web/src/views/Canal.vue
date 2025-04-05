@@ -25,8 +25,8 @@
               <div v-if="messages.length === 0" class="text-center py-4">
                 Aucun message dans ce canal
               </div>
-              <v-list v-else>
-                <v-list-item v-for="message in messages" :key="message._id">
+              <v-list v-else class="messages-list">
+                <v-list-item v-for="message in messagesInOrder" :key="message._id">
                   <v-list-item-content>
                     <v-list-item-subtitle class="text-caption">
                       {{ message.auteur.nom }} - {{ formatDate(message.createdAt) }}
@@ -259,7 +259,7 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, onMounted } from 'vue'
+import { defineComponent, ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useStore } from 'vuex'
 import { useRoute } from 'vue-router'
 
@@ -316,6 +316,10 @@ export default defineComponent({
       return message.auteur._id === user.value._id
     }
 
+    const messagesInOrder = computed(() => {
+      return [...messages.value].reverse()
+    })
+
     const loadMessages = async () => {
       loading.value = true
       try {
@@ -338,15 +342,29 @@ export default defineComponent({
         await store.dispatch('message/sendMessage', {
           workspaceId: workspaceId.value,
           canalId: canalId.value,
-          message: { contenu: newMessage.value }
+          messageData: { contenu: newMessage.value }
         })
         newMessage.value = ''
+        await nextTick()
+        scrollToBottom()
       } catch (error) {
         console.error('Erreur envoi message:', error)
       } finally {
         sending.value = false
       }
     }
+
+    const scrollToBottom = () => {
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+      }
+    }
+
+    watch(() => messages.value, () => {
+      nextTick(() => {
+        scrollToBottom()
+      })
+    })
 
     const editMessage = (message) => {
       editedMessage.value = {
@@ -440,6 +458,7 @@ export default defineComponent({
       visibiliteOptions,
       canal,
       messages,
+      messagesInOrder,
       canManageMembers,
       messagesContainer,
       formatDate,
@@ -449,7 +468,8 @@ export default defineComponent({
       editMessage,
       updateMessage,
       deleteMessage,
-      handleReaction
+      handleReaction,
+      scrollToBottom
     }
   }
 })
@@ -459,5 +479,10 @@ export default defineComponent({
 .messages-container {
   height: calc(100vh - 300px);
   overflow-y: auto;
+}
+
+.messages-list {
+  display: flex;
+  flex-direction: column;
 }
 </style>

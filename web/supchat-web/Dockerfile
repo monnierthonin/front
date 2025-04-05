@@ -20,10 +20,9 @@ WORKDIR /usr/share/nginx/html
 # Copier les fichiers de build
 COPY --from=builder /app/dist .
 
-# Copier la configuration nginx personnalisée si nécessaire
+# Copier la configuration nginx personnalisée
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 3000
+EXPOSE 80
 
-# Configurer Nginx pour écouter sur le port 3000
-CMD sed -i -e 's/80/3000/g' /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'
+CMD ["nginx", "-g", "daemon off;"]

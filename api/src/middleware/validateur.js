@@ -210,9 +210,6 @@ exports.validationMessagePrive = [
 // Validation spécifique aux messages de groupe
 exports.validationMessageGroupe = [
   ...exports.validationMessage,
-  body('canal')
-    .notEmpty().withMessage('L\'ID du canal est requis')
-    .isMongoId().withMessage('ID de canal invalide'),
   body('mentions')
     .optional()
     .isArray().withMessage('Les mentions doivent être un tableau')

@@ -1,4 +1,4 @@
-import axios from 'axios'
+import api from '@/plugins/axios'
 
 const state = {
   workspaces: [],
@@ -17,7 +17,7 @@ const mutations = {
 const actions = {
   async fetchWorkspaces({ commit }) {
     try {
-      const response = await axios.get('/workspaces')
+      const response = await api.get('/api/v1/workspaces')
       console.log('Réponse workspaces:', response.data)
       commit('SET_WORKSPACES', response.data.data.workspaces)
       return response.data.data.workspaces
@@ -29,7 +29,7 @@ const actions = {
 
   async fetchWorkspace({ commit }, workspaceId) {
     try {
-      const response = await axios.get(`/workspaces/${workspaceId}`)
+      const response = await api.get(`/api/v1/workspaces/${workspaceId}`)
       console.log('Réponse workspace:', response.data)
       commit('SET_CURRENT_WORKSPACE', response.data.data.workspace)
       return response.data.data.workspace
@@ -41,7 +41,7 @@ const actions = {
 
   async createWorkspace({ dispatch }, workspaceData) {
     try {
-      const response = await axios.post('/workspaces', workspaceData)
+      const response = await api.post('/api/v1/workspaces', workspaceData)
       console.log('Réponse création workspace:', response.data)
       await dispatch('fetchWorkspaces')
       return response.data.data.workspace
@@ -53,7 +53,7 @@ const actions = {
 
   async inviteUser(_, { workspaceId, email }) {
     try {
-      const response = await axios.post(`/workspaces/${workspaceId}/inviter`, { email })
+      const response = await api.post(`/api/v1/workspaces/${workspaceId}/inviter`, { email })
       return response.data.data
     } catch (error) {
       console.error('Erreur lors de l\'invitation:', error)

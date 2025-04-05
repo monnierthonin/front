@@ -1,80 +1,99 @@
-import axios from 'axios'
+import api from '@/plugins/axios'
 
 const state = {
   canaux: [],
-  currentCanal: null
+  canalActif: null
 }
 
 const mutations = {
   SET_CANAUX(state, canaux) {
     state.canaux = canaux
   },
-  SET_CURRENT_CANAL(state, canal) {
-    state.currentCanal = canal
+  SET_CANAL_ACTIF(state, canal) {
+    state.canalActif = canal
   },
   ADD_CANAL(state, canal) {
     state.canaux.push(canal)
   },
-  UPDATE_CANAL(state, canal) {
-    const index = state.canaux.findIndex(c => c._id === canal._id)
+  UPDATE_CANAL(state, canalMisAJour) {
+    const index = state.canaux.findIndex(c => c._id === canalMisAJour._id)
     if (index !== -1) {
-      state.canaux.splice(index, 1, canal)
+      state.canaux.splice(index, 1, canalMisAJour)
     }
   },
-  REMOVE_CANAL(state, canalId) {
+  DELETE_CANAL(state, canalId) {
     state.canaux = state.canaux.filter(c => c._id !== canalId)
+    if (state.canalActif && state.canalActif._id === canalId) {
+      state.canalActif = null
+    }
   }
 }
 
 const actions = {
   async fetchCanaux({ commit }, workspaceId) {
-    const { data } = await axios.get(`/workspaces/${workspaceId}/canaux`)
-    commit('SET_CANAUX', data.data.canaux)
-    return data.data.canaux
+    try {
+      const response = await api.get(`/api/v1/workspaces/${workspaceId}/canaux`)
+      commit('SET_CANAUX', response.data.data.canaux)
+      return response.data.data.canaux
+    } catch (error) {
+      console.error('Erreur lors de la récupération des canaux:', error)
+      throw error
+    }
   },
 
   async fetchCanal({ commit }, { workspaceId, canalId }) {
-    const { data } = await axios.get(`/workspaces/${workspaceId}/canaux/${canalId}`)
-    commit('SET_CURRENT_CANAL', data.data.canal)
-    return data.data.canal
+    try {
+      const response = await api.get(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}`)
+      commit('SET_CANAL_ACTIF', response.data.data.canal)
+      return response.data.data.canal
+    } catch (error) {
+      console.error('Erreur lors de la récupération du canal:', error)
+      throw error
+    }
   },
 
-  async createCanal({ commit }, { workspaceId, ...canalData }) {
-    const { data } = await axios.post(`/workspaces/${workspaceId}/canaux`, canalData)
-    commit('ADD_CANAL', data.data.canal)
-    return data.data.canal
+  async createCanal({ commit }, { workspaceId, canalData }) {
+    try {
+      console.log('Données envoyées à l\'API:', canalData)
+      const response = await api.post(`/api/v1/workspaces/${workspaceId}/canaux`, canalData)
+      commit('ADD_CANAL', response.data.data.canal)
+      return response.data.data.canal
+    } catch (error) {
+      console.error('Erreur lors de la création du canal:', error)
+      throw error
+    }
   },
 
-  async updateCanal({ commit }, { workspaceId, _id, ...canalData }) {
-    const { data } = await axios.put(`/workspaces/${workspaceId}/canaux/${_id}`, canalData)
-    commit('UPDATE_CANAL', data.data.canal)
-    return data.data.canal
+  async updateCanal({ commit }, { workspaceId, canalId, canalData }) {
+    try {
+      const response = await api.put(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}`, canalData)
+      commit('UPDATE_CANAL', response.data.data.canal)
+      return response.data.data.canal
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du canal:', error)
+      throw error
+    }
   },
 
-  async deleteCanal({ commit }, { workspaceId, _id }) {
-    await axios.delete(`/workspaces/${workspaceId}/canaux/${_id}`)
-    commit('REMOVE_CANAL', _id)
-  },
-
-  async uploadFile(_, { workspaceId, canalId, file }) {
-    const formData = new FormData()
-    formData.append('file', file)
-    const { data } = await axios.post(
-      `/workspaces/${workspaceId}/canaux/${canalId}/fichiers`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      }
-    )
-    return data.data.file
+  async deleteCanal({ commit }, { workspaceId, canalId }) {
+    try {
+      await api.delete(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}`)
+      commit('DELETE_CANAL', canalId)
+    } catch (error) {
+      console.error('Erreur lors de la suppression du canal:', error)
+      throw error
+    }
   }
+}
+
+const getters = {
+  getCanalById: state => id => state.canaux.find(c => c._id === id)
 }
 
 export default {
   namespaced: true,
   state,
   mutations,
-  actions
+  actions,
+  getters
 }

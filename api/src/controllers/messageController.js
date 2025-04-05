@@ -1,5 +1,4 @@
 const Message = require('../models/message');
-const MessagePrivate = require('../models/messagePrivate');
 const Canal = require('../models/canal');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
@@ -8,8 +7,9 @@ const { nettoyerDonnees } = require('../middleware/validateur');
 // Messages de groupe
 exports.envoyerMessageGroupe = catchAsync(async (req, res, next) => {
     const donneesNettoyees = nettoyerDonnees(req.body);
-    const { contenu, canal } = donneesNettoyees;
+    const { contenu } = donneesNettoyees;
     const mentions = Array.isArray(donneesNettoyees.mentions) ? donneesNettoyees.mentions : [];
+    const canal = req.params.canalId; // Utiliser l'ID du canal depuis les paramètres de route
 
     // Vérifier l'accès au canal
     const canalExiste = await Canal.findById(canal);
@@ -23,14 +23,14 @@ exports.envoyerMessageGroupe = catchAsync(async (req, res, next) => {
     );
 
     if (!estMembre) {
-        return next(new AppError('Accès non autorisé à ce canal', 403));
+        return next(new AppError('Vous n\'avez pas accès à ce canal', 403));
     }
 
     const message = await Message.create({
         contenu,
         auteur: req.user._id,
         canal,
-        mentions: mentions.length > 0 ? mentions : undefined,
+        mentions,
         horodatage: new Date()
     });
 
@@ -38,11 +38,11 @@ exports.envoyerMessageGroupe = catchAsync(async (req, res, next) => {
     const messagePopule = await message.populate([
         {
             path: 'auteur',
-            select: 'firstName lastName email username profilePicture'
+            select: 'nom email username photo'
         },
         {
             path: 'mentions',
-            select: 'firstName lastName email username profilePicture'
+            select: 'nom email username photo'
         }
     ]);
 
@@ -79,7 +79,7 @@ exports.obtenirMessages = catchAsync(async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const messages = await Message.find({ canal: canal.id })
-        .sort('-horodatage')
+        .sort('horodatage')
         .skip(skip)
         .limit(limit)
         .populate([
@@ -272,172 +272,5 @@ exports.repondreMessage = catchAsync(async (req, res, next) => {
         data: {
             message
         }
-    });
-});
-
-// Messages privés
-exports.envoyerMessagePrive = catchAsync(async (req, res, next) => {
-    const donneesNettoyees = nettoyerDonnees(req.body);
-    const { contenu, destinataire } = donneesNettoyees;
-
-    const message = await MessagePrivate.create({
-        contenu,
-        expediteur: req.user._id,
-        destinataire,
-        horodatage: new Date()
-    });
-
-    // Émettre via WebSocket
-    const socketService = req.app.get('socketService');
-    const roomId = `dm_${[req.user._id, destinataire].sort().join('_')}`;
-    
-    socketService.emitToRoom(roomId, 'nouveau-message-prive', {
-        message: await message.populate([
-            {
-                path: 'expediteur',
-                select: 'nom email username photo'
-            },
-            {
-                path: 'destinataire',
-                select: 'nom email username photo'
-            }
-        ])
-    });
-
-    res.status(201).json({
-        status: 'success',
-        data: {
-            message
-        }
-    });
-});
-
-// Obtenir l'historique des messages privés
-exports.getMessagesPrives = catchAsync(async (req, res, next) => {
-    const { utilisateur } = req.params;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
-    const skip = (page - 1) * limit;
-
-    const messages = await MessagePrivate.find({
-        $or: [
-            { expediteur: req.user._id, destinataire: utilisateur },
-            { expediteur: utilisateur, destinataire: req.user._id }
-        ]
-    })
-    .sort({ horodatage: -1 })
-    .skip(skip)
-    .limit(limit)
-    .populate([
-        {
-            path: 'expediteur',
-            select: 'nom email username photo'
-        },
-        {
-            path: 'destinataire',
-            select: 'nom email username photo'
-        }
-    ]);
-
-    res.status(200).json({
-        status: 'success',
-        resultats: messages.length,
-        data: {
-            messages
-        }
-    });
-});
-
-// Marquer un message privé comme lu
-exports.marquerCommeLu = catchAsync(async (req, res, next) => {
-    const { messageId } = req.params;
-
-    const message = await MessagePrivate.findOneAndUpdate(
-        {
-            _id: messageId,
-            destinataire: req.user._id
-        },
-        { lu: true },
-        { new: true }
-    );
-
-    if (!message) {
-        return next(new AppError('Message non trouvé', 404));
-    }
-
-    res.status(200).json({
-        status: 'success',
-        data: {
-            message
-        }
-    });
-});
-
-// Modifier un message privé
-exports.modifierMessagePrive = catchAsync(async (req, res, next) => {
-    const donneesNettoyees = nettoyerDonnees(req.body);
-    const { contenu } = donneesNettoyees;
-
-    const message = await MessagePrivate.findOne({
-        _id: req.params.id,
-        expediteur: req.user._id
-    });
-
-    if (!message) {
-        return next(new AppError('Message non trouvé ou non autorisé', 404));
-    }
-
-    message.contenu = contenu;
-    await message.save();
-
-    // Émettre via WebSocket
-    const socketService = req.app.get('socketService');
-    const roomId = `dm_${[message.expediteur, message.destinataire].sort().join('_')}`;
-    
-    socketService.emitToRoom(roomId, 'message-prive-modifie', {
-        message: await message.populate([
-            {
-                path: 'expediteur',
-                select: 'nom email username photo'
-            },
-            {
-                path: 'destinataire',
-                select: 'nom email username photo'
-            }
-        ])
-    });
-
-    res.status(200).json({
-        status: 'success',
-        data: {
-            message
-        }
-    });
-});
-
-// Supprimer un message privé
-exports.supprimerMessagePrive = catchAsync(async (req, res, next) => {
-    const message = await MessagePrivate.findOne({
-        _id: req.params.id,
-        expediteur: req.user._id
-    });
-
-    if (!message) {
-        return next(new AppError('Message non trouvé ou non autorisé', 404));
-    }
-
-    await message.deleteOne();
-
-    // Émettre via WebSocket
-    const socketService = req.app.get('socketService');
-    const roomId = `dm_${[message.expediteur, message.destinataire].sort().join('_')}`;
-    
-    socketService.emitToRoom(roomId, 'message-prive-supprime', {
-        messageId: message._id
-    });
-
-    res.status(204).json({
-        status: 'success',
-        data: null
     });
 });

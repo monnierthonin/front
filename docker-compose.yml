@@ -8,37 +8,34 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongodb:27017/supchat
-    depends_on:
-      - mongodb
+      - NODE_ENV=development
+      - JWT_SECRET=votre_secret_jwt
+      - JWT_EXPIRES_IN=24h
+      - FRONTEND_URL=http://localhost:3001
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    networks:
+      - supchat-network
 
   web:
     build:
       context: ./web/supchat-web
       dockerfile: Dockerfile
     ports:
-      - "3001:3000"
+      - "3001:80"
     environment:
-      - API_URL=http://api:3000
+      - VUE_APP_API_URL=http://localhost:3000
+      - NODE_ENV=development
     depends_on:
       - api
     restart: unless-stopped
+    networks:
+      - supchat-network
 
-  mongodb:
-    image: mongo:6
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    restart: unless-stopped
-    command: ["--bind_ip", "0.0.0.0"]
-
-volumes:
-  mongodb_data:
+networks:
+  supchat-network:
+    driver: bridge

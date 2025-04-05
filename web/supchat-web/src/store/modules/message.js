@@ -1,4 +1,4 @@
-import axios from 'axios'
+import api from '@/plugins/axios'
 
 const state = {
   messages: [],
@@ -11,19 +11,19 @@ const mutations = {
     state.messages = messages
   },
   ADD_MESSAGE(state, message) {
-    state.messages.unshift(message)
+    state.messages.push(message)
   },
-  UPDATE_MESSAGE(state, message) {
-    const index = state.messages.findIndex(m => m._id === message._id)
+  UPDATE_MESSAGE(state, updatedMessage) {
+    const index = state.messages.findIndex(m => m._id === updatedMessage._id)
     if (index !== -1) {
-      state.messages.splice(index, 1, message)
+      state.messages.splice(index, 1, updatedMessage)
     }
   },
-  REMOVE_MESSAGE(state, messageId) {
+  DELETE_MESSAGE(state, messageId) {
     state.messages = state.messages.filter(m => m._id !== messageId)
   },
-  SET_LOADING(state, loading) {
-    state.loading = loading
+  SET_LOADING(state, status) {
+    state.loading = status
   },
   SET_ERROR(state, error) {
     state.error = error
@@ -31,75 +31,68 @@ const mutations = {
 }
 
 const actions = {
-  async fetchMessages({ commit }, { workspaceId, canalId, page = 1, limit = 50 }) {
-    commit('SET_LOADING', true)
+  async fetchMessages({ commit }, { workspaceId, canalId }) {
     try {
-      const { data } = await axios.get(`/workspaces/${workspaceId}/canaux/${canalId}/messages`, {
-        params: { page, limit }
-      })
-      commit('SET_MESSAGES', data.data.messages)
-      return data.data.messages
+      commit('SET_LOADING', true)
+      const response = await api.get(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}/messages`)
+      commit('SET_MESSAGES', response.data.data.messages)
+      return response.data.data.messages
     } catch (error) {
-      commit('SET_ERROR', error.response?.data?.message || 'Erreur lors du chargement des messages')
+      console.error('Erreur lors de la récupération des messages:', error)
+      commit('SET_ERROR', error.message)
       throw error
     } finally {
       commit('SET_LOADING', false)
     }
   },
 
-  async sendMessage({ commit }, { workspaceId, canalId, message }) {
+  async sendMessage({ commit }, { workspaceId, canalId, messageData }) {
     try {
-      const { data } = await axios.post(`/workspaces/${workspaceId}/canaux/${canalId}/messages`, message)
-      commit('ADD_MESSAGE', data.data.message)
-      return data.data.message
+      const response = await api.post(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}/messages`, messageData)
+      commit('ADD_MESSAGE', response.data.data.message)
+      return response.data.data.message
     } catch (error) {
-      commit('SET_ERROR', error.response?.data?.message || 'Erreur lors de l\'envoi du message')
+      console.error('Erreur lors de l\'envoi du message:', error)
+      commit('SET_ERROR', error.message)
       throw error
     }
   },
 
-  async updateMessage({ commit }, { workspaceId, canalId, messageId, content }) {
+  async updateMessage({ commit }, { workspaceId, canalId, messageId, messageData }) {
     try {
-      const { data } = await axios.put(
-        `/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}`,
-        { contenu: content }
-      )
-      commit('UPDATE_MESSAGE', data.data.message)
-      return data.data.message
+      const response = await api.put(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}`, messageData)
+      commit('UPDATE_MESSAGE', response.data.data.message)
+      return response.data.data.message
     } catch (error) {
-      commit('SET_ERROR', error.response?.data?.message || 'Erreur lors de la modification du message')
+      console.error('Erreur lors de la mise à jour du message:', error)
+      commit('SET_ERROR', error.message)
       throw error
     }
   },
 
   async deleteMessage({ commit }, { workspaceId, canalId, messageId }) {
     try {
-      await axios.delete(`/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}`)
-      commit('REMOVE_MESSAGE', messageId)
+      await api.delete(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}`)
+      commit('DELETE_MESSAGE', messageId)
     } catch (error) {
-      commit('SET_ERROR', error.response?.data?.message || 'Erreur lors de la suppression du message')
-      throw error
-    }
-  },
-
-  async reactToMessage({ commit }, { workspaceId, canalId, messageId, emoji }) {
-    try {
-      const { data } = await axios.post(
-        `/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}/reactions`,
-        { emoji }
-      )
-      commit('UPDATE_MESSAGE', data.data.message)
-      return data.data.message
-    } catch (error) {
-      commit('SET_ERROR', error.response?.data?.message || 'Erreur lors de l\'ajout de la réaction')
+      console.error('Erreur lors de la suppression du message:', error)
+      commit('SET_ERROR', error.message)
       throw error
     }
   }
+}
+
+const getters = {
+  allMessages: state => state.messages,
+  isLoading: state => state.loading,
+  hasError: state => state.error !== null,
+  getError: state => state.error
 }
 
 export default {
   namespaced: true,
   state,
   mutations,
-  actions
+  actions,
+  getters
 }

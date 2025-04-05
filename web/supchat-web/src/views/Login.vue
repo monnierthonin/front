@@ -7,7 +7,7 @@
             <v-toolbar-title>Connexion</v-toolbar-title>
           </v-toolbar>
           <v-card-text>
-            <v-form @submit.prevent="handleSubmit" ref="formRef">
+            <v-form id="loginForm" @submit.prevent="handleSubmit" ref="formRef">
               <v-text-field
                 v-model="email"
                 label="Email"
@@ -24,20 +24,18 @@
                 prepend-icon="mdi-lock"
                 :rules="[rules.required]"
               />
+              <v-card-actions>
+                <v-spacer />
+                <v-btn
+                  color="primary"
+                  type="submit"
+                  :loading="loading"
+                >
+                  Se connecter
+                </v-btn>
+              </v-card-actions>
             </v-form>
           </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn
-              color="primary"
-              type="submit"
-              form="loginForm"
-              @click="handleSubmit"
-              :loading="loading"
-            >
-              Se connecter
-            </v-btn>
-          </v-card-actions>
           <v-card-actions>
             <v-spacer />
             <v-btn
@@ -94,16 +92,24 @@ export default defineComponent({
       email: v => /.+@.+\..+/.test(v) || 'Email invalide'
     })
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (event) => {
+      event.preventDefault()
       console.log('Tentative de connexion...')
+      
       const isValid = await formRef.value?.validate()
       if (!isValid) {
         console.log('Formulaire invalide')
+        snackbar.value = {
+          show: true,
+          text: 'Veuillez remplir correctement tous les champs',
+          color: 'error'
+        }
         return
       }
 
       console.log('Email:', email.value)
       loading.value = true
+      
       try {
         console.log('Envoi de la requête de connexion...')
         const response = await store.dispatch('auth/login', {
@@ -117,6 +123,11 @@ export default defineComponent({
         console.log('Est authentifié:', isAuthenticated)
         
         if (isAuthenticated) {
+          snackbar.value = {
+            show: true,
+            text: 'Connexion réussie !',
+            color: 'success'
+          }
           console.log('Redirection vers la page d\'accueil...')
           await router.replace('/')
         } else {
@@ -124,8 +135,11 @@ export default defineComponent({
         }
       } catch (error) {
         console.error('Erreur de connexion:', error)
-        snackbar.value.text = error.message || 'Erreur lors de la connexion'
-        snackbar.value.show = true
+        snackbar.value = {
+          show: true,
+          text: error.message || 'Erreur lors de la connexion',
+          color: 'error'
+        }
       } finally {
         loading.value = false
       }

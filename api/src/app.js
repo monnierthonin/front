@@ -16,8 +16,6 @@ const indexRouter = require('./routes/index');
 const authRouter = require('./routes/auth');
 const userRouter = require('./routes/userRoutes');
 const workspaceRouter = require('./routes/workspaceRoutes');
-const messageRouter = require('./routes/messageRoutes');
-const multer = require('multer'); // Importer multer
 const http = require('http');
 const serviceSocket = require('./services/serviceSocket');
 const swaggerUi = require('swagger-ui-express');
@@ -28,23 +26,6 @@ const AppError = require('./utils/appError');
 const app = express();
 const serveur = http.createServer(app);
 
-// Middleware de sécurité
-app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "cdn.socket.io"],
-            connectSrc: ["'self'", "ws://localhost:3000", "wss://localhost:3000", "http://localhost:3000"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrcAttr: ["'unsafe-inline'"]
-        },
-    },
-}));
-app.use(cors());
-
-// Servir les fichiers statiques
-app.use(express.static(path.join(__dirname, 'public')));
-
 // Middleware de base
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -52,11 +33,27 @@ app.use(cookieParser());
 
 // Configuration CORS avec support des cookies
 app.use(cors({
-  origin: ['http://localhost:8080', 'http://localhost:3000'],
+  origin: ['http://localhost:3001', 'http://localhost:3000'],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// Middleware de sécurité
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "cdn.socket.io"],
+            connectSrc: ["'self'", "ws://localhost:3000", "wss://localhost:3000", "http://localhost:3000", "http://localhost:3001"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrcAttr: ["'unsafe-inline'"]
+        },
+    },
+}));
+
+// Servir les fichiers statiques
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Initialisation de Passport
 app.use(passport.initialize());
@@ -79,7 +76,12 @@ app.use('/', indexRouter);
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/workspaces', workspaceRouter);
-app.use('/api/v1/messages', messageRouter);
+
+// Gestion des erreurs 404
+app.use((req, res, next) => {
+    const err = new AppError(`Route non trouvée: ${req.originalUrl}`, 404);
+    next(err);
+});
 
 // Gestion des erreurs
 app.use((err, req, res, next) => {
