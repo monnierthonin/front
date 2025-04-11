@@ -2,7 +2,21 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const routes = [
-  // ... vos autres routes ...
+  {
+    path: '/',
+    name: 'Home',
+    component: () => import('@/pages/Home.vue')
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/pages/Profile.vue')
+  },
+  {
+    path: '/paramworkspace',
+    name: 'ParamWorkspace',
+    component: () => import('@/pages/ParamWorkspace.vue')
+  },
   {
     path: '/auth/callback',
     name: 'AuthCallback',

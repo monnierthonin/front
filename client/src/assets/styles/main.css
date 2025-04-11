@@ -1,0 +1,53 @@
+:root {
+  --primary-color: #7289da;
+  --secondary-color: #14324F;
+  --secondary-color-transition: #10263b;
+  --background-color: #06121E;
+  --text-color: #ffffff;
+  --hover-color: #677bc4;
+  --whidth-header: 80px;
+  --whidth-chanelWorkspace: 200px;
+  --whidth-userChanel: 160px;
+  --whidth-friendsList: 160px;
+
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.login {
+  background-color: transparent;
+  color: var(--text-color);
+  border: 1px solid var(--primary-color);
+}
+
+.register {
+  background-color: var(--primary-color);
+  color: var(--text-color);
+}
+
+.btn:hover {
+  background-color: var(--hover-color);
+}
+
+html, body {
+  min-width: 1068px;
+  min-height: 672px;
+}
