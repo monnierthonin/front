@@ -2,27 +2,21 @@
   <div class="admin-container">
     <h1>Administration</h1>
     <div class="admin-sections">
-      <div class="admin-section">
-        <h2>Gestion des utilisateurs</h2>
-        <UserManager />
-      </div>
-      <div class="admin-section">
-        <h2>Gestion des canaux</h2>
-        <ChannelManager />
-      </div>
+      <AdminUserManager />
+      <AdminWorkspaceManager />
     </div>
   </div>
 </template>
 
 <script>
-import UserManager from '../components/workspaceParamFile/UserManager.vue'
-import ChannelManager from '../components/workspaceParamFile/ChannelManager.vue'
+import AdminUserManager from '../components/adminFile/AdminUserManager.vue'
+import AdminWorkspaceManager from '../components/adminFile/AdminWorkspaceManager.vue'
 
 export default {
   name: 'Admin',
   components: {
-    UserManager,
-    ChannelManager
+    AdminUserManager,
+    AdminWorkspaceManager
   }
 }
 </script>

@@ -4,9 +4,11 @@
         <img src="../../assets/styles/image/baniere.png" alt="baniere">
       </div>
       <div class="chanel-parametre">
-        <button class="parametre-button">
-          <img src="../../assets/styles/image/parametre.png" alt="parametre">
-        </button>
+        <router-link to="/paramworkspace">
+          <button class="parametre-button">
+            <img src="../../assets/styles/image/parametre.png" alt="parametre">
+          </button>
+        </router-link>
       </div>
       <div class="chanels-list">
         <!-- Liste des amis -->
