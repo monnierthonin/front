@@ -26,8 +26,10 @@
           </ul>
       </div>
       <div class="botom-header">
-        <div class="boutonModeration"><!-- a afficher quand l'utilisateur esr admin -->
-          <button class="moderationButton"><img src="../assets/styles/image/moderation.png" alt="moderation" class="moderation"></button>
+        <div class="boutonModeration" v-if="isAdmin"><!-- a afficher quand l'utilisateur est admin -->
+          <router-link to="/admin">
+            <button class="moderationButton"><img src="../assets/styles/image/moderation.png" alt="moderation" class="moderation"></button>
+          </router-link>
         </div>
         <div class="boutonProfil">
           <router-link to="/profile">
@@ -37,14 +39,16 @@
       </div>
     </nav>
   </header>
-  <main class="content">
-    <!-- Contenu de la page -->
-  </main>
 </template>
 
 <script>
 export default {
-  name: 'Header'
+  name: 'Header',
+  data() {
+    return {
+      isAdmin: true // À remplacer par la vraie logique de vérification du rôle admin
+    }
+  }
 }
 </script>
 

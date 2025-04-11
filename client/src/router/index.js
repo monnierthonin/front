@@ -18,6 +18,11 @@ const routes = [
     component: () => import('@/pages/ParamWorkspace.vue')
   },
   {
+    path: '/admin',
+    name: 'Admin',
+    component: () => import('@/pages/Admin.vue')
+  },
+  {
     path: '/auth/callback',
     name: 'AuthCallback',
     component: () => import('@/views/AuthCallback.vue')

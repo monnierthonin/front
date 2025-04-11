@@ -4,6 +4,7 @@ import App from './App.vue'
 import Home from './pages/Home.vue'
 import Profile from './pages/Profile.vue'
 import ParamWorkspace from './pages/ParamWorkspace.vue'
+import Admin from './pages/Admin.vue'
 import { createPinia } from 'pinia'
 
 const router = createRouter({
@@ -23,6 +24,11 @@ const router = createRouter({
       path: '/paramworkspace',
       name: 'ParamWorkspace',
       component: ParamWorkspace
+    },
+    {
+      path: '/admin',
+      name: 'Admin',
+      component: Admin
     }
   ]
 })

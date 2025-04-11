@@ -7,9 +7,9 @@
 </template>
 
 <script>
-import WorkspaceInfo from '../components/WorkspaceInfo.vue'
-import UserManager from '../components/UserManager.vue'
-import ChannelManager from '../components/ChannelManager.vue'
+import WorkspaceInfo from '../components/workspaceParamFile/WorkspaceInfo.vue'
+import UserManager from '../components/workspaceParamFile/UserManager.vue'
+import ChannelManager from '../components/workspaceParamFile/ChannelManager.vue'
 
 export default {
   name: 'ParamWorkspace',
