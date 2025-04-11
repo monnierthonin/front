@@ -4,11 +4,11 @@
       <div class="nav-logo-workspace">
         <div class="logo">
           <router-link to="/">
-            <img src="../assets/styles/image/logoSupChat.png" alt="LogoSupChat" class="logo">
+            <img src="../../assets/styles/image/logoSupChat.png" alt="LogoSupChat" class="logo">
           </router-link>
         </div>
           <ul class="nav-links">
-            <li><router-link to="/" class="nav-link"><img src="../assets/styles/image/logoAjout.png" alt="ajoutWorkspace" class="AjoutWorkspace"></router-link></li>
+            <li><router-link to="/" class="nav-link"><img src="../../assets/styles/image/logoAjout.png" alt="ajoutWorkspace" class="AjoutWorkspace"></router-link></li>
             <li class="workspace-container">
               <div class="workspace-list">
                 <div class="workspace-item" style="background-color: #7289da"></div> <!-- a remplacer par les workspace de l'utilisateur-->
@@ -28,12 +28,12 @@
       <div class="botom-header">
         <div class="boutonModeration" v-if="isAdmin"><!-- a afficher quand l'utilisateur est admin -->
           <router-link to="/admin">
-            <button class="moderationButton"><img src="../assets/styles/image/moderation.png" alt="moderation" class="moderation"></button>
+            <button class="moderationButton"><img src="../../assets/styles/image/moderation.png" alt="moderation" class="moderation"></button>
           </router-link>
         </div>
         <div class="boutonProfil">
           <router-link to="/profile">
-            <button class="profilButton"><img src="../assets/styles/image/profilDelault.png" alt="profil" class="profilDefault"></button>
+            <button class="profilButton"><img src="../../assets/styles/image/profilDelault.png" alt="profil" class="profilDefault"></button>
           </router-link>
         </div>
       </div>

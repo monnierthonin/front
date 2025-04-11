@@ -4,7 +4,7 @@
       <!-- Liste des amis -->
       <div class="friend-item" v-for="(friend, index) in friends" :key="index">
         <div class="friend-avatar">
-          <img src="../assets/styles/image/profilDelault.png" :alt="friend.name">
+          <img src="../../assets/styles/image/profilDelault.png" :alt="friend.name">
           <div class="status-indicator" :class="friend.status"></div>
         </div>
         <div class="friend-name">{{ friend.name }}</div>
@@ -12,7 +12,7 @@
     </div>
     <div class="add-friend">
       <button class="add-friend-button">
-        <img src="../assets/styles/image/logoAjout.png" alt="Ajouter un ami">
+        <img src="../../assets/styles/image/logoAjout.png" alt="Ajouter un ami">
       </button>
     </div>
   </div>

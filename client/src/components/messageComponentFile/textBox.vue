@@ -2,11 +2,11 @@
   <div class="inputMessage">
     <div class="textInput">
       <button>
-        <img src="../assets/styles/image/importFile.png" alt="importFile" class="importFile">
+        <img src="../../assets/styles/image/importFile.png" alt="importFile" class="importFile">
       </button>
       <textarea ref="inputText" class="inputText" placeholder="Entrez votre message"></textarea>
       <button>
-        <img src="../assets/styles/image/messageEnvoi.png" alt="messageEnvoi" class="messageEnvoi">
+        <img src="../../assets/styles/image/messageEnvoi.png" alt="messageEnvoi" class="messageEnvoi">
       </button>
     </div>
   </div>

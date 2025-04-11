@@ -24,7 +24,7 @@
             <option value="admin">Admin</option>
             <option value="user">User</option>
           </select>
-          <button class="delete-channel-button"><img src="../assets/styles/image/ban.png" alt="delete" class="delete"></button>
+          <button class="delete-channel-button"><img src="../../assets/styles/image/ban.png" alt="delete" class="delete"></button>
         </div>
       </div>
     </div>
@@ -42,56 +42,56 @@ export default {
         {
           id: 1,
           name: 'Général',
-          channelImage: "../assets/styles/image/profilDelault.png",
+          channelImage: "../../assets/styles/image/profilDelault.png",
           status: 'public',
           access: 'all'
         },
         {
           id: 2,
           name: 'Annonces',
-          channelImage: "../assets/styles/image/profilDelault.png",
+          channelImage: "../../assets/styles/image/profilDelault.png",
           status: 'private',
           access: 'admin'
         },
         {
           id: 3,
           name: 'Discussion',
-          channelImage: "../assets/styles/image/profilDelault.png",
+          channelImage: "../../assets/styles/image/profilDelault.png",
           status: 'public',
           access: 'user'
         },
         {
           id: 4,
           name: 'Discussion',
-          channelImage: "../assets/styles/image/profilDelault.png",
+          channelImage: "../../assets/styles/image/profilDelault.png",
           status: 'public',
           access: 'user'
         },
         {
           id: 5,
           name: 'Discussion',
-          channelImage: "../assets/styles/image/profilDelault.png",
+          channelImage: "../../assets/styles/image/profilDelault.png",
           status: 'public',
           access: 'user'
         },
         {
           id: 6,
           name: 'Discussion',
-          channelImage: "../assets/styles/image/profilDelault.png",
+          channelImage: "../../assets/styles/image/profilDelault.png",
           status: 'public',
           access: 'user'
         },
         {
           id: 7,
           name: 'Discussion',
-          channelImage: "../assets/styles/image/profilDelault.png",
+          channelImage: "../../assets/styles/image/profilDelault.png",
           status: 'public',
           access: 'user'
         },
         {
           id: 8,
           name: 'Discussion',
-          channelImage: "../assets/styles/image/profilDelault.png",
+          channelImage: "../../assets/styles/image/profilDelault.png",
           status: 'public',
           access: 'user'
         }

@@ -1,6 +1,6 @@
 <template>
   <div class="containerSetting">
-    <img src="../assets/styles/image/profilDelault.png" class="profile-image-param" alt="profil">
+    <img src="../../assets/styles/image/profilDelault.png" class="profile-image-param" alt="profil">
     <div class="settings">
       <h2 class="username">Username</h2>
       <h2 class="email">email.email@email.email</h2>
@@ -8,15 +8,15 @@
       <input type="email" v-model="email" placeholder="Changer votre email">
       <div class="password-container">
         <input :type="showPassword ? 'text' : 'password'" v-model="password" placeholder="Changer votre mot de passe">
-        <img src="../assets/styles/image/cacher.png" class="toggle-password" @click="togglePassword">
+        <img src="../../assets/styles/image/cacher.png" class="toggle-password" @click="togglePassword">
       </div>
       <div class="password-container">
         <input :type="showPassword ? 'text' : 'password'" v-model="confirmPassword" placeholder="Confirmer votre nouveau mot de passe">
-        <img src="../assets/styles/image/cacher.png" class="toggle-password" @click="togglePassword">
+        <img src="../../assets/styles/image/cacher.png" class="toggle-password" @click="togglePassword">
       </div>
       <div class="password-container">
         <input :type="showPassword ? 'text' : 'password'" v-model="oldPassword" placeholder="Entrer votre ancien mot de passe">
-        <img src="../assets/styles/image/cacher.png" class="toggle-password" @click="togglePassword">
+        <img src="../../assets/styles/image/cacher.png" class="toggle-password" @click="togglePassword">
       </div>
       <button class="save-button" @click="saveSettings">Enregistrer</button>
     </div>

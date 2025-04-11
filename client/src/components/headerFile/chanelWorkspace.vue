@@ -1,11 +1,11 @@
 <template>
     <div class="chanels-sidebar">
       <div class="baniere">
-        <img src="../assets/styles/image/baniere.png" alt="baniere">
+        <img src="../../assets/styles/image/baniere.png" alt="baniere">
       </div>
       <div class="chanel-parametre">
         <button class="parametre-button">
-          <img src="../assets/styles/image/parametre.png" alt="parametre">
+          <img src="../../assets/styles/image/parametre.png" alt="parametre">
         </button>
       </div>
       <div class="chanels-list">

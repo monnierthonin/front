@@ -4,7 +4,7 @@
         <!-- Liste des amis -->
         <div class="user-item" v-for="(user, index) in User" :key="index">
           <div class="user-avatar">
-            <img src="../assets/styles/image/profilDelault.png" :alt="user.name">
+            <img src="../../assets/styles/image/profilDelault.png" :alt="user.name">
             <div class="status-indicator" :class="user.status"></div>
           </div>
           <div class="user-name">{{ user.name }}</div>

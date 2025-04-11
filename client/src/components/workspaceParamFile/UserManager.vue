@@ -22,8 +22,8 @@
           </select>
           <button class="role-button">Rôle canal</button>
           <div class="action-buttons">
-            <button class="exit-button"><img src="../assets/styles/image/exclution.png" alt="exit" class="exit"></button>
-            <button class="bann-button"><img src="../assets/styles/image/ban.png" alt="bann" class="bann"></button>
+            <button class="exit-button"><img src="../../assets/styles/image/exclution.png" alt="exit" class="exit"></button>
+            <button class="bann-button"><img src="../../assets/styles/image/ban.png" alt="bann" class="bann"></button>
           </div>
         </div>
       </div>
@@ -42,43 +42,43 @@ export default {
         {
           id: 1,
           username: 'JohnDoe',
-          profileImage: "../assets/styles/image/profilDelault.png",
+          profileImage: "../../assets/styles/image/profilDelault.png",
           role: 'admin'
         },
         {
           id: 2,
           username: 'JaneSmith',
-          profileImage: "../assets/styles/image/profilDelault.png",
+          profileImage: "../../assets/styles/image/profilDelault.png",
           role: 'user'
         },
         {
           id: 3,
           username: 'GuestUser',
-          profileImage: "../assets/styles/image/profilDelault.png",
+          profileImage: "../../assets/styles/image/profilDelault.png",
           role: 'guest'
         },
         {
           id: 4,
           username: 'GuestUser',
-          profileImage: "../assets/styles/image/profilDelault.png",
+          profileImage: "../../assets/styles/image/profilDelault.png",
           role: 'guest'
         },
         {
           id: 5,
           username: 'GuestUser',
-          profileImage: "../assets/styles/image/profilDelault.png",
+          profileImage: "../../assets/styles/image/profilDelault.png",
           role: 'guest'
         },
         {
           id: 6,
           username: 'GuestUser',
-          profileImage: "../assets/styles/image/profilDelault.png",
+          profileImage: "../../assets/styles/image/profilDelault.png",
           role: 'guest'
         },
         {
           id: 7,
           username: 'GuestUser',
-          profileImage: "../assets/styles/image/profilDelault.png",
+          profileImage: "../../assets/styles/image/profilDelault.png",
           role: 'guest'
         }
       ]

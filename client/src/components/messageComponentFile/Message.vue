@@ -4,7 +4,7 @@
       <div class="message-content">
         <!-- Profile picture -->
         <div class="profile-pic">
-          <img src="../assets/styles/image/profilDelault.png" alt="Profile" />
+          <img src="../../assets/styles/image/profilDelault.png" alt="Profile" />
         </div>
         
         <!-- Message body -->
@@ -25,16 +25,16 @@
         <!-- Action buttons -->
         <div class="message-actions">
           <button class="action-btn" @click="handleReply">
-            <img src="../assets/styles/image/repondre.png" alt="Reply" />
+            <img src="../../assets/styles/image/repondre.png" alt="Reply" />
           </button>
           <button class="action-btn" @click="handleEmoji">
-            <img src="../assets/styles/image/react.png" alt="Emoji" />
+            <img src="../../assets/styles/image/react.png" alt="Emoji" />
           </button>
           <button class="action-btn" @click="handleEdit">
-            <img src="../assets/styles/image/modifier.png" alt="Edit" />
+            <img src="../../assets/styles/image/modifier.png" alt="Edit" />
           </button>
           <button class="action-btn" @click="handleDelete">
-            <img src="../assets/styles/image/delet.png" alt="Delete" />
+            <img src="../../assets/styles/image/delet.png" alt="Delete" />
           </button>
         </div>
       </div>

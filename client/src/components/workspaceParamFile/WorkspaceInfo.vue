@@ -1,7 +1,7 @@
 <template>
   <div class="workspace-info">
     <div class="containerSetting">
-      <img src="../assets/styles/image/profilDelault.png" class="workspace-image-param" alt="profil">
+      <img src="../../assets/styles/image/profilDelault.png" class="workspace-image-param" alt="profil">
       <div class="settings">
         <h2 class="owner">Owner</h2>
         <h2 class="name">name</h2>

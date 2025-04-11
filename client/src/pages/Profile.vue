@@ -7,9 +7,9 @@
 </template>
 
 <script>
-import ProfileInfo from '../components/ProfileInfo.vue'
-import ProfileStatus from '../components/ProfileStatus.vue'
-import ProfileActions from '../components/ProfileActions.vue'
+import ProfileInfo from '../components/profilParamFile/ProfileInfo.vue'
+import ProfileStatus from '../components/profilParamFile/ProfileStatus.vue'
+import ProfileActions from '../components/profilParamFile/ProfileActions.vue'
 
 export default {
   name: 'Profile',

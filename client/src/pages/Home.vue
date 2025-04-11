@@ -8,10 +8,10 @@
 </template>
 
 <script>
-import Message from '../components/Message.vue'
-import textBox from '../components/textBox.vue'
-import UserList from '../components/UserChanelList.vue'
-import chanelWorkspace from '../components/chanelWorkspace.vue'
+import Message from '../components/messageComponentFile/Message.vue'
+import textBox from '../components/messageComponentFile/textBox.vue'
+import UserList from '../components/headerFile/UserChanelList.vue'
+import chanelWorkspace from '../components/headerFile/chanelWorkspace.vue'
 
 export default {
   name: 'Home',
