@@ -22,6 +22,20 @@ const mutations = {
 }
 
 const actions = {
+  async checkAuth({ commit }) {
+    try {
+      const response = await api.get('/api/v1/auth/me')
+      if (response.data.success) {
+        commit('SET_USER', response.data.data.user)
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('Erreur de vérification d\'authentification:', error)
+      return false
+    }
+  },
+
   async login({ commit }, credentials) {
     try {
       const response = await api.post('/api/v1/auth/connexion', credentials)
@@ -98,10 +112,19 @@ const actions = {
     }
   },
 
-  logout({ commit }) {
-    commit('LOGOUT')
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+  async logout({ commit }) {
+    try {
+      await api.post('/api/v1/auth/deconnexion')
+      commit('LOGOUT')
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error)
+      // On déconnecte quand même localement en cas d'erreur
+      commit('LOGOUT')
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+    }
   },
 
   initAuth({ commit }) {

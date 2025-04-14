@@ -70,6 +70,12 @@ router.get('/microsoft/callback',
   authController.microsoftCallback
 );
 
+// Route pour vérifier l'authentification via le cookie
+router.get('/me',
+  authenticate,
+  authController.getCurrentUser
+);
+
 // Route de développement pour vérifier directement un utilisateur
 if (process.env.NODE_ENV !== 'production') {
   router.get('/dev/verifier/:email',

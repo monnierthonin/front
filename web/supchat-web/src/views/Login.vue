@@ -36,6 +36,42 @@
               </v-card-actions>
             </v-form>
           </v-card-text>
+          <v-divider></v-divider>
+          <v-card-text>
+            <div class="text-center mb-4">Ou se connecter avec</div>
+            <div class="d-flex justify-center gap-4">
+              <v-btn
+                color="error"
+                variant="elevated"
+                prepend-icon="mdi-google"
+                @click="handleGoogleLogin"
+                :loading="loading"
+                class="px-6"
+              >
+                Google
+              </v-btn>
+              <v-btn
+                color="info"
+                variant="elevated"
+                prepend-icon="mdi-microsoft"
+                @click="handleMicrosoftLogin"
+                :loading="loading"
+                class="px-6"
+              >
+                Microsoft
+              </v-btn>
+              <v-btn
+                color="primary"
+                variant="elevated"
+                prepend-icon="mdi-facebook"
+                @click="handleFacebookLogin"
+                :loading="loading"
+                class="px-6"
+              >
+                Facebook
+              </v-btn>
+            </div>
+          </v-card-text>
           <v-card-actions>
             <v-spacer />
             <v-btn
@@ -145,6 +181,24 @@ export default defineComponent({
       }
     }
 
+    const handleGoogleLogin = () => {
+      loading.value = true
+      const apiUrl = process.env.VUE_APP_API_URL || 'http://localhost:3001'
+      window.location.href = `${apiUrl}/api/v1/auth/google`
+    }
+
+    const handleMicrosoftLogin = () => {
+      loading.value = true
+      const apiUrl = process.env.VUE_APP_API_URL || 'http://localhost:3001'
+      window.location.href = `${apiUrl}/api/v1/auth/microsoft`
+    }
+
+    const handleFacebookLogin = () => {
+      loading.value = true
+      const apiUrl = process.env.VUE_APP_API_URL || 'http://localhost:3001'
+      window.location.href = `${apiUrl}/api/v1/auth/facebook`
+    }
+
     return {
       email,
       password,
@@ -152,8 +206,17 @@ export default defineComponent({
       formRef,
       rules,
       snackbar,
-      handleSubmit
+      handleSubmit,
+      handleGoogleLogin,
+      handleMicrosoftLogin,
+      handleFacebookLogin
     }
   }
 })
 </script>
+
+<style scoped>
+.gap-4 {
+  gap: 1rem;
+}
+</style>

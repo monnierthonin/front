@@ -5,6 +5,7 @@ import RegisterPage from '../views/Register.vue'
 import HomePage from '../views/Home.vue'
 import WorkspacePage from '../views/Workspace.vue'
 import CanalPage from '../views/Canal.vue'
+import AuthCallback from '../views/AuthCallback.vue'
 
 const routes = [
   {
@@ -18,6 +19,11 @@ const routes = [
     name: 'Register',
     component: RegisterPage,
     meta: { requiresGuest: true }
+  },
+  {
+    path: '/auth/callback',
+    name: 'AuthCallback',
+    component: AuthCallback
   },
   {
     path: '/',

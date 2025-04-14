@@ -15,8 +15,8 @@ exports.authenticate = async (req, res, next) => {
       token = authHeader.split(' ')[1];
     }
     // Sinon, vérifier le cookie
-    else if (req.cookies && req.cookies.token) {
-      token = req.cookies.token;
+    else if (req.cookies && req.cookies.jwt) {
+      token = req.cookies.jwt;
     }
 
     if (!token) {
@@ -45,7 +45,7 @@ exports.authenticate = async (req, res, next) => {
     console.error('Erreur d\'authentification:', error);
     res.status(401).json({
       success: false,
-      message: 'Token invalide ou expiré',
+      message: 'Erreur de vérification',
       error: error.message
     });
   }

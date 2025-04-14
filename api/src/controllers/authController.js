@@ -439,11 +439,38 @@ exports.verifierUtilisateurDev = async (req, res) => {
     }
 };
 
+// Récupérer l'utilisateur courant
+exports.getCurrentUser = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password');
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Utilisateur non trouvé'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                user
+            }
+        });
+    } catch (error) {
+        console.error('Erreur lors de la récupération de l\'utilisateur:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur interne du serveur'
+        });
+    }
+};
+
 // Callback Google OAuth2
 exports.googleCallback = async (req, res) => {
     try {
         const token = genererToken(req.user);
-        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+        res.cookie('jwt', token, cookieOptions);
+        res.redirect(`${process.env.FRONTEND_URL}/auth/callback`);
     } catch (error) {
         console.error('Erreur lors du callback Google:', error);
         res.redirect(`${process.env.FRONTEND_URL}/auth/error`);
@@ -454,7 +481,8 @@ exports.googleCallback = async (req, res) => {
 exports.microsoftCallback = async (req, res) => {
     try {
         const token = genererToken(req.user);
-        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+        res.cookie('jwt', token, cookieOptions);
+        res.redirect(`${process.env.FRONTEND_URL}/auth/callback`);
     } catch (error) {
         console.error('Erreur lors du callback Microsoft:', error);
         res.redirect(`${process.env.FRONTEND_URL}/auth/error`);
@@ -465,7 +493,8 @@ exports.microsoftCallback = async (req, res) => {
 exports.facebookCallback = async (req, res) => {
     try {
         const token = genererToken(req.user);
-        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+        res.cookie('jwt', token, cookieOptions);
+        res.redirect(`${process.env.FRONTEND_URL}/auth/callback`);
     } catch (error) {
         console.error('Erreur lors du callback Facebook:', error);
         res.status(500).json({
@@ -487,5 +516,6 @@ module.exports = {
     verifierUtilisateurDev: exports.verifierUtilisateurDev,
     googleCallback: exports.googleCallback,
     microsoftCallback: exports.microsoftCallback,
-    facebookCallback: exports.facebookCallback
+    facebookCallback: exports.facebookCallback,
+    getCurrentUser: exports.getCurrentUser
 };
