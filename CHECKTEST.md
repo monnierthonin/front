@@ -76,11 +76,11 @@
 - [x] Persistance de la session
   - Scénario : Utilisateur ferme et rouvre le navigateur
   - Vérifier : Session maintenue si "Se souvenir de moi" activé ✓
-    - JWT valide pendant 30 jours
-    - Cookie persistant pendant 30 jours
+    - JWT valide pendant 30 jours ✓
+    - Cookie persistant pendant 30 jours ✓
   - Vérifier : Session courte si "Se souvenir de moi" désactivé ✓
-    - JWT valide pendant 24 heures
-    - Cookie expirant après 24 heures
+    - JWT valide pendant 24 heures ✓
+    - Cookie expirant après 24 heures ✓
 - [x] Déconnexion
   - Scénario : Utilisateur clique sur "Déconnexion"
   - Vérifier : Suppression du token ✓
@@ -102,25 +102,25 @@
   - Vérifier : Mise à jour dans l'interface et la base de données ✓
 
 ### Photo de Profil
-- [ ] Upload d'avatar
+- [x] Upload d'avatar
   - Scénario : Utilisateur upload une nouvelle photo
-  - Vérifier : Validation du format (jpg, png)
-  - Vérifier : Validation de la taille (<2MB)
-  - Vérifier : Redimensionnement automatique
-  - Vérifier : Suppression de l'ancienne photo
+  - Vérifier : Validation du format (jpg, png) ✓
+  - Vérifier : Validation de la taille (<2MB) ✓
+  - Vérifier : Redimensionnement automatique (à implémenter dans le frontend)
+  - Vérifier : Suppression de l'ancienne photo ✓
 
 ### Sécurité
-- [ ] Modification du mot de passe
+- [x] Modification du mot de passe
   - Scénario : Utilisateur change son mot de passe
-  - Vérifier : Ancien mot de passe requis
-  - Vérifier : Validation de la complexité
-  - Vérifier : Email de confirmation envoyé
+  - Vérifier : Ancien mot de passe requis ✓
+  - Vérifier : Validation de la complexité ✓
+  - Vérifier : Email de confirmation envoyé ✓
 
-- [ ] Suppression de compte
+- [x] Suppression de compte
   - Scénario : Utilisateur supprime son compte
-  - Vérifier : Confirmation requise
-  - Vérifier : Messages conservés avec "Utilisateur inconnu"
-  - Vérifier : Suppression des données personnelles
+  - Vérifier : Confirmation requise ✓
+  - Vérifier : Messages conservés avec "Utilisateur inconnu" ✓
+  - Vérifier : Suppression des données personnelles ✓
 
 ## Tests des Workspaces
 

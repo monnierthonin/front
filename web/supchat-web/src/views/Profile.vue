@@ -113,9 +113,61 @@
               >
                 Mettre à jour le profil
               </v-btn>
+
+              <!-- Bouton de suppression de compte -->
+              <v-btn
+                color="error"
+                @click="deleteDialog = true"
+                class="mt-4"
+              >
+                Supprimer mon compte
+              </v-btn>
             </v-form>
           </v-card-text>
         </v-card>
+
+        <!-- Boîte de dialogue de confirmation de suppression -->
+        <v-dialog v-model="deleteDialog" max-width="500">
+          <v-card>
+            <v-card-title class="text-h5 text-red">
+              Supprimer votre compte ?
+            </v-card-title>
+
+            <v-card-text>
+              <p class="mb-4">Cette action est irréversible. Tous vos messages seront anonymisés et vos données personnelles seront supprimées.</p>
+              <v-form ref="deleteForm" v-model="isDeleteValid">
+                <v-text-field
+                  v-model="deletePassword"
+                  :rules="[v => !!v || 'Le mot de passe est requis']"
+                  label="Confirmez votre mot de passe"
+                  name="deletePassword"
+                  prepend-icon="mdi-lock"
+                  type="password"
+                  required
+                ></v-text-field>
+              </v-form>
+            </v-card-text>
+
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn
+                color="grey"
+                text
+                @click="closeDeleteDialog"
+              >
+                Annuler
+              </v-btn>
+              <v-btn
+                color="error"
+                :loading="loadingDelete"
+                :disabled="!isDeleteValid || loadingDelete"
+                @click="handleDeleteAccount"
+              >
+                Supprimer définitivement
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
 
         <v-snackbar
           v-model="snackbar.show"
@@ -132,19 +184,26 @@
 <script>
 import { defineComponent, ref, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
 
 export default defineComponent({
   name: 'ProfilePage',
   
   setup() {
     const store = useStore()
+    const router = useRouter()
     const form = ref(null)
     const passwordForm = ref(null)
+    const deleteForm = ref(null)
     const isValid = ref(false)
     const isPasswordValid = ref(false)
+    const isDeleteValid = ref(false)
     const loading = ref(false)
     const loadingPassword = ref(false)
-    
+    const loadingDelete = ref(false)
+    const deleteDialog = ref(false)
+    const deletePassword = ref('')
+
     // Champs du formulaire
     const username = ref('')
     const email = ref('')
@@ -163,9 +222,15 @@ export default defineComponent({
     const profilePictureUrl = computed(() => {
       const user = store.getters['auth/currentUser']
       if (!user || !user.profilePicture) return '/default-avatar.png'
-      return user.profilePicture.startsWith('http') 
-        ? user.profilePicture 
-        : `/uploads/profiles/${user.profilePicture}`
+      
+      // Si l'URL est complète (commence par http ou https), on la retourne telle quelle
+      if (user.profilePicture.startsWith('http')) {
+        return user.profilePicture
+      }
+      
+      // Sinon on construit l'URL vers notre API
+      const apiUrl = process.env.VUE_APP_API_URL || 'http://localhost:3000'
+      return `${apiUrl}/uploads/profiles/${user.profilePicture}`
     })
 
     // Règles de validation
@@ -277,6 +342,44 @@ export default defineComponent({
       }
     }
 
+    const closeDeleteDialog = () => {
+      deleteDialog.value = false
+      deletePassword.value = ''
+      if (deleteForm.value) {
+        deleteForm.value.reset()
+      }
+    }
+
+    const handleDeleteAccount = async () => {
+      if (!deleteForm.value?.validate()) return
+
+      loadingDelete.value = true
+      try {
+        await store.dispatch('user/deleteAccount', {
+          password: deletePassword.value
+        })
+
+        snackbar.value = {
+          show: true,
+          text: 'Votre compte a été supprimé avec succès',
+          color: 'success'
+        }
+
+        // Déconnexion et redirection
+        await store.dispatch('auth/logout')
+        router.push('/login')
+      } catch (error) {
+        snackbar.value = {
+          show: true,
+          text: error.message || 'Erreur lors de la suppression du compte',
+          color: 'error'
+        }
+      } finally {
+        loadingDelete.value = false
+        closeDeleteDialog()
+      }
+    }
+
     onMounted(() => {
       const user = store.getters['auth/currentUser']
       if (user) {
@@ -288,10 +391,13 @@ export default defineComponent({
     return {
       form,
       passwordForm,
+      deleteForm,
       isValid,
       isPasswordValid,
+      isDeleteValid,
       loading,
       loadingPassword,
+      loadingDelete,
       username,
       email,
       profilePicture,
@@ -307,7 +413,11 @@ export default defineComponent({
       handleSubmit,
       handlePasswordChange,
       handleProfilePictureChange,
-      snackbar
+      snackbar,
+      deleteDialog,
+      deletePassword,
+      closeDeleteDialog,
+      handleDeleteAccount
     }
   }
 })

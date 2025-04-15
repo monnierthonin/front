@@ -155,8 +155,16 @@ userSchema.pre('findOneAndUpdate', function(next) {
 
 // Méthode pour comparer les mots de passe
 userSchema.methods.comparePassword = async function(candidatePassword) {
-  if (!this.password) return false;
-  return bcrypt.compare(candidatePassword, this.password);
+  console.log('Comparing passwords...');
+  console.log('Candidate password:', candidatePassword);
+  console.log('Stored password exists:', !!this.password);
+  if (!this.password) {
+    console.log('No password stored for user');
+    return false;
+  }
+  const isMatch = await bcrypt.compare(candidatePassword, this.password);
+  console.log('Password match:', isMatch);
+  return isMatch;
 };
 
 // Méthode pour générer un token de réinitialisation de mot de passe

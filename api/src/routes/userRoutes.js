@@ -8,19 +8,22 @@ const upload = require('../config/multer');
  * Routes pour la gestion du profil utilisateur
  */
 
+// Routes protégées
+router.use(authenticate);
+
 // Obtenir le profil de l'utilisateur connecté
-router.get('/profile', authenticate, userController.getProfile);
+router.get('/profile', userController.getProfile);
 
-// Mettre à jour le profil de l'utilisateur
-router.put('/profile', authenticate, userController.updateProfile);
+// Mise à jour du profil
+router.put('/profile', userController.updateProfile);
 
-// Changer la photo de profil
-router.put('/profile/picture', authenticate, upload.single('profilePicture'), userController.updateProfilePicture);
+// Mise à jour du mot de passe
+router.put('/profile/password', userController.updatePassword);
 
-// Changer le mot de passe
-router.put('/profile/password', authenticate, userController.updatePassword);
+// Mise à jour de la photo de profil
+router.put('/profile/picture', upload.single('profilePicture'), userController.updateProfilePicture);
 
-// Supprimer le compte
-router.delete('/profile', authenticate, userController.deleteAccount);
+// Suppression du compte
+router.delete('/profile', userController.deleteAccount);
 
 module.exports = router;

@@ -94,10 +94,12 @@ exports.inscription = async (req, res) => {
 exports.connexion = async (req, res) => {
     try {
         console.log('Tentative de connexion pour:', req.body.email);
+        console.log('Données reçues:', req.body);
         const { email, password, rememberMe } = req.body;
 
         // Vérifier si l'utilisateur existe et récupérer explicitement le mot de passe
         const utilisateur = await User.findOne({ email }).select('+password');
+        console.log('Utilisateur trouvé:', !!utilisateur);
         
         if (!utilisateur) {
             console.log('Utilisateur non trouvé:', email);
@@ -106,6 +108,9 @@ exports.connexion = async (req, res) => {
                 message: 'Email ou mot de passe incorrect'
             });
         }
+
+        console.log('Mot de passe stocké existe:', !!utilisateur.password);
+        console.log('Utilisateur vérifié:', utilisateur.isVerified);
 
         // Vérifier si l'utilisateur est vérifié
         if (!utilisateur.isVerified) {
@@ -116,20 +121,25 @@ exports.connexion = async (req, res) => {
             });
         }
 
-        // Vérifier si le mot de passe est correct
-        const motDePasseValide = await bcrypt.compare(password, utilisateur.password);
-        
-        if (!motDePasseValide) {
-            console.log('Mot de passe invalide pour:', email);
+        console.log('Tentative de vérification du mot de passe...');
+        const isPasswordValid = await utilisateur.comparePassword(password);
+        console.log('Résultat de la vérification:', isPasswordValid);
+
+        if (!isPasswordValid) {
+            console.log('Mot de passe incorrect pour:', email);
             return res.status(401).json({
                 success: false,
                 message: 'Email ou mot de passe incorrect'
             });
         }
 
+        // Mettre à jour la dernière connexion
+        utilisateur.lastLogin = Date.now();
+        await utilisateur.save({ validateBeforeSave: false });
+
         console.log('Connexion réussie pour:', email);
 
-        // Générer le token JWT
+        // Envoyer le token
         envoyerToken(utilisateur, 200, res, rememberMe);
     } catch (erreur) {
         console.error('Erreur lors de la connexion:', erreur);

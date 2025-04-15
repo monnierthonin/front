@@ -4,7 +4,7 @@ import router from '@/router'
 
 // Créer une instance axios avec la configuration de base
 const api = axios.create({
-  baseURL: process.env.VUE_APP_API_URL || 'http://localhost:3000',
+  baseURL: (process.env.VUE_APP_API_URL || 'http://localhost:3000') + '/api/v1',
   withCredentials: true
 })
 

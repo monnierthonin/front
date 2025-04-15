@@ -282,9 +282,52 @@ const envoyerEmailModificationEmail = async (newEmail, username) => {
   }
 };
 
+const envoyerEmailModificationMotDePasse = async (email, username) => {
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: 'Confirmation de modification du mot de passe - SupChat',
+      html: `
+        <h1>Bonjour ${username},</h1>
+        <p>Votre mot de passe a été modifié avec succès sur SupChat.</p>
+        <p>Si vous n'êtes pas à l'origine de cette modification, veuillez contacter notre support immédiatement.</p>
+      `
+    });
+
+    return info;
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de l\'email:', error);
+    throw new Error('Erreur lors de l\'envoi de l\'email de modification du mot de passe');
+  }
+};
+
+const envoyerEmailSuppressionCompte = async (email) => {
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: 'Confirmation de suppression de compte - SupChat',
+      html: `
+        <h1>Confirmation de suppression de compte</h1>
+        <p>Votre compte SupChat a été supprimé avec succès.</p>
+        <p>Toutes vos données personnelles ont été supprimées de nos serveurs.</p>
+        <p>Nous espérons vous revoir bientôt !</p>
+      `
+    });
+
+    return info;
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de l\'email:', error);
+    throw new Error('Erreur lors de l\'envoi de l\'email de suppression de compte');
+  }
+};
+
 module.exports = {
   envoyerEmailVerification,
   envoyerEmailReinitialisationMotDePasse,
   envoyerEmailInvitationWorkspace,
-  envoyerEmailModificationEmail
+  envoyerEmailModificationEmail,
+  envoyerEmailModificationMotDePasse,
+  envoyerEmailSuppressionCompte
 };

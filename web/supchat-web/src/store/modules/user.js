@@ -13,7 +13,7 @@ const mutations = {
 const actions = {
   async updateProfile({ commit }, userData) {
     try {
-      const response = await api.put('/api/v1/users/profile', userData)
+      const response = await api.put('/users/profile', userData)
       if (response.data.success) {
         // Mettre à jour l'utilisateur dans le module auth
         commit('auth/SET_USER', response.data.data, { root: true })
@@ -28,7 +28,7 @@ const actions = {
 
   async updatePassword(_, { currentPassword, newPassword }) {
     try {
-      const response = await api.put('/api/v1/users/profile/password', {
+      const response = await api.put('/users/profile/password', {
         currentPassword,
         newPassword
       })
@@ -41,7 +41,7 @@ const actions = {
 
   async updateProfilePicture({ commit, rootState }, formData) {
     try {
-      const response = await api.put('/api/v1/users/profile/picture', formData, {
+      const response = await api.put('/users/profile/picture', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -55,6 +55,21 @@ const actions = {
       throw new Error(response.data.message || 'Erreur lors de la mise à jour de la photo')
     } catch (error) {
       console.error('Erreur de mise à jour de la photo:', error)
+      throw error
+    }
+  },
+
+  async deleteAccount(_, { password }) {
+    try {
+      const response = await api.delete('/users/profile', { data: { password } })
+      if (response.data.success) {
+        return true
+      }
+      throw new Error(response.data.message || 'Erreur lors de la suppression du compte')
+    } catch (error) {
+      if (error.response) {
+        throw new Error(error.response.data.message)
+      }
       throw error
     }
   }

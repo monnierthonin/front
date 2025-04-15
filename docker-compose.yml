@@ -25,6 +25,10 @@ services:
       - 8.8.8.8
       - 8.8.4.4
     restart: unless-stopped
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+      - uploads:/uploads
     networks:
       - supchat-network
 
@@ -40,9 +44,15 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+    volumes:
+      - ./web/supchat-web:/app
+      - /app/node_modules
     networks:
       - supchat-network
 
 networks:
   supchat-network:
     driver: bridge
+
+volumes:
+  uploads:
