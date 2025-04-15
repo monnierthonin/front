@@ -6,6 +6,7 @@ import HomePage from '../views/Home.vue'
 import WorkspacePage from '../views/Workspace.vue'
 import CanalPage from '../views/Canal.vue'
 import AuthCallback from '../views/AuthCallback.vue'
+import Profile from '../views/Profile.vue'
 
 const routes = [
   {
@@ -37,7 +38,6 @@ const routes = [
     component: WorkspacePage,
     meta: { requiresAuth: true },
     beforeEnter: (to, from, next) => {
-      // Vérifier que l'ID du workspace est défini
       if (!to.params.id || to.params.id === 'undefined') {
         next('/')
         return
@@ -51,7 +51,6 @@ const routes = [
     component: CanalPage,
     meta: { requiresAuth: true },
     beforeEnter: (to, from, next) => {
-      // Vérifier que les IDs sont définis
       if (!to.params.workspaceId || !to.params.canalId || 
           to.params.workspaceId === 'undefined' || to.params.canalId === 'undefined') {
         next('/')
@@ -59,6 +58,12 @@ const routes = [
       }
       next()
     }
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: Profile,
+    meta: { requiresAuth: true }
   }
 ]
 
@@ -67,7 +72,17 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, from, next) => {
+// Initialiser l'état d'authentification
+let authInitialized = false
+
+router.beforeEach(async (to, from, next) => {
+  // Initialiser l'état d'authentification si ce n'est pas déjà fait
+  if (!authInitialized) {
+    await store.dispatch('auth/initAuth')
+    await store.dispatch('auth/checkAuth')
+    authInitialized = true
+  }
+
   const isAuthenticated = store.getters['auth/isAuthenticated']
 
   // Si la route requiert l'authentification et que l'utilisateur n'est pas connecté

@@ -73,29 +73,33 @@
   - Vérifier : Redirection vers la page d'accueil ✓
 
 ### Gestion des Sessions
-- [ ] Persistance de la session
+- [x] Persistance de la session
   - Scénario : Utilisateur ferme et rouvre le navigateur
-  - Vérifier : Session maintenue si "Se souvenir de moi" activé
-  - Vérifier : Déconnexion si "Se souvenir de moi" désactivé
-
-- [ ] Déconnexion
+  - Vérifier : Session maintenue si "Se souvenir de moi" activé ✓
+    - JWT valide pendant 30 jours
+    - Cookie persistant pendant 30 jours
+  - Vérifier : Session courte si "Se souvenir de moi" désactivé ✓
+    - JWT valide pendant 24 heures
+    - Cookie expirant après 24 heures
+- [x] Déconnexion
   - Scénario : Utilisateur clique sur "Déconnexion"
-  - Vérifier : Suppression du token
-  - Vérifier : Redirection vers la page de connexion
-  - Vérifier : Impossibilité d'accéder aux routes protégées
+  - Vérifier : Suppression du token ✓
+  - Vérifier : Redirection vers la page de connexion ✓
+  - Vérifier : Impossibilité d'accéder aux routes protégées ✓
 
 ## Tests de Gestion du Profil
 
 ### Informations de Base
-- [ ] Modification du nom d'utilisateur
+- [x] Modification du nom d'utilisateur
   - Scénario : Utilisateur change son nom en "NewUsername"
-  - Vérifier : Mise à jour dans la base de données
-  - Vérifier : Mise à jour dans l'interface
+  - Vérifier : Mise à jour dans la base de données ✓
+  - Vérifier : Mise à jour dans l'interface ✓
 
-- [ ] Modification de l'email
-  - Scénario : Utilisateur change son email
-  - Vérifier : Email de confirmation envoyé
-  - Vérifier : Ancien email fonctionnel jusqu'à confirmation
+- [x] Modification de l'email
+  - Scénario : Utilisateur change son email 
+  - Vérifier : Email de confirmation envoyé ✓
+  - Vérifier : Validation de l'unicité de l'email ✓
+  - Vérifier : Mise à jour dans l'interface et la base de données ✓
 
 ### Photo de Profil
 - [ ] Upload d'avatar

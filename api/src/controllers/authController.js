@@ -5,7 +5,8 @@ const crypto = require('crypto');
 const { envoyerEmailVerification, envoyerEmailReinitialisationMotDePasse } = require('../services/emailService');
 
 // Générer un token JWT
-const genererToken = (user) => {
+const genererToken = (user, rememberMe = false) => {
+    const expiresIn = rememberMe ? '30d' : process.env.JWT_EXPIRES_IN || '24h';
     return jwt.sign(
         { 
             id: user._id,
@@ -13,24 +14,24 @@ const genererToken = (user) => {
             username: user.username
         },
         process.env.JWT_SECRET || 'supchat_secret_dev',
-        { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+        { expiresIn }
     );
 };
 
 // Configuration des cookies
-const cookieOptions = {
-    expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 heures
+const getCookieOptions = (rememberMe = false) => ({
+    expires: new Date(Date.now() + (rememberMe ? 30 : 1) * 24 * 60 * 60 * 1000), // 30 jours ou 24 heures
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax'
-};
+});
 
 // Envoyer le token dans un cookie et la réponse
-const envoyerToken = (user, statusCode, res) => {
-    const token = genererToken(user);
+const envoyerToken = (user, statusCode, res, rememberMe = false) => {
+    const token = genererToken(user, rememberMe);
 
-    // Envoyer le cookie
-    res.cookie('jwt', token, cookieOptions);
+    // Envoyer le cookie avec la durée appropriée
+    res.cookie('jwt', token, getCookieOptions(rememberMe));
 
     // Retirer le mot de passe de la réponse
     const userResponse = user.toObject();
@@ -93,7 +94,7 @@ exports.inscription = async (req, res) => {
 exports.connexion = async (req, res) => {
     try {
         console.log('Tentative de connexion pour:', req.body.email);
-        const { email, password } = req.body;
+        const { email, password, rememberMe } = req.body;
 
         // Vérifier si l'utilisateur existe et récupérer explicitement le mot de passe
         const utilisateur = await User.findOne({ email }).select('+password');
@@ -129,30 +130,7 @@ exports.connexion = async (req, res) => {
         console.log('Connexion réussie pour:', email);
 
         // Générer le token JWT
-        const token = genererToken(utilisateur);
-
-        // Définir le cookie
-        res.cookie('jwt', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 24 * 60 * 60 * 1000 // 24 heures
-        });
-
-        // Mettre à jour le statut de l'utilisateur
-        utilisateur.status = 'online';
-        await utilisateur.save();
-
-        // Ne pas renvoyer le mot de passe
-        utilisateur.password = undefined;
-
-        res.status(200).json({
-            success: true,
-            data: {
-                user: utilisateur,
-                token
-            }
-        });
+        envoyerToken(utilisateur, 200, res, rememberMe);
     } catch (erreur) {
         console.error('Erreur lors de la connexion:', erreur);
         res.status(500).json({
@@ -469,7 +447,7 @@ exports.getCurrentUser = async (req, res) => {
 exports.googleCallback = async (req, res) => {
     try {
         const token = genererToken(req.user);
-        res.cookie('jwt', token, cookieOptions);
+        res.cookie('jwt', token, getCookieOptions());
         res.redirect(`${process.env.FRONTEND_URL}/auth/callback`);
     } catch (error) {
         console.error('Erreur lors du callback Google:', error);
@@ -481,7 +459,7 @@ exports.googleCallback = async (req, res) => {
 exports.microsoftCallback = async (req, res) => {
     try {
         const token = genererToken(req.user);
-        res.cookie('jwt', token, cookieOptions);
+        res.cookie('jwt', token, getCookieOptions());
         res.redirect(`${process.env.FRONTEND_URL}/auth/callback`);
     } catch (error) {
         console.error('Erreur lors du callback Microsoft:', error);
@@ -493,7 +471,7 @@ exports.microsoftCallback = async (req, res) => {
 exports.facebookCallback = async (req, res) => {
     try {
         const token = genererToken(req.user);
-        res.cookie('jwt', token, cookieOptions);
+        res.cookie('jwt', token, getCookieOptions());
         res.redirect(`${process.env.FRONTEND_URL}/auth/callback`);
     } catch (error) {
         console.error('Erreur lors du callback Facebook:', error);

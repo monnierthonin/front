@@ -38,19 +38,31 @@ const actions = {
 
   async login({ commit }, credentials) {
     try {
-      const response = await api.post('/api/v1/auth/connexion', credentials)
+      console.log('Tentative de connexion avec:', credentials);
+      const response = await api.post('/api/v1/auth/connexion', {
+        email: credentials.email,
+        password: credentials.password,
+        rememberMe: credentials.rememberMe || false
+      })
+      
       if (response.data.success) {
-        commit('SET_USER', response.data.data.user)
-        commit('SET_TOKEN', response.data.data.token)
-        localStorage.setItem('token', response.data.data.token)
-        localStorage.setItem('user', JSON.stringify(response.data.data.user))
-        return response.data
+        const { user, token } = response.data.data;
+        console.log('Token reçu:', token ? 'Oui' : 'Non');
+        
+        if (user) commit('SET_USER', user);
+        if (token) {
+          commit('SET_TOKEN', token);
+          localStorage.setItem('token', token);
+        }
+        if (user) localStorage.setItem('user', JSON.stringify(user));
+        
+        return response.data;
       } else {
-        throw new Error(response.data.message || 'Erreur lors de la connexion')
+        throw new Error(response.data.message || 'Erreur lors de la connexion');
       }
     } catch (error) {
-      console.error('Erreur de connexion:', error)
-      throw error
+      console.error('Erreur de connexion:', error);
+      throw error;
     }
   },
 
@@ -100,14 +112,48 @@ const actions = {
 
   async updateProfile({ commit }, userData) {
     try {
-      const response = await api.put('/api/v1/auth/profile', userData)
+      const response = await api.put('/api/v1/users/profile', userData)
       if (response.data.success) {
-        commit('SET_USER', response.data.data.user)
-        localStorage.setItem('user', JSON.stringify(response.data.data.user))
+        commit('SET_USER', response.data.data)
+        localStorage.setItem('user', JSON.stringify(response.data.data))
         return response.data
       }
+      throw new Error(response.data.message || 'Erreur lors de la mise à jour du profil')
     } catch (error) {
       console.error('Erreur de mise à jour du profil:', error)
+      throw error
+    }
+  },
+
+  async updatePassword(_, { currentPassword, newPassword }) {
+    try {
+      const response = await api.put('/api/v1/users/password', {
+        currentPassword,
+        newPassword
+      })
+      return response.data
+    } catch (error) {
+      console.error('Erreur de mise à jour du mot de passe:', error)
+      throw error
+    }
+  },
+
+  async updateProfilePicture({ commit }, formData) {
+    try {
+      const response = await api.put('/api/v1/users/profile-picture', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      if (response.data.success) {
+        const user = { ...state.user, profilePicture: response.data.data.profilePicture }
+        commit('SET_USER', user)
+        localStorage.setItem('user', JSON.stringify(user))
+        return response.data
+      }
+      throw new Error(response.data.message || 'Erreur lors de la mise à jour de la photo')
+    } catch (error) {
+      console.error('Erreur de mise à jour de la photo:', error)
       throw error
     }
   },

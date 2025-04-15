@@ -219,8 +219,72 @@ const envoyerEmailInvitationWorkspace = async (email, nomInviteur, nomWorkspace,
   }
 };
 
+const envoyerEmailModificationEmail = async (newEmail, username) => {
+  try {
+    const info = await transporter.sendMail({
+      from: '"SupChat" <no-reply@supchat.com>',
+      to: newEmail,
+      subject: 'Modification de votre adresse email',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            .container {
+              max-width: 600px;
+              margin: 0 auto;
+              padding: 20px;
+              font-family: Arial, sans-serif;
+            }
+            .header {
+              background-color: #4CAF50;
+              color: white;
+              padding: 20px;
+              text-align: center;
+            }
+            .content {
+              padding: 20px;
+              background-color: #f9f9f9;
+            }
+            .footer {
+              text-align: center;
+              padding: 20px;
+              font-size: 12px;
+              color: #666;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Modification de votre adresse email</h1>
+            </div>
+            <div class="content">
+              <p>Bonjour ${username},</p>
+              <p>Votre adresse email sur SupChat a été modifiée avec succès. Cette adresse email (${newEmail}) est maintenant associée à votre compte.</p>
+              <p>Si vous n'êtes pas à l'origine de cette modification, veuillez contacter immédiatement notre support.</p>
+            </div>
+            <div class="footer">
+              <p>Ceci est un email automatique, merci de ne pas y répondre.</p>
+              <p> ${new Date().getFullYear()} SupChat. Tous droits réservés.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    });
+
+    return info;
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de l\'email:', error);
+    throw new Error('Erreur lors de l\'envoi de l\'email de modification d\'adresse');
+  }
+};
+
 module.exports = {
   envoyerEmailVerification,
   envoyerEmailReinitialisationMotDePasse,
-  envoyerEmailInvitationWorkspace
+  envoyerEmailInvitationWorkspace,
+  envoyerEmailModificationEmail
 };

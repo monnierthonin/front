@@ -24,6 +24,13 @@
                 prepend-icon="mdi-lock"
                 :rules="[rules.required]"
               />
+              <v-checkbox
+                v-model="rememberMe"
+                label="Se souvenir de moi"
+                color="primary"
+                hide-details
+                class="mb-4"
+              />
               <v-card-actions>
                 <v-spacer />
                 <v-btn
@@ -106,6 +113,7 @@
 import { defineComponent, ref } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
+import { checkJWTExpiration } from '@/utils/jwt'
 
 export default defineComponent({
   name: 'LoginPage',
@@ -117,6 +125,7 @@ export default defineComponent({
     const password = ref('')
     const loading = ref(false)
     const formRef = ref(null)
+    const rememberMe = ref(false)
     const snackbar = ref({
       show: false,
       text: '',
@@ -150,7 +159,8 @@ export default defineComponent({
         console.log('Envoi de la requête de connexion...')
         const response = await store.dispatch('auth/login', {
           email: email.value,
-          password: password.value
+          password: password.value,
+          rememberMe: rememberMe.value
         })
         console.log('Réponse de connexion:', response)
         
@@ -159,9 +169,17 @@ export default defineComponent({
         console.log('Est authentifié:', isAuthenticated)
         
         if (isAuthenticated) {
+          const token = store.getters['auth/token']
+          const expInfo = checkJWTExpiration(token)
+          
+          let message = 'Connexion réussie !'
+          if (expInfo.expirationDate) {
+            message += ` Token valide jusqu'au ${expInfo.expirationDate.toLocaleString()}`
+          }
+          
           snackbar.value = {
             show: true,
-            text: 'Connexion réussie !',
+            text: message,
             color: 'success'
           }
           console.log('Redirection vers la page d\'accueil...')
@@ -206,6 +224,7 @@ export default defineComponent({
       formRef,
       rules,
       snackbar,
+      rememberMe,
       handleSubmit,
       handleGoogleLogin,
       handleMicrosoftLogin,

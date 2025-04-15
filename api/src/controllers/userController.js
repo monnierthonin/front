@@ -2,6 +2,7 @@ const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const fs = require('fs').promises;
 const path = require('path');
+const emailService = require('../services/emailService');
 
 const userController = {
   /**
@@ -33,7 +34,28 @@ const userController = {
       const updates = {};
 
       if (username) updates.username = username;
-      if (email) updates.email = email;
+      
+      // Vérifier si l'email est modifié
+      const currentUser = await User.findById(req.user.id);
+      if (email && email !== currentUser.email) {
+        // Vérifier si l'email n'est pas déjà utilisé
+        const emailExists = await User.findOne({ email });
+        if (emailExists) {
+          return res.status(400).json({
+            success: false,
+            message: 'Cette adresse email est déjà utilisée'
+          });
+        }
+        updates.email = email;
+        
+        // Envoyer un email de confirmation au nouvel email
+        try {
+          await emailService.envoyerEmailModificationEmail(email, username || currentUser.username);
+        } catch (emailError) {
+          console.error('Erreur lors de l\'envoi de l\'email de confirmation:', emailError);
+          // On continue malgré l'erreur d'envoi d'email
+        }
+      }
 
       const user = await User.findByIdAndUpdate(
         req.user.id,
@@ -43,7 +65,9 @@ const userController = {
 
       res.json({
         success: true,
-        message: 'Profil mis à jour avec succès',
+        message: email !== currentUser.email 
+          ? 'Profil mis à jour avec succès. Un email de confirmation a été envoyé à votre nouvelle adresse.'
+          : 'Profil mis à jour avec succès',
         data: user
       });
     } catch (error) {
