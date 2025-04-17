@@ -17,7 +17,7 @@ const mutations = {
 const actions = {
   async fetchWorkspaces({ commit }) {
     try {
-      const response = await api.get('/api/v1/workspaces')
+      const response = await api.get('/workspaces')
       console.log('Réponse workspaces:', response.data)
       commit('SET_WORKSPACES', response.data.data.workspaces)
       return response.data.data.workspaces
@@ -29,8 +29,8 @@ const actions = {
 
   async fetchWorkspace({ commit }, workspaceId) {
     try {
-      const response = await api.get(`/api/v1/workspaces/${workspaceId}`)
-      console.log('Réponse workspace:', response.data)
+      const response = await api.get(`/workspaces/${workspaceId}`)
+      console.log('Workspace récupéré:', response.data.data.workspace.nom)
       commit('SET_CURRENT_WORKSPACE', response.data.data.workspace)
       return response.data.data.workspace
     } catch (error) {
@@ -41,7 +41,7 @@ const actions = {
 
   async createWorkspace({ dispatch }, workspaceData) {
     try {
-      const response = await api.post('/api/v1/workspaces', workspaceData)
+      const response = await api.post('/workspaces', workspaceData)
       console.log('Réponse création workspace:', response.data)
       await dispatch('fetchWorkspaces')
       return response.data.data.workspace
@@ -53,10 +53,43 @@ const actions = {
 
   async inviteUser(_, { workspaceId, email }) {
     try {
-      const response = await api.post(`/api/v1/workspaces/${workspaceId}/inviter`, { email })
+      const response = await api.post(`/workspaces/${workspaceId}/inviter`, { email })
+      console.log('Réponse invitation:', response.data)
       return response.data.data
     } catch (error) {
       console.error('Erreur lors de l\'invitation:', error)
+      throw error
+    }
+  },
+
+  async verifierInvitation(_, { workspaceId, token, action }) {
+    try {
+      const response = await api.get(`/workspaces/invitation/${workspaceId}/${token}/${action}`)
+      return response.data
+    } catch (error) {
+      console.error('Erreur lors de la vérification de l\'invitation:', error)
+      throw error
+    }
+  },
+
+  async accepterInvitation(_, { workspaceId, token, action }) {
+    try {
+      const response = await api.get(`/workspaces/invitation/${workspaceId}/${token}/${action}`)
+      return response.data
+    } catch (error) {
+      console.error('Erreur lors de l\'acceptation de l\'invitation:', error)
+      throw error
+    }
+  },
+
+  async updateWorkspace({ commit }, { workspaceId, workspaceData }) {
+    try {
+      const response = await api.patch(`/workspaces/${workspaceId}`, workspaceData)
+      console.log('Réponse mise à jour workspace:', response.data)
+      commit('SET_CURRENT_WORKSPACE', response.data.data.workspace)
+      return response.data.data.workspace
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du workspace:', error)
       throw error
     }
   }

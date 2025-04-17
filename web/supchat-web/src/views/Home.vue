@@ -31,7 +31,7 @@
                   :to="'/workspace/' + workspace._id"
                   :class="{ 'primary--text': workspace._id === currentWorkspaceId }"
                 >
-                  <v-list-item-title>{{ workspace.name }}</v-list-item-title>
+                  <v-list-item-title>{{ workspace.nom }}</v-list-item-title>
                 </v-list-item>
               </v-list>
             </v-card>
@@ -61,7 +61,7 @@
           <v-card-text>
             <v-form ref="form" v-model="isValid">
               <v-text-field
-                v-model="newWorkspace.name"
+                v-model="newWorkspace.nom"
                 :rules="nameRules"
                 label="Nom du workspace"
                 required
@@ -121,7 +121,7 @@ export default defineComponent({
     const showCreateWorkspaceDialog = ref(false)
     const isValid = ref(false)
     const newWorkspace = ref({
-      name: '',
+      nom: '',
       description: ''
     })
     const snackbar = ref({

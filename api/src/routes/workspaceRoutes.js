@@ -32,8 +32,9 @@ router.delete('/:id/membres/:membreId', authenticate, workspaceController.suppri
 router.patch('/:id/membres/:membreId/role', authenticate, workspaceController.modifierRoleMembre);
 
 // Gestion des invitations
-router.post('/:id/inviter/:userId', authenticate, workspaceController.envoyerInvitation);
+router.post('/:id/inviter', authenticate, workspaceController.envoyerInvitation);
 router.delete('/:id/invitations/:token', authenticate, workspaceController.revoquerInvitation);
-router.get('/invitation/:workspaceId/:token', authenticate, workspaceController.accepterInvitation);
+router.get('/invitation/:workspaceId/:token/verifier', workspaceController.verifierInvitation);
+router.get('/invitation/:workspaceId/:token/accepter', authenticate, workspaceController.accepterInvitation);
 
 module.exports = router;

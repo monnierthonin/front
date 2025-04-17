@@ -2,6 +2,7 @@ const Workspace = require('../models/workspace');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const User = require('../models/user');
+const Canal = require('../models/canal');
 const { envoyerEmailInvitationWorkspace } = require('../services/emailService');
 
 // Créer un nouveau workspace
@@ -11,6 +12,20 @@ exports.creerWorkspace = catchAsync(async (req, res) => {
         description: req.body.description,
         proprietaire: req.user.id,
         visibilite: req.body.visibilite || 'prive',
+        membres: [{
+            utilisateur: req.user.id,
+            role: 'admin'
+        }]
+    });
+
+    // Créer le canal Général
+    await Canal.create({
+        nom: 'Général',
+        description: 'Canal général du workspace',
+        workspace: workspace._id,
+        createur: req.user.id,
+        type: 'texte',
+        visibilite: 'public',
         membres: [{
             utilisateur: req.user.id,
             role: 'admin'
@@ -93,8 +108,8 @@ exports.mettreAJourWorkspace = catchAsync(async (req, res, next) => {
         return next(new AppError('Workspace non trouvé', 404));
     }
 
-    if (!workspace.estAdmin(req.user.id)) {
-        return next(new AppError('Seuls les administrateurs peuvent modifier le workspace', 403));
+    if (workspace.proprietaire.toString() !== req.user.id) {
+        return next(new AppError('Seul le propriétaire peut modifier le workspace', 403));
     }
 
     const champsAutorises = ['nom', 'description', 'visibilite'];
@@ -146,62 +161,128 @@ exports.envoyerInvitation = catchAsync(async (req, res, next) => {
         return next(new AppError('Seuls les administrateurs peuvent envoyer des invitations', 403));
     }
 
-    // Vérifier si l'utilisateur invité existe
-    const utilisateurInvite = await User.findById(req.params.userId);
-    if (!utilisateurInvite) {
-        return next(new AppError('Utilisateur non trouvé', 404));
+    const { email } = req.body;
+    if (!email) {
+        return next(new AppError('L\'adresse email est requise', 400));
     }
 
     // Vérifier si l'utilisateur est déjà membre
-    if (workspace.estMembre(utilisateurInvite.id)) {
-        return next(new AppError('Cet utilisateur est déjà membre du workspace', 400));
+    const utilisateurInvite = await User.findOne({ email });
+    
+    if (utilisateurInvite) {
+        const estDejaMembre = workspace.estMembre(utilisateurInvite._id);
+        if (estDejaMembre) {
+            return next(new AppError('Cet utilisateur est déjà membre du workspace', 400));
+        }
+
+        // Vérifier si une invitation est déjà en attente pour un utilisateur existant
+        const invitationExistante = workspace.invitationsEnAttente.find(
+            invitation => invitation.email === email
+        );
+        if (invitationExistante) {
+            return next(new AppError('Une invitation est déjà en attente pour cet utilisateur', 400));
+        }
+    } else {
+        // Vérifier si une invitation est déjà en attente pour un email
+        const invitationExistante = workspace.invitationsEnAttente.find(
+            invitation => invitation.email === email
+        );
+        if (invitationExistante) {
+            return next(new AppError('Une invitation est déjà en attente pour cet email', 400));
+        }
     }
 
-    // Générer un token d'invitation
-    const token = workspace.genererTokenInvitation(utilisateurInvite.id, utilisateurInvite.email);
-    await workspace.save();
+    try {
+        // Générer un token d'invitation
+        const token = workspace.genererTokenInvitation(
+            utilisateurInvite ? utilisateurInvite._id : null,
+            email
+        );
+        await workspace.save();
 
-    // Envoyer l'email d'invitation
-    const urlInvitation = `${process.env.CLIENT_URL}/workspaces/invitation/${workspace.id}/${token}`;
-    await envoyerEmailInvitationWorkspace(
-        utilisateurInvite.email,
-        req.user.lastName,  // nom de l'inviteur
-        workspace.nom,  // nom du workspace
-        workspace.description || '',  // description du workspace
-        urlInvitation  // URL d'invitation complète
+        // Construire l'URL d'invitation
+        const urlInvitation = `${process.env.FRONTEND_URL}/workspaces/invitation/${workspace._id}/${token}`;
+
+        // Envoyer l'email d'invitation
+        // Récupérer le nom de l'inviteur
+        const inviteur = await User.findById(req.user.id);
+        
+        await envoyerEmailInvitationWorkspace(
+            email,  // email du destinataire
+            inviteur.nom,  // nom de l'inviteur
+            workspace.nom,  // nom du workspace
+            workspace.description || '',  // description du workspace
+            urlInvitation  // URL d'invitation complète
+        );
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Invitation envoyée avec succès'
+        });
+    } catch (error) {
+        console.error('Erreur lors de l\'envoi de l\'invitation:', error);
+        return next(new AppError('Une erreur est survenue lors de l\'envoi de l\'invitation', 500));
+    }
+});
+
+// Méthode pour vérifier un token d'invitation
+exports.verifierInvitation = catchAsync(async (req, res, next) => {
+    const workspace = await Workspace.findById(req.params.workspaceId);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'invitation existe
+    const invitation = workspace.invitationsEnAttente.find(
+        inv => inv.token === req.params.token
     );
+
+    if (!invitation) {
+        return next(new AppError('Invitation invalide ou expirée', 400));
+    }
+
+    // Vérifier si l'utilisateur est déjà inscrit
+    const estInscrit = await User.exists({ email: invitation.email });
 
     res.status(200).json({
         status: 'success',
-        message: 'Invitation envoyée avec succès'
+        data: {
+            workspaceId: workspace._id,
+            workspaceNom: workspace.nom,
+            email: invitation.email,
+            token: invitation.token,
+            estInscrit: !!estInscrit
+        }
     });
 });
 
-// Accepter une invitation
+// Méthode pour accepter une invitation
 exports.accepterInvitation = catchAsync(async (req, res, next) => {
     const workspace = await Workspace.findById(req.params.workspaceId);
     if (!workspace) {
         return next(new AppError('Workspace non trouvé', 404));
     }
 
-    // Vérifier le token d'invitation
     const invitation = workspace.verifierTokenInvitation(req.params.token);
     if (!invitation) {
-        return next(new AppError('Token d\'invitation invalide ou expiré', 400));
+        return next(new AppError('Invitation invalide ou expirée', 400));
     }
 
-    // Vérifier que l'utilisateur qui accepte est bien celui qui a été invité
-    if (invitation.utilisateur.toString() !== req.user.id) {
+    // Vérifier que l'email de l'invitation correspond à l'utilisateur connecté
+    if (invitation.email !== req.user.email) {
         return next(new AppError('Cette invitation ne vous est pas destinée', 403));
     }
 
-    // Ajouter l'utilisateur comme membre
-    if (!workspace.estMembre(req.user.id)) {
-        workspace.membres.push({
-            utilisateur: req.user.id,
-            role: 'membre'
-        });
+    // Vérifier si l'utilisateur est déjà membre
+    if (workspace.estMembre(req.user.id)) {
+        return next(new AppError('Vous êtes déjà membre de ce workspace', 400));
     }
+
+    // Ajouter l'utilisateur comme membre
+    workspace.membres.push({
+        utilisateur: req.user.id,
+        role: 'membre'
+    });
 
     // Supprimer l'invitation
     workspace.invitationsEnAttente = workspace.invitationsEnAttente.filter(

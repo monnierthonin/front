@@ -80,9 +80,9 @@ workspaceSchema.methods.genererTokenInvitation = function(userId, email) {
     const dateExpiration = new Date();
     dateExpiration.setHours(dateExpiration.getHours() + 24); // Expire après 24h
 
-    // Supprimer toute invitation existante pour cet utilisateur
+    // Supprimer toute invitation existante pour cet email
     this.invitationsEnAttente = this.invitationsEnAttente.filter(
-        invitation => invitation.utilisateur.toString() !== userId.toString()
+        invitation => invitation.email !== email
     );
 
     // Ajouter la nouvelle invitation

@@ -24,7 +24,7 @@ const mutations = {
 const actions = {
   async checkAuth({ commit }) {
     try {
-      const response = await api.get('/api/v1/auth/me')
+      const response = await api.get('/auth/me')
       if (response.data.success) {
         commit('SET_USER', response.data.data.user)
         return true
@@ -39,7 +39,7 @@ const actions = {
   async login({ commit }, credentials) {
     try {
       console.log('Tentative de connexion avec:', credentials);
-      const response = await api.post('/api/v1/auth/connexion', {
+      const response = await api.post('/auth/connexion', {
         email: credentials.email,
         password: credentials.password,
         rememberMe: credentials.rememberMe || false
@@ -68,7 +68,7 @@ const actions = {
 
   async register(_, userData) {
     try {
-      const response = await api.post('/api/v1/auth/inscription', userData)
+      const response = await api.post('/auth/inscription', userData)
       if (response.data.success) {
         return response.data
       } else {
@@ -82,7 +82,7 @@ const actions = {
 
   async verifyEmail(_, token) {
     try {
-      const response = await api.get(`/api/v1/auth/verify-email/${token}`)
+      const response = await api.get(`/auth/verify-email/${token}`)
       return response.data
     } catch (error) {
       console.error('Erreur de vérification email:', error)
@@ -92,7 +92,7 @@ const actions = {
 
   async forgotPassword(_, email) {
     try {
-      const response = await api.post('/api/v1/auth/forgot-password', { email })
+      const response = await api.post('/auth/forgot-password', { email })
       return response.data
     } catch (error) {
       console.error('Erreur de demande de réinitialisation:', error)
@@ -102,7 +102,7 @@ const actions = {
 
   async resetPassword(_, { token, password }) {
     try {
-      const response = await api.post(`/api/v1/auth/reset-password/${token}`, { password })
+      const response = await api.post(`/auth/reset-password/${token}`, { password })
       return response.data
     } catch (error) {
       console.error('Erreur de réinitialisation du mot de passe:', error)
@@ -112,7 +112,7 @@ const actions = {
 
   async updateProfile({ commit }, userData) {
     try {
-      const response = await api.put('/api/v1/users/profile', userData)
+      const response = await api.put('/users/profile', userData)
       if (response.data.success) {
         commit('SET_USER', response.data.data)
         localStorage.setItem('user', JSON.stringify(response.data.data))
@@ -127,7 +127,7 @@ const actions = {
 
   async updatePassword(_, { currentPassword, newPassword }) {
     try {
-      const response = await api.put('/api/v1/users/password', {
+      const response = await api.put('/users/password', {
         currentPassword,
         newPassword
       })
@@ -140,7 +140,7 @@ const actions = {
 
   async updateProfilePicture({ commit }, formData) {
     try {
-      const response = await api.put('/api/v1/users/profile-picture', formData, {
+      const response = await api.put('/users/profile-picture', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -160,7 +160,7 @@ const actions = {
 
   async logout({ commit }) {
     try {
-      await api.post('/api/v1/auth/deconnexion')
+      await api.post('/auth/deconnexion')
       commit('LOGOUT')
       localStorage.removeItem('token')
       localStorage.removeItem('user')

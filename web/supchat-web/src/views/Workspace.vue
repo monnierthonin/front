@@ -7,6 +7,9 @@
           <v-toolbar dense>
             <v-toolbar-title>{{ workspace?.nom || 'Workspace' }}</v-toolbar-title>
             <v-spacer></v-spacer>
+            <v-btn v-if="isOwner" icon @click="showSettings = true">
+              <v-icon>mdi-cog</v-icon>
+            </v-btn>
             <v-btn icon @click="showCreateCanal = true">
               <v-icon>mdi-plus</v-icon>
             </v-btn>
@@ -118,9 +121,13 @@
             <v-text-field
               v-model="inviteEmail"
               label="Email"
-              type="email"
               :rules="[rules.required, rules.email]"
               required
+              :loading="inviteLoading"
+              :disabled="inviteLoading"
+              placeholder="exemple@email.com"
+              hint="Un email d'invitation sera envoyé à cette adresse"
+              persistent-hint
             />
           </v-form>
         </v-card-text>
@@ -129,14 +136,15 @@
           <v-btn
             color="primary"
             @click="inviteUser"
-            :loading="loading"
-            :disabled="!validInvite"
+            :loading="inviteLoading"
+            :disabled="!validInvite || inviteLoading"
           >
             Inviter
           </v-btn>
           <v-btn
             text
             @click="closeInviteDialog"
+            :disabled="inviteLoading"
           >
             Annuler
           </v-btn>
@@ -159,6 +167,56 @@
         </v-btn>
       </template>
     </v-snackbar>
+
+    <!-- Dialog paramètres workspace -->
+    <v-dialog v-model="showSettings" max-width="500px">
+      <v-card>
+        <v-card-title>
+          Paramètres du workspace
+        </v-card-title>
+        <v-card-text>
+          <v-form ref="settingsForm" v-model="validSettings">
+            <v-text-field
+              v-model="workspaceSettings.nom"
+              label="Nom du workspace"
+              :rules="[rules.required]"
+              required
+            />
+            <v-textarea
+              v-model="workspaceSettings.description"
+              label="Description"
+              rows="3"
+            />
+            <v-select
+              v-model="workspaceSettings.visibilite"
+              :items="visibiliteOptions"
+              item-title="text"
+              item-value="value"
+              label="Visibilité"
+              :rules="[rules.required]"
+              required
+            />
+          </v-form>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="primary"
+            @click="updateWorkspace"
+            :loading="loading"
+            :disabled="!validSettings"
+          >
+            Enregistrer
+          </v-btn>
+          <v-btn
+            text
+            @click="closeSettingsDialog"
+          >
+            Annuler
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -175,11 +233,14 @@ export default defineComponent({
 
     const showCreateCanal = ref(false)
     const showInviteUser = ref(false)
+    const showSettings = ref(false)
     const loading = ref(false)
     const validCanal = ref(false)
     const validInvite = ref(false)
+    const validSettings = ref(false)
     const canalForm = ref(null)
     const inviteForm = ref(null)
+    const settingsForm = ref(null)
 
     const typeOptions = [
       { text: 'Canal textuel', value: 'texte' },
@@ -199,6 +260,13 @@ export default defineComponent({
     })
 
     const inviteEmail = ref('')
+    const inviteLoading = ref(false)
+
+    const workspaceSettings = ref({
+      nom: '',
+      description: '',
+      visibilite: 'prive'
+    })
 
     const snackbar = ref({
       show: false,
@@ -213,6 +281,13 @@ export default defineComponent({
 
     const workspaceId = computed(() => route.params.id)
     const workspace = computed(() => store.state.workspace.currentWorkspace)
+    const isOwner = computed(() => {
+      const currentWorkspace = workspace.value
+      const currentUser = store.state.auth.user
+      
+      if (!currentWorkspace || !currentUser) return false
+      return currentWorkspace.proprietaire?._id === currentUser._id
+    })
     const canaux = computed(() => store.state.canal.canaux)
 
     const createCanal = async () => {
@@ -246,7 +321,7 @@ export default defineComponent({
     const inviteUser = async () => {
       if (!inviteForm.value.validate()) return
 
-      loading.value = true
+      inviteLoading.value = true
       try {
         await store.dispatch('workspace/inviteUser', {
           workspaceId: workspaceId.value,
@@ -262,11 +337,11 @@ export default defineComponent({
         console.error('Erreur invitation:', error)
         snackbar.value = {
           show: true,
-          text: error.response?.data?.message || 'Erreur lors de l\'envoi de l\'invitation',
+          text: error.response?.data?.message || 'Erreur lors de l\'invitation',
           color: 'error'
         }
       } finally {
-        loading.value = false
+        inviteLoading.value = false
       }
     }
 
@@ -291,8 +366,57 @@ export default defineComponent({
       }
     }
 
+    const closeSettingsDialog = () => {
+      showSettings.value = false
+      if (workspace.value) {
+        workspaceSettings.value = {
+          nom: workspace.value.nom,
+          description: workspace.value.description || '',
+          visibilite: workspace.value.visibilite
+        }
+      }
+      if (settingsForm.value) {
+        settingsForm.value.reset()
+      }
+    }
+
+    const updateWorkspace = async () => {
+      if (!settingsForm.value.validate()) return
+
+      loading.value = true
+      try {
+        await store.dispatch('workspace/updateWorkspace', {
+          workspaceId: workspaceId.value,
+          workspaceData: workspaceSettings.value
+        })
+        closeSettingsDialog()
+        snackbar.value = {
+          show: true,
+          text: 'Workspace mis à jour avec succès',
+          color: 'success'
+        }
+      } catch (error) {
+        console.error('Erreur mise à jour workspace:', error)
+        snackbar.value = {
+          show: true,
+          text: error.response?.data?.message || 'Erreur lors de la mise à jour du workspace',
+          color: 'error'
+        }
+      } finally {
+        loading.value = false
+      }
+    }
+
     onMounted(async () => {
       if (workspaceId.value) {
+        // Initialiser les paramètres du workspace
+        if (workspace.value) {
+          workspaceSettings.value = {
+            nom: workspace.value.nom,
+            description: workspace.value.description || '',
+            visibilite: workspace.value.visibilite
+          }
+        }
         try {
           await store.dispatch('workspace/fetchWorkspace', workspaceId.value)
           await store.dispatch('canal/fetchCanaux', workspaceId.value)
@@ -316,8 +440,10 @@ export default defineComponent({
       loading,
       validCanal,
       validInvite,
+      validSettings,
       canalForm,
       inviteForm,
+      settingsForm,
       newCanal,
       inviteEmail,
       snackbar,
@@ -327,7 +453,12 @@ export default defineComponent({
       createCanal,
       inviteUser,
       closeCreateDialog,
-      closeInviteDialog
+      closeInviteDialog,
+      showSettings,
+      workspaceSettings,
+      isOwner,
+      updateWorkspace,
+      closeSettingsDialog
     }
   }
 })

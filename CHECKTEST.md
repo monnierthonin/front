@@ -125,23 +125,23 @@
 ## Tests des Workspaces
 
 ### Création et Configuration
-- [ ] Création d'un workspace
-  - Scénario : Utilisateur crée un workspace "Test Team"
-  - Vérifier : Création dans la base de données
-  - Vérifier : Utilisateur défini comme créateur
-  - Vérifier : Canal "général" créé automatiquement
+- [x] Création d'un workspace
+  - Scénario : Utilisateur crée un workspace "Test Team" ✓
+  - Vérifier : Création dans la base de données ✓
+  - Vérifier : Utilisateur défini comme créateur ✓
+  - Vérifier : Canal "général" créé automatiquement ✓
 
-- [ ] Modification des paramètres
-  - Scénario : Créateur modifie le titre et la description
-  - Vérifier : Mise à jour en temps réel
-  - Vérifier : Seul le créateur peut modifier
+- [x] Modification des paramètres
+  - Scénario : Créateur modifie le titre et la description ✓
+  - Vérifier : Mise à jour en temps réel ✓
+  - Vérifier : Seul le créateur peut modifier ✓
 
 ### Gestion des Membres
-- [ ] Invitation par email
-  - Scénario : Invitation envoyée à "invite@example.com"
-  - Vérifier : Email d'invitation reçu
-  - Vérifier : Lien d'invitation fonctionnel
-  - Vérifier : Ajout au workspace après acceptation
+- [x] Invitation par email
+    - [x] Envoi d'une invitation à une adresse email
+    - [x] Réception de l'email d'invitation
+    - [x] Lien d'invitation fonctionnel
+    - [x] Ajout au workspace après acceptation
 
 - [ ] Gestion des rôles
   - Scénario : Attribution du rôle "admin" à un membre

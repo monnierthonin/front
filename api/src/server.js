@@ -3,6 +3,9 @@ const dotenv = require('dotenv');
 const { app, serveur } = require('./app');
 const initialiserBaseDeDonnees = require('./config/database');
 
+// Charger les variables d'environnement
+dotenv.config();
+
 // Configuration du port
 const port = process.env.PORT || 3000;
 

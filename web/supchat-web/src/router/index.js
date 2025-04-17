@@ -7,6 +7,7 @@ import WorkspacePage from '../views/Workspace.vue'
 import CanalPage from '../views/Canal.vue'
 import AuthCallback from '../views/AuthCallback.vue'
 import Profile from '../views/Profile.vue'
+import InvitationWorkspace from '../views/InvitationWorkspace.vue'
 
 const routes = [
   {
@@ -64,6 +65,22 @@ const routes = [
     name: 'Profile',
     component: Profile,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/workspaces/invitation/:workspaceId/:token',
+    name: 'InvitationWorkspace',
+    component: InvitationWorkspace
+  },
+  {
+    path: '/workspaces/invitation/:workspaceId/:token/verifier',
+    name: 'VerifierInvitation',
+    component: InvitationWorkspace
+  },
+  {
+    path: '/workspaces/invitation/:workspaceId/:token/accepter',
+    name: 'AccepterInvitation',
+    component: InvitationWorkspace,
+    meta: { requiresAuth: true }
   }
 ]
 
@@ -76,6 +93,12 @@ const router = createRouter({
 let authInitialized = false
 
 router.beforeEach(async (to, from, next) => {
+  // Si c'est une route d'invitation, pas besoin de vérifier l'authentification
+  if (to.name === 'InvitationWorkspace') {
+    next()
+    return
+  }
+
   // Initialiser l'état d'authentification si ce n'est pas déjà fait
   if (!authInitialized) {
     await store.dispatch('auth/initAuth')

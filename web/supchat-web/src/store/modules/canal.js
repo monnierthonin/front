@@ -32,7 +32,7 @@ const mutations = {
 const actions = {
   async fetchCanaux({ commit }, workspaceId) {
     try {
-      const response = await api.get(`/api/v1/workspaces/${workspaceId}/canaux`)
+      const response = await api.get(`/workspaces/${workspaceId}/canaux`)
       commit('SET_CANAUX', response.data.data.canaux)
       return response.data.data.canaux
     } catch (error) {
@@ -43,7 +43,7 @@ const actions = {
 
   async fetchCanal({ commit }, { workspaceId, canalId }) {
     try {
-      const response = await api.get(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}`)
+      const response = await api.get(`/workspaces/${workspaceId}/canaux/${canalId}`)
       commit('SET_CANAL_ACTIF', response.data.data.canal)
       return response.data.data.canal
     } catch (error) {
@@ -55,7 +55,7 @@ const actions = {
   async createCanal({ commit }, { workspaceId, canalData }) {
     try {
       console.log('Données envoyées à l\'API:', canalData)
-      const response = await api.post(`/api/v1/workspaces/${workspaceId}/canaux`, canalData)
+      const response = await api.post(`/workspaces/${workspaceId}/canaux`, canalData)
       commit('ADD_CANAL', response.data.data.canal)
       return response.data.data.canal
     } catch (error) {
@@ -66,7 +66,7 @@ const actions = {
 
   async updateCanal({ commit }, { workspaceId, canalId, canalData }) {
     try {
-      const response = await api.put(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}`, canalData)
+      const response = await api.put(`/workspaces/${workspaceId}/canaux/${canalId}`, canalData)
       commit('UPDATE_CANAL', response.data.data.canal)
       return response.data.data.canal
     } catch (error) {
@@ -77,7 +77,7 @@ const actions = {
 
   async deleteCanal({ commit }, { workspaceId, canalId }) {
     try {
-      await api.delete(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}`)
+      await api.delete(`/workspaces/${workspaceId}/canaux/${canalId}`)
       commit('DELETE_CANAL', canalId)
     } catch (error) {
       console.error('Erreur lors de la suppression du canal:', error)
