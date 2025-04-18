@@ -93,12 +93,6 @@ const router = createRouter({
 let authInitialized = false
 
 router.beforeEach(async (to, from, next) => {
-  // Si c'est une route d'invitation, pas besoin de vérifier l'authentification
-  if (to.name === 'InvitationWorkspace') {
-    next()
-    return
-  }
-
   // Initialiser l'état d'authentification si ce n'est pas déjà fait
   if (!authInitialized) {
     await store.dispatch('auth/initAuth')
@@ -107,6 +101,12 @@ router.beforeEach(async (to, from, next) => {
   }
 
   const isAuthenticated = store.getters['auth/isAuthenticated']
+
+  // Gérer les routes d'invitation
+  if (to.name === 'InvitationWorkspace' || to.name === 'VerifierInvitation') {
+    next()
+    return
+  }
 
   // Si la route requiert l'authentification et que l'utilisateur n'est pas connecté
   if (to.meta.requiresAuth && !isAuthenticated) {

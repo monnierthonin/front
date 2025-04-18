@@ -4,10 +4,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import axios from 'axios'
 import api from '@/plugins/axios'
+import { API_URL } from '@/config'
 
 // Créer une instance axios sans intercepteur pour la vérification de l'invitation
 const axiosPublic = axios.create({
-  baseURL: process.env.VUE_APP_API_URL + '/api/v1',
   withCredentials: true
 })
 
@@ -48,7 +48,7 @@ onMounted(async () => {
     
     console.log('Vérification de l\'invitation avec:', { id, inviteToken })
     const response = await axiosPublic.get(
-      `/workspaces/invitation/${id}/${inviteToken}/verifier`
+      `${API_URL}/api/v1/workspaces/invitation/${id}/${inviteToken}/verifier`
     )
     console.log('Réponse du serveur:', response.data)
 
@@ -77,24 +77,26 @@ onMounted(async () => {
       token.value = wsToken
       estInscrit.value = wsEstInscrit
 
-      // Redirection automatique selon le cas
-      if (!response.data.data.estInscrit) {
-        // Si l'utilisateur n'est pas inscrit, rediriger vers la page d'inscription
-        router.push({
-          name: 'Register',
-          query: {
-            email: response.data.data.email,
-            redirect: `/workspaces/invitation/${id}/${inviteToken}/accepter`
-          }
-        })
-      } else if (!estConnecte.value) {
-        // Si l'utilisateur est inscrit mais non connecté, rediriger vers la page de connexion
-        router.push({
-          name: 'Login',
-          query: {
-            redirect: `/workspaces/invitation/${id}/${inviteToken}/accepter`
-          }
-        })
+      // Redirection automatique seulement si nécessaire
+      if (route.name === 'InvitationWorkspace') {
+        if (!response.data.data.estInscrit) {
+          // Si l'utilisateur n'est pas inscrit, rediriger vers la page d'inscription
+          router.push({
+            name: 'Register',
+            query: {
+              email: response.data.data.email,
+              redirect: `/workspaces/invitation/${id}/${inviteToken}/accepter`
+            }
+          })
+        } else if (!estConnecte.value) {
+          // Si l'utilisateur est inscrit mais non connecté, rediriger vers la page de connexion
+          router.push({
+            name: 'Login',
+            query: {
+              redirect: `/workspaces/invitation/${id}/${inviteToken}/accepter`
+            }
+          })
+        }
       }
     } else {
       throw new Error(response.data.message || 'Une erreur est survenue')
@@ -116,7 +118,7 @@ onMounted(async () => {
 const accepterInvitation = async () => {
   acceptLoading.value = true
   try {
-    const response = await api.post(`/workspaces/invitation/${workspaceId.value}/${token.value}/accepter`)
+    const response = await api.get(`${API_URL}/api/v1/workspaces/invitation/${workspaceId.value}/${token.value}/accepter`)
     if (response.data.success) {
       await store.dispatch('auth/checkAuth')
       router.push(`/workspace/${workspaceId.value}`)

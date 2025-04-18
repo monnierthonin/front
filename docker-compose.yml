@@ -39,7 +39,7 @@ services:
     ports:
       - "3001:80"
     environment:
-      - VUE_APP_API_URL=http://localhost:3000
+      - VUE_APP_API_URL=http://api:3000
       - NODE_ENV=development
     depends_on:
       - api

@@ -289,6 +289,117 @@
  *         description: Échec de l'authentification
  *
  * @swagger
+ * /api/v1/auth/me:
+ *   get:
+ *     summary: Obtenir les informations de l'utilisateur connecté
+ *     description: Retourne les informations de l'utilisateur actuellement authentifié
+ *     tags: [Authentification]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Informations de l'utilisateur récupérées avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Non authentifié
+ *
+ * @swagger
+ * /api/v1/auth/mot-de-passe-oublie:
+ *   post:
+ *     summary: Demander la réinitialisation du mot de passe
+ *     description: Envoie un email avec un lien de réinitialisation du mot de passe
+ *     tags: [Authentification]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Email de réinitialisation envoyé avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Un email de réinitialisation a été envoyé
+ *       400:
+ *         description: Email invalide ou non trouvé
+ *
+ * @swagger
+ * /api/v1/auth/reinitialiser-mot-de-passe/{token}:
+ *   post:
+ *     summary: Réinitialiser le mot de passe
+ *     description: Réinitialise le mot de passe avec le token reçu par email
+ *     tags: [Authentification]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Token de réinitialisation reçu par email
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - password
+ *               - confirmPassword
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 minLength: 8
+ *               confirmPassword:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Mot de passe réinitialisé avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Mot de passe réinitialisé avec succès
+ *       400:
+ *         description: Token invalide ou mots de passe non concordants
+ *       404:
+ *         description: Token non trouvé ou expiré
+ *
+ * @swagger
  * /api/v1/auth/oauth/{provider}:
  *   delete:
  *     tags:

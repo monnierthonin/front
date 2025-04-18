@@ -31,13 +31,28 @@
  *                 description: ID de l'utilisateur membre
  *               role:
  *                 type: string
- *                 enum: [admin, membre]
+ *                 enum: [admin, moderateur, membre]
  *                 description: Rôle de l'utilisateur dans le workspace
  *         canaux:
  *           type: array
  *           items:
  *             type: string
  *             description: IDs des canaux du workspace
+ *         invitationsEnAttente:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: Email de l'utilisateur invité
+ *               token:
+ *                 type: string
+ *                 description: Token unique d'invitation
+ *               dateInvitation:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Date d'envoi de l'invitation
  *
  * @swagger
  * /api/v1/workspaces:
@@ -369,7 +384,55 @@
  *         description: Workspace non trouvé
  *
  * @swagger
- * /api/v1/workspaces/invitation/{workspaceId}/{token}:
+ * /api/v1/workspaces/invitation/{workspaceId}/{token}/verifier:
+ *   get:
+ *     summary: Vérifier une invitation
+ *     description: Vérifie la validité d'une invitation et retourne les informations nécessaires
+ *     tags: [Workspaces]
+ *     parameters:
+ *       - in: path
+ *         name: workspaceId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID du workspace
+ *       - in: path
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Token d'invitation
+ *     responses:
+ *       200:
+ *         description: Informations sur l'invitation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     workspaceId:
+ *                       type: string
+ *                     workspaceNom:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     token:
+ *                       type: string
+ *                     estInscrit:
+ *                       type: boolean
+ *       400:
+ *         description: Token invalide ou expiré
+ *       404:
+ *         description: Workspace non trouvé
+ *
+ * @swagger
+ * /api/v1/workspaces/invitation/{workspaceId}/{token}/accepter:
  *   get:
  *     summary: Accepter une invitation
  *     description: Accepte une invitation à rejoindre un workspace via un token
@@ -416,59 +479,4 @@
  *         description: Cette invitation ne vous est pas destinée
  *       404:
  *         description: Workspace non trouvé
- *
- * @swagger
- * /api/v1/workspaces/rejoindre:
- *   post:
- *     summary: Rejoindre un workspace via un code d'invitation
- *     description: Permet à un utilisateur de rejoindre un workspace en utilisant un code d'invitation
- *     tags: [Workspaces]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - code
- *             properties:
- *               code:
- *                 type: string
- *                 description: Code d'invitation généré pour le workspace
- *     responses:
- *       200:
- *         description: A rejoint le workspace avec succès
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   example: success
- *                 message:
- *                   type: string
- *                   example: Vous avez rejoint le workspace avec succès
- *                 data:
- *                   type: object
- *                   properties:
- *                     workspace:
- *                       $ref: '#/components/schemas/Workspace'
- *       400:
- *         description: Code invalide ou déjà membre
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: Code d'invitation invalide ou expiré
- *       401:
- *         description: Non authentifié
  */

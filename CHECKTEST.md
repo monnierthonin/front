@@ -138,10 +138,10 @@
 
 ### Gestion des Membres
 - [x] Invitation par email
-    - [x] Envoi d'une invitation à une adresse email
-    - [x] Réception de l'email d'invitation
-    - [x] Lien d'invitation fonctionnel
-    - [x] Ajout au workspace après acceptation
+    - [x] Envoi d'une invitation à une adresse email ✓
+    - [x] Réception de l'email d'invitation ✓
+    - [x] Lien d'invitation fonctionnel ✓
+    - [x] Ajout au workspace après acceptation ✓
 
 - [ ] Gestion des rôles
   - Scénario : Attribution du rôle "admin" à un membre
