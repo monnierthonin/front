@@ -2,7 +2,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const User = require('../models/user');
 const crypto = require('crypto');
-const { envoyerEmailVerification, envoyerEmailReinitialisationMotDePasse } = require('../services/emailService');
+const passport = require('passport');
+const { envoyerEmailVerification, envoyerEmailReinitialisationMotDePasse, envoyerEmailModificationMotDePasse } = require('../services/emailService');
 
 // Générer un token JWT
 const genererToken = (user, rememberMe = false) => {
@@ -271,48 +272,112 @@ exports.demanderReinitialisationMotDePasse = async (req, res) => {
     }
 };
 
-// Réinitialiser le mot de passe
 exports.reinitialiserMotDePasse = async (req, res) => {
     try {
-        const hashedToken = crypto
-            .createHash('sha256')
-            .update(req.params.token)
-            .digest('hex');
+        console.log('Début de la réinitialisation du mot de passe');
+        console.log('Token reçu:', req.params.token);
 
-        const utilisateur = await User.findOne({
-            resetPasswordToken: hashedToken,
-            resetPasswordExpires: { $gt: Date.now() }
-        });
-
-        if (!utilisateur) {
-            return res.redirect(`${process.env.CLIENT_URL}/login?error=token_invalide`);
+        // Vérifier les paramètres requis
+        if (!req.params.token) {
+            console.log('Token manquant');
+            return res.status(400).json({
+                success: false,
+                message: 'Token manquant'
+            });
         }
 
         if (!req.body.password || !req.body.confirmPassword) {
+            console.log('Mot de passe ou confirmation manquant');
             return res.status(400).json({
                 success: false,
-                message: 'Veuillez fournir un nouveau mot de passe et sa confirmation'
+                message: 'Veuillez fournir un mot de passe et sa confirmation'
             });
         }
 
         if (req.body.password !== req.body.confirmPassword) {
+            console.log('Les mots de passe ne correspondent pas');
             return res.status(400).json({
                 success: false,
                 message: 'Les mots de passe ne correspondent pas'
             });
         }
 
+        // Hasher le token reçu
+        const hashedToken = crypto
+            .createHash('sha256')
+            .update(req.params.token)
+            .digest('hex');
+        console.log('Token hashé:', hashedToken);
+
+        // Vérifier si l'utilisateur existe et si le token est valide
+        console.log('Recherche de l\'utilisateur avec le token');
+        const utilisateur = await User.findOne({
+            resetPasswordToken: hashedToken,
+            resetPasswordExpires: { $gt: Date.now() }
+        }).select('+password');
+
+        console.log('Utilisateur trouvé:', !!utilisateur);
+        if (!utilisateur) {
+            console.log('Token invalide ou expiré');
+            return res.status(400).json({
+                success: false,
+                message: 'Le token de réinitialisation est invalide ou a expiré'
+            });
+        }
+
+        // Vérifier que le nouveau mot de passe est différent de l'ancien
+        if (utilisateur.password) {
+            console.log('Vérification de l\'ancien mot de passe');
+            const isSamePassword = await utilisateur.comparePassword(req.body.password);
+            if (isSamePassword) {
+                console.log('Le nouveau mot de passe est identique à l\'ancien');
+                return res.status(400).json({
+                    success: false,
+                    message: 'Le nouveau mot de passe doit être différent de l\'ancien'
+                });
+            }
+        }
+
+        // Mettre à jour le mot de passe
+        console.log('Mise à jour du mot de passe');
         utilisateur.password = req.body.password;
         utilisateur.resetPasswordToken = undefined;
         utilisateur.resetPasswordExpires = undefined;
 
-        await utilisateur.save();
+        try {
+            console.log('Sauvegarde des modifications');
+            await utilisateur.save({ validateBeforeSave: false });
 
-        // Rediriger vers la page de connexion avec un message de succès
-        res.redirect(`${process.env.CLIENT_URL}/login?message=mot_de_passe_reinitialise`);
+            // Envoyer un email de confirmation
+            console.log('Envoi de l\'email de confirmation');
+            await envoyerEmailModificationMotDePasse(utilisateur.email, utilisateur.username);
+
+            console.log('Réinitialisation terminée avec succès');
+            // Envoyer une réponse de succès
+            return res.json({
+                success: true,
+                message: 'Votre mot de passe a été réinitialisé avec succès'
+            });
+        } catch (saveError) {
+            console.error('Erreur lors de la sauvegarde du mot de passe:', saveError);
+            console.error('Détails de l\'erreur:', saveError.message);
+            if (saveError.errors) {
+                console.error('Erreurs de validation:', JSON.stringify(saveError.errors, null, 2));
+            }
+            return res.status(500).json({
+                success: false,
+                message: 'Une erreur est survenue lors de la sauvegarde du nouveau mot de passe',
+                error: process.env.NODE_ENV === 'development' ? saveError.message : undefined
+            });
+        }
     } catch (erreur) {
         console.error('Erreur lors de la réinitialisation du mot de passe:', erreur);
-        res.redirect(`${process.env.CLIENT_URL}/login?error=erreur_reinitialisation`);
+        console.error('Stack trace:', erreur.stack);
+        return res.status(500).json({
+            success: false,
+            message: 'Une erreur est survenue lors de la réinitialisation du mot de passe',
+            error: process.env.NODE_ENV === 'development' ? erreur.message : undefined
+        });
     }
 };
 

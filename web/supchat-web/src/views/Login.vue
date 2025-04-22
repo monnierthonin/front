@@ -31,14 +31,29 @@
                 hide-details
                 class="mb-4"
               />
-              <v-card-actions>
-                <v-spacer />
+              <v-card-actions class="d-flex flex-column gap-2">
                 <v-btn
                   color="primary"
                   type="submit"
                   :loading="loading"
+                  block
                 >
                   Se connecter
+                </v-btn>
+                <v-btn
+                  variant="text"
+                  :to="{ name: 'Register' }"
+                  block
+                >
+                  Créer un compte
+                </v-btn>
+                <v-btn
+                  variant="text"
+                  :to="{ name: 'ForgotPassword' }"
+                  block
+                  class="text-caption"
+                >
+                  Mot de passe oublié ?
                 </v-btn>
               </v-card-actions>
             </v-form>

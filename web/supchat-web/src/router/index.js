@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import store from '../store'
 import LoginPage from '../views/Login.vue'
 import RegisterPage from '../views/Register.vue'
+import ForgotPasswordPage from '../views/ForgotPassword.vue'
+import ResetPasswordPage from '../views/ResetPassword.vue'
 import HomePage from '../views/Home.vue'
 import WorkspacePage from '../views/Workspace.vue'
 import CanalPage from '../views/Canal.vue'
@@ -20,6 +22,18 @@ const routes = [
     path: '/register',
     name: 'Register',
     component: RegisterPage,
+    meta: { requiresGuest: true }
+  },
+  {
+    path: '/mot-de-passe-oublie',
+    name: 'ForgotPassword',
+    component: ForgotPasswordPage,
+    meta: { requiresGuest: true }
+  },
+  {
+    path: '/reinitialiser-mot-de-passe/:token',
+    name: 'ResetPassword',
+    component: ResetPasswordPage,
     meta: { requiresGuest: true }
   },
   {
@@ -93,6 +107,15 @@ const router = createRouter({
 let authInitialized = false
 
 router.beforeEach(async (to, from, next) => {
+  // Liste des routes publiques qui ne nécessitent pas d'authentification
+  const publicRoutes = ['InvitationWorkspace', 'VerifierInvitation', 'ResetPassword', 'ForgotPassword', 'Login', 'Register']
+  
+  // Si c'est une route publique, on ne vérifie pas l'authentification
+  if (publicRoutes.includes(to.name)) {
+    next()
+    return
+  }
+
   // Initialiser l'état d'authentification si ce n'est pas déjà fait
   if (!authInitialized) {
     await store.dispatch('auth/initAuth')
@@ -101,12 +124,6 @@ router.beforeEach(async (to, from, next) => {
   }
 
   const isAuthenticated = store.getters['auth/isAuthenticated']
-
-  // Gérer les routes d'invitation
-  if (to.name === 'InvitationWorkspace' || to.name === 'VerifierInvitation') {
-    next()
-    return
-  }
 
   // Si la route requiert l'authentification et que l'utilisateur n'est pas connecté
   if (to.meta.requiresAuth && !isAuthenticated) {

@@ -43,7 +43,7 @@ const envoyerEmailVerification = async (email, nom, token) => {
     throw new Error('Le service d\'email n\'est pas configuré correctement');
   }
 
-  const clientUrl = process.env.CLIENT_URL;
+  const clientUrl = process.env.FRONTEND_URL;
 
   try {
     const info = await transporter.sendMail({
@@ -84,7 +84,7 @@ const envoyerEmailReinitialisationMotDePasse = async (email, nom, token) => {
     throw new Error('Le service d\'email n\'est pas configuré correctement');
   }
 
-  const clientUrl = process.env.CLIENT_URL;
+  const clientUrl = process.env.FRONTEND_URL;
 
   try {
     const info = await transporter.sendMail({
@@ -97,13 +97,13 @@ const envoyerEmailReinitialisationMotDePasse = async (email, nom, token) => {
           <p>Bonjour ${nom},</p>
           <p>Vous avez demandé à réinitialiser votre mot de passe SupChat. Cliquez sur le bouton ci-dessous pour procéder :</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${clientUrl}/api/v1/auth/reinitialiser-mot-de-passe/${token}" 
+            <a href="${clientUrl}/reinitialiser-mot-de-passe/${token}" 
                style="background-color: #4CAF50; color: white; padding: 14px 20px; text-decoration: none; border-radius: 4px;">
               Réinitialiser mon mot de passe
             </a>
           </div>
           <p>Si le bouton ne fonctionne pas, vous pouvez copier et coller le lien suivant dans votre navigateur :</p>
-          <p>${clientUrl}/api/v1/auth/reinitialiser-mot-de-passe/${token}</p>
+          <p>${clientUrl}/reinitialiser-mot-de-passe/${token}</p>
           <p>Ce lien expirera dans 1 heure.</p>
           <p>Si vous n'avez pas demandé à réinitialiser votre mot de passe, vous pouvez ignorer cet email en toute sécurité.</p>
           <hr style="margin: 30px 0;">
@@ -289,9 +289,28 @@ const envoyerEmailModificationMotDePasse = async (email, username) => {
       to: email,
       subject: 'Confirmation de modification du mot de passe - SupChat',
       html: `
-        <h1>Bonjour ${username},</h1>
-        <p>Votre mot de passe a été modifié avec succès sur SupChat.</p>
-        <p>Si vous n'êtes pas à l'origine de cette modification, veuillez contacter notre support immédiatement.</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #4CAF50; padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0;">Confirmation de modification</h1>
+          </div>
+          <div style="padding: 20px; background-color: #f9f9f9;">
+            <p style="font-size: 16px;">Bonjour ${username},</p>
+            <p style="font-size: 16px;">Votre mot de passe SupChat a été modifié avec succès.</p>
+            <p style="font-size: 16px;">Si vous n'êtes pas à l'origine de cette modification, veuillez contacter notre support immédiatement en répondant à cet email.</p>
+            <div style="margin: 30px 0; padding: 20px; background-color: #fff; border-radius: 5px; border-left: 4px solid #4CAF50;">
+              <p style="margin: 0; color: #666;">Pour votre sécurité :</p>
+              <ul style="color: #666;">
+                <li>Assurez-vous d'utiliser un mot de passe unique pour chaque compte</li>
+                <li>Ne partagez jamais votre mot de passe avec quelqu'un</li>
+                <li>Activez l'authentification à deux facteurs si disponible</li>
+              </ul>
+            </div>
+          </div>
+          <div style="text-align: center; padding: 20px; background-color: #f5f5f5; color: #666; font-size: 12px;">
+            <p>Ceci est un email automatique, merci de ne pas y répondre.</p>
+            <p>&copy; ${new Date().getFullYear()} SupChat. Tous droits réservés.</p>
+          </div>
+        </div>
       `
     });
 
