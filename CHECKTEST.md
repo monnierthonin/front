@@ -143,16 +143,16 @@
     - [x] Lien d'invitation fonctionnel ✓
     - [x] Ajout au workspace après acceptation ✓
 
-- [ ] Gestion des rôles
-  - Scénario : Attribution du rôle "admin" à un membre
-  - Vérifier : Permissions mises à jour
-  - Vérifier : Accès aux fonctionnalités d'admin
+- [x] Gestion des rôles
+  - Scénario : Attribution du rôle "admin" à un membre ✓
+  - Vérifier : Permissions mises à jour ✓
+  - Vérifier : Accès aux fonctionnalités d'admin ✓
 
 ### Visibilité
-- [ ] Configuration public/privé
-  - Scénario : Passage d'un workspace en privé
-  - Vérifier : Visibilité limitée aux membres
-  - Vérifier : Invitations requises pour rejoindre
+- [x] Configuration public/privé
+  - Scénario : Passage d'un workspace en privé ✓
+  - Vérifier : Visibilité limitée aux membres ✓
+  - Vérifier : Invitations requises pour rejoindre ✓
 
 ## Tests des Canaux
 

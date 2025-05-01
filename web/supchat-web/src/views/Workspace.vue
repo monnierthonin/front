@@ -7,7 +7,7 @@
           <v-toolbar dense>
             <v-toolbar-title>{{ workspace?.nom || 'Workspace' }}</v-toolbar-title>
             <v-spacer></v-spacer>
-            <v-btn v-if="isOwner" icon @click="showSettings = true">
+            <v-btn v-if="canManageWorkspace" icon @click="showSettings = true">
               <v-icon>mdi-cog</v-icon>
             </v-btn>
             <v-btn icon @click="showCreateCanal = true">
@@ -64,36 +64,92 @@
               v-for="membre in workspace.membres"
               :key="membre._id"
               class="py-2"
+              @click="canManageRoles && membre.utilisateur?._id !== workspace.proprietaire?._id && showRoleMenu(membre)"
+              :class="{ 'cursor-pointer': canManageRoles && membre.utilisateur?._id !== workspace.proprietaire?._id }"
             >
-              <v-list-item-title class="d-flex align-center">
-                <span>
-                  {{ 
-                    membre.utilisateur ? 
-                      (membre.utilisateur.firstName || membre.utilisateur.lastName ? 
-                        `${membre.utilisateur.firstName || ''} ${membre.utilisateur.lastName || ''}`.trim() : 
-                        membre.utilisateur.username
-                      ) : 
-                      'Utilisateur inconnu' 
-                  }}
-                </span>
-                <v-chip
-                  v-if="membre.utilisateur?._id === workspace.proprietaire?._id"
-                  color="primary"
-                  size="x-small"
-                  class="ml-2"
+              <v-list-item-title class="d-flex align-center justify-space-between">
+                <div class="d-flex align-center">
+                  <span>
+                    {{ 
+                      membre.utilisateur ? 
+                        (membre.utilisateur.firstName || membre.utilisateur.lastName ? 
+                          `${membre.utilisateur.firstName || ''} ${membre.utilisateur.lastName || ''}`.trim() : 
+                          membre.utilisateur.username
+                        ) : 
+                        'Utilisateur inconnu' 
+                    }}
+                  </span>
+                  <v-chip
+                    v-if="membre.utilisateur?._id === workspace.proprietaire?._id"
+                    color="primary"
+                    size="x-small"
+                    class="ml-2"
+                  >
+                    Propriétaire
+                  </v-chip>
+                  <v-chip
+                    v-else-if="membre.role === 'admin'"
+                    color="success"
+                    size="x-small"
+                    class="ml-2"
+                  >
+                    Admin
+                  </v-chip>
+                </div>
+                <v-icon
+                  v-if="canManageRoles && membre.utilisateur?._id !== workspace.proprietaire?._id"
+                  size="small"
+                  class="ms-2"
                 >
-                  Propriétaire
-                </v-chip>
-                <v-chip
-                  v-else-if="membre.role === 'admin'"
-                  color="success"
-                  size="x-small"
-                  class="ml-2"
-                >
-                  Admin
-                </v-chip>
+                  mdi-dots-vertical
+                </v-icon>
               </v-list-item-title>
             </v-list-item>
+
+            <!-- Menu de modification de rôle -->
+            <v-dialog
+              v-model="roleDialog.show"
+              max-width="300"
+            >
+              <v-card>
+                <v-card-title class="text-subtitle-1 pa-4">
+                  Modifier le rôle
+                </v-card-title>
+                <v-card-text class="pt-2">
+                  <v-radio-group
+                    v-model="roleDialog.selectedRole"
+                    hide-details
+                  >
+                    <v-radio
+                      label="Membre"
+                      value="membre"
+                    />
+                    <v-radio
+                      label="Admin"
+                      value="admin"
+                    />
+                  </v-radio-group>
+                </v-card-text>
+                <v-card-actions>
+                  <v-spacer />
+                  <v-btn
+                    color="grey"
+                    variant="text"
+                    @click="roleDialog.show = false"
+                  >
+                    Annuler
+                  </v-btn>
+                  <v-btn
+                    color="primary"
+                    variant="text"
+                    @click="updateMemberRole"
+                    :loading="roleDialog.loading"
+                  >
+                    Enregistrer
+                  </v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
           </v-list>
           <v-card-text v-else>
             Aucun membre
@@ -271,138 +327,153 @@
 </template>
 
 <script>
-import { mapState } from 'vuex'
+import { mapState, mapActions } from 'vuex'
 
 export default {
   name: 'WorkspaceView',
 
   data() {
     return {
-      showCreateCanal: false,
-      showInviteUser: false,
+      rules: {
+        required: v => !!v || 'Ce champ est requis'
+      },
+      visibiliteOptions: [
+        { text: 'Public', value: 'public' },
+        { text: 'Privé', value: 'prive' }
+      ],
       showSettings: false,
-
-      inviteLoading: false,
+      validSettings: true,
+      workspaceSettings: {
+        nom: '',
+        description: '',
+        visibilite: 'public'
+      },
       loading: false,
+      showCreateCanal: false,
       validCanal: false,
-      validInvite: false,
-      validSettings: false,
-      canalForm: null,
-      inviteForm: null,
-      settingsForm: null,
-      inviteEmail: '',
       newCanal: {
         nom: '',
         description: '',
         type: 'texte',
         visibilite: 'public'
       },
-      workspaceSettings: {
-        nom: '',
-        description: '',
-        visibilite: 'public'
+      showInviteUser: false,
+      invitationEmail: '',
+      emailRules: [
+        v => !!v || 'L\'email est requis',
+        v => /.+@.+\..+/.test(v) || 'L\'email doit être valide'
+      ],
+      inviteLoading: false,
+      roleDialog: {
+        show: false,
+        membre: null,
+        selectedRole: 'membre',
+        loading: false
       },
       snackbar: {
         show: false,
         text: '',
         color: 'success'
       },
-      rules: {
-        required: v => !!v || 'Ce champ est requis',
-        email: v => /.+@.+\..+/.test(v) || 'Email invalide'
-      },
-      typeOptions: [
-        { text: 'Canal textuel', value: 'texte' },
-        { text: 'Canal vocal', value: 'vocal' }
-      ],
-      visibiliteOptions: [
-        { text: 'Public', value: 'public' },
-        { text: 'Privé', value: 'prive' }
-      ]
+
     }
   },
 
   computed: {
     ...mapState({
-      user: state => state.auth.user,
-      workspace: state => {
-        const ws = state.workspace.currentWorkspace
-        console.log('Workspace data:', ws)
-        return ws
-      },
-      canaux: state => state.canal.canaux
+      workspace: state => state.workspace.currentWorkspace,
+      canaux: state => state.canal.canaux,
+      currentUser: state => state.auth.user
     }),
-
     workspaceId() {
       return this.$route.params.id
     },
-
     isOwner() {
-      return this.workspace?.proprietaire === this.user?._id
+      return this.workspace?.proprietaire?._id === this.currentUser?._id
     },
-
-
+    isAdmin() {
+      const currentMember = this.workspace?.membres?.find(m => m.utilisateur?._id === this.currentUser?._id)
+      return currentMember?.role === 'admin'
+    },
+    canManageWorkspace() {
+      return this.isOwner || this.isAdmin
+    },
+    canManageRoles() {
+      return this.isOwner || this.isAdmin
+    },
   },
 
+  watch: {
+    showSettings(newVal) {
+      if (newVal && this.workspace) {
+        this.workspaceSettings = {
+          nom: this.workspace.nom,
+          description: this.workspace.description,
+          visibilite: this.workspace.visibilite
+        }
+      }
+    }
+  },
 
   methods: {
-    async createCanal() {
-      if (!this.$refs.canalForm.validate()) return
+    ...mapActions({
+      envoyerInvitation: 'workspace/envoyerInvitation',
+      modifierRoleMembre: 'workspace/modifierRoleMembre'
+    }),
 
-      this.loading = true
-      try {
-        const canal = {
-          ...this.newCanal,
-          workspace: this.workspaceId
-        }
-
-        await this.$store.dispatch('canal/createCanal', canal)
-
-        this.snackbar = {
-          show: true,
-          text: 'Canal créé avec succès',
-          color: 'success'
-        }
-
-        this.closeCreateDialog()
-      } catch (error) {
-        console.error('Erreur lors de la création du canal:', error)
-        this.snackbar = {
-          show: true,
-          text: 'Erreur lors de la création du canal',
-          color: 'error'
-        }
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async inviteUser() {
-      if (!this.$refs.inviteForm.validate()) return
+    async handleInvitation() {
+      if (!this.$refs.inviteForm?.validate()) return
 
       this.inviteLoading = true
       try {
-        await this.$store.dispatch('workspace/inviteUser', {
-          workspaceId: this.workspaceId,
-          email: this.inviteEmail
+        await this.envoyerInvitation({
+          workspaceId: this.workspace._id,
+          email: this.invitationEmail
         })
 
-        this.snackbar = {
-          show: true,
-          text: 'Invitation envoyée avec succès',
-          color: 'success'
-        }
-
-        this.closeInviteDialog()
+        this.snackbar.text = 'Invitation envoyée avec succès'
+        this.snackbar.color = 'success'
+        this.snackbar.show = true
+        this.showInviteUser = false
+        this.invitationEmail = ''
       } catch (error) {
-        console.error('Erreur lors de l\'invitation:', error)
-        this.snackbar = {
-          show: true,
-          text: 'Erreur lors de l\'envoi de l\'invitation',
-          color: 'error'
-        }
+        console.error('Erreur lors de l\'envoi de l\'invitation:', error)
+        this.snackbar.text = error.response?.data?.message || 'Erreur lors de l\'envoi de l\'invitation'
+        this.snackbar.color = 'error'
+        this.snackbar.show = true
       } finally {
         this.inviteLoading = false
+      }
+    },
+
+    showRoleMenu(membre) {
+      if (membre.utilisateur?._id === this.workspace.proprietaire?._id) return
+      
+      this.roleDialog.membre = membre
+      this.roleDialog.selectedRole = membre.role
+      this.roleDialog.show = true
+    },
+
+    async updateMemberRole() {
+      this.roleDialog.loading = true
+      try {
+        await this.modifierRoleMembre({
+          workspaceId: this.workspace._id,
+          membreId: this.roleDialog.membre.utilisateur._id,
+          role: this.roleDialog.selectedRole
+        })
+
+        this.snackbar.text = 'Rôle modifié avec succès'
+        this.snackbar.color = 'success'
+        this.snackbar.show = true
+        this.roleDialog.show = false
+      } catch (error) {
+        console.error('Erreur lors de la modification du rôle:', error)
+        this.snackbar.text = error.response?.data?.message || 'Erreur lors de la modification du rôle'
+        this.snackbar.color = 'error'
+        this.snackbar.show = true
+      } finally {
+        this.roleDialog.loading = false
       }
     },
 
@@ -447,24 +518,20 @@ export default {
       this.loading = true
       try {
         await this.$store.dispatch('workspace/updateWorkspace', {
-          id: this.workspaceId,
-          ...this.workspaceSettings
+          workspaceId: this.workspaceId,
+          workspaceData: this.workspaceSettings
         })
 
-        this.snackbar = {
-          show: true,
-          text: 'Workspace mis à jour avec succès',
-          color: 'success'
-        }
+        this.snackbar.text = 'Workspace mis à jour avec succès'
+        this.snackbar.color = 'success'
+        this.snackbar.show = true
 
         this.closeSettingsDialog()
       } catch (error) {
         console.error('Erreur lors de la mise à jour du workspace:', error)
-        this.snackbar = {
-          show: true,
-          text: 'Erreur lors de la mise à jour du workspace',
-          color: 'error'
-        }
+        this.snackbar.text = error.response?.data?.message || 'Erreur lors de la mise à jour du workspace'
+        this.snackbar.color = 'error'
+        this.snackbar.show = true
       } finally {
         this.loading = false
       }

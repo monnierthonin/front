@@ -78,12 +78,23 @@ const actions = {
     }
   },
 
-  async accepterInvitation(_, { workspaceId, token, action }) {
+  async accepterInvitation(_, { workspaceId, token }) {
     try {
-      const response = await api.get(`/workspaces/invitation/${workspaceId}/${token}/${action}`)
+      const response = await api.get(`/workspaces/${workspaceId}/invitations/${token}/accepter`)
       return response.data
     } catch (error) {
       console.error('Erreur lors de l\'acceptation de l\'invitation:', error)
+      throw error
+    }
+  },
+
+  async modifierRoleMembre({ commit }, { workspaceId, membreId, role }) {
+    try {
+      const response = await api.patch(`/workspaces/${workspaceId}/membres/${membreId}/role`, { role })
+      commit('SET_CURRENT_WORKSPACE', response.data.data.workspace)
+      return response.data
+    } catch (error) {
+      console.error('Erreur lors de la modification du rôle:', error)
       throw error
     }
   },
