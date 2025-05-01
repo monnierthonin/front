@@ -30,9 +30,15 @@ const actions = {
   async fetchWorkspace({ commit }, workspaceId) {
     try {
       const response = await api.get(`/workspaces/${workspaceId}`)
-      console.log('Workspace récupéré:', response.data.data.workspace.nom)
-      commit('SET_CURRENT_WORKSPACE', response.data.data.workspace)
-      return response.data.data.workspace
+      const workspace = response.data.data.workspace
+      console.log('Workspace complet:', workspace)
+      console.log('Membres du workspace:', workspace.membres)
+      if (workspace.membres && workspace.membres.length > 0) {
+        console.log('Premier membre:', workspace.membres[0])
+        console.log('Utilisateur du premier membre:', workspace.membres[0].utilisateur)
+      }
+      commit('SET_CURRENT_WORKSPACE', workspace)
+      return workspace
     } catch (error) {
       console.error('Erreur lors de la récupération du workspace:', error)
       throw error
@@ -92,7 +98,9 @@ const actions = {
       console.error('Erreur lors de la mise à jour du workspace:', error)
       throw error
     }
-  }
+  },
+
+
 }
 
 const getters = {

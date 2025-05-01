@@ -47,7 +47,9 @@ exports.obtenirWorkspaces = catchAsync(async (req, res) => {
             { visibilite: 'public' },
             { 'membres.utilisateur': req.user.id }
         ]
-    }).populate('proprietaire', 'nom email');
+    })
+        .populate('proprietaire', 'firstName lastName username email')
+        .populate('membres.utilisateur', 'firstName lastName username email');
 
     res.status(200).json({
         status: 'success',
@@ -64,8 +66,8 @@ exports.obtenirWorkspace = catchAsync(async (req, res, next) => {
     console.log('Utilisateur connecté:', req.user.id);
 
     const workspace = await Workspace.findById(req.params.id)
-        .populate('proprietaire', 'nom email')
-        .populate('membres.utilisateur', 'nom email');
+        .populate('proprietaire', 'firstName lastName username email')
+        .populate('membres.utilisateur', 'firstName lastName username email');
 
     if (!workspace) {
         console.log('Workspace non trouvé');

@@ -2,12 +2,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Installer Vue CLI globalement
-RUN npm install -g @vue/cli
-
 # Installer les dépendances
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Copier le code source et construire l'application
 COPY . .
