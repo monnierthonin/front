@@ -66,7 +66,7 @@ const actions = {
 
   async updateCanal({ commit }, { workspaceId, canalId, canalData }) {
     try {
-      const response = await api.put(`/workspaces/${workspaceId}/canaux/${canalId}`, canalData)
+      const response = await api.patch(`/workspaces/${workspaceId}/canaux/${canalId}`, canalData)
       commit('UPDATE_CANAL', response.data.data.canal)
       return response.data.data.canal
     } catch (error) {
@@ -81,6 +81,37 @@ const actions = {
       commit('DELETE_CANAL', canalId)
     } catch (error) {
       console.error('Erreur lors de la suppression du canal:', error)
+      throw error
+    }
+  },
+
+  async addMember({ commit }, { workspaceId, canalId, userId, role = 'membre' }) {
+    try {
+      console.log('Tentative d\'ajout d\'un membre:', { workspaceId, canalId, userId, role });
+      
+      // S'assurer que les données envoyées sont dans le format attendu par le backend
+      const response = await api.post(`/workspaces/${workspaceId}/canaux/${canalId}/membres`, {
+        utilisateur: userId,
+        utilisateurId: userId, // Envoyer les deux formats pour s'assurer que l'un fonctionne
+        role
+      })
+      
+      console.log('Réponse ajout membre:', response.data);
+      commit('SET_CANAL_ACTIF', response.data.data.canal)
+      return response.data.data.canal
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout du membre au canal:', error)
+      throw error
+    }
+  },
+
+  async removeMember({ commit }, { workspaceId, canalId, membreId }) {
+    try {
+      const response = await api.delete(`/workspaces/${workspaceId}/canaux/${canalId}/membres/${membreId}`)
+      commit('SET_CANAL_ACTIF', response.data.data.canal)
+      return response.data.data.canal
+    } catch (error) {
+      console.error('Erreur lors de la suppression du membre du canal:', error)
       throw error
     }
   }

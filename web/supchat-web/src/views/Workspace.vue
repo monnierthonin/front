@@ -337,6 +337,10 @@ export default {
       rules: {
         required: v => !!v || 'Ce champ est requis'
       },
+      typeOptions: [
+        { text: 'Texte', value: 'texte' },
+        { text: 'Vocal', value: 'vocal' }
+      ],
       visibiliteOptions: [
         { text: 'Public', value: 'public' },
         { text: 'Privé', value: 'prive' }
@@ -474,6 +478,31 @@ export default {
         this.snackbar.show = true
       } finally {
         this.roleDialog.loading = false
+      }
+    },
+
+    async createCanal() {
+      if (!this.$refs.canalForm.validate()) return
+
+      this.loading = true
+      try {
+        await this.$store.dispatch('canal/createCanal', {
+          workspaceId: this.workspaceId,
+          canalData: this.newCanal
+        })
+
+        this.snackbar.text = 'Canal créé avec succès'
+        this.snackbar.color = 'success'
+        this.snackbar.show = true
+
+        this.closeCreateDialog()
+      } catch (error) {
+        console.error('Erreur lors de la création du canal:', error)
+        this.snackbar.text = error.response?.data?.message || 'Erreur lors de la création du canal'
+        this.snackbar.color = 'error'
+        this.snackbar.show = true
+      } finally {
+        this.loading = false
       }
     },
 

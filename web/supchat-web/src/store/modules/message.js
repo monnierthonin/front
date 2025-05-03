@@ -34,7 +34,7 @@ const actions = {
   async fetchMessages({ commit }, { workspaceId, canalId }) {
     try {
       commit('SET_LOADING', true)
-      const response = await api.get(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}/messages`)
+      const response = await api.get(`/workspaces/${workspaceId}/canaux/${canalId}/messages`)
       commit('SET_MESSAGES', response.data.data.messages)
       return response.data.data.messages
     } catch (error) {
@@ -48,7 +48,7 @@ const actions = {
 
   async sendMessage({ commit }, { workspaceId, canalId, messageData }) {
     try {
-      const response = await api.post(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}/messages`, messageData)
+      const response = await api.post(`/workspaces/${workspaceId}/canaux/${canalId}/messages`, messageData)
       commit('ADD_MESSAGE', response.data.data.message)
       return response.data.data.message
     } catch (error) {
@@ -60,7 +60,7 @@ const actions = {
 
   async updateMessage({ commit }, { workspaceId, canalId, messageId, messageData }) {
     try {
-      const response = await api.put(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}`, messageData)
+      const response = await api.put(`/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}`, messageData)
       commit('UPDATE_MESSAGE', response.data.data.message)
       return response.data.data.message
     } catch (error) {
@@ -72,7 +72,7 @@ const actions = {
 
   async deleteMessage({ commit }, { workspaceId, canalId, messageId }) {
     try {
-      await api.delete(`/api/v1/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}`)
+      await api.delete(`/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}`)
       commit('DELETE_MESSAGE', messageId)
     } catch (error) {
       console.error('Erreur lors de la suppression du message:', error)

@@ -1,4 +1,5 @@
 const Canal = require('../models/canal');
+const Message = require('../models/message');
 const Workspace = require('../models/workspace');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
@@ -70,7 +71,7 @@ exports.obtenirCanaux = catchAsync(async (req, res, next) => {
             { visibilite: 'public' },
             { 'membres.utilisateur': req.user.id }
         ]
-    });
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     res.status(200).json({
         status: 'success',
@@ -96,16 +97,27 @@ exports.obtenirCanal = catchAsync(async (req, res, next) => {
 
     const canal = await Canal.findOne({
         _id: req.params.id,
-        workspace: req.params.workspaceId
-    });
+        workspace: req.params.workspaceId,
+        $or: [
+            { visibilite: 'public' },
+            { 
+                visibilite: 'prive',
+                'membres.utilisateur': req.user.id 
+            }
+        ]
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     if (!canal) {
-        return next(new AppError('Canal non trouvé', 404));
+        return next(new AppError('Canal non trouvé ou accès non autorisé', 404));
     }
 
-    // Vérifier l'accès au canal
-    if (canal.visibilite === 'prive' && !canal.estMembre(req.user.id)) {
-        return next(new AppError('Vous n\'avez pas accès à ce canal', 403));
+    // Pour les canaux publics, ajouter automatiquement l'utilisateur comme membre s'il ne l'est pas déjà
+    if (canal.visibilite === 'public' && !canal.estMembre(req.user.id)) {
+        canal.membres.push({
+            utilisateur: req.user.id,
+            role: 'membre'
+        });
+        await canal.save();
     }
 
     res.status(200).json({
@@ -132,7 +144,7 @@ exports.mettreAJourCanal = catchAsync(async (req, res, next) => {
     const canal = await Canal.findOne({
         _id: req.params.id,
         workspace: req.params.workspaceId
-    });
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
@@ -181,7 +193,7 @@ exports.supprimerCanal = catchAsync(async (req, res, next) => {
     const canal = await Canal.findOne({
         _id: req.params.id,
         workspace: req.params.workspaceId
-    });
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
@@ -192,7 +204,11 @@ exports.supprimerCanal = catchAsync(async (req, res, next) => {
         return next(new AppError('Vous n\'avez pas la permission de supprimer ce canal', 403));
     }
 
-    await canal.remove();
+    // Supprimer d'abord tous les messages du canal
+    await Message.deleteMany({ canal: req.params.id });
+
+    // Puis supprimer le canal
+    await canal.deleteOne();
 
     res.status(204).json({
         status: 'success',
@@ -217,19 +233,34 @@ exports.ajouterMembre = catchAsync(async (req, res, next) => {
     const canal = await Canal.findOne({
         _id: req.params.id,
         workspace: req.params.workspaceId
-    });
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
     }
 
-    // Vérifier les permissions
-    if (!canal.peutGererMembres(req.user.id)) {
+    // Vérifier les permissions directement sur le rôle de l'utilisateur
+    const membreCourant = canal.membres.find(m => {
+        return m.utilisateur && 
+               (m.utilisateur._id ? m.utilisateur._id.toString() === req.user.id.toString() : 
+                m.utilisateur.toString() === req.user.id.toString());
+    });
+
+    if (!membreCourant) {
+        return next(new AppError('Vous n\'êtes pas membre de ce canal', 403));
+    }
+
+    // Autoriser explicitement les administrateurs et modérateurs
+    if (!['admin', 'moderateur'].includes(membreCourant.role)) {
         return next(new AppError('Vous n\'avez pas la permission d\'ajouter des membres', 403));
     }
 
     // Vérifier si l'utilisateur à ajouter existe et est membre du workspace
-    const utilisateurId = req.body.utilisateurId;
+    const utilisateurId = req.body.utilisateur || req.body.utilisateurId;
+    if (!utilisateurId) {
+        return next(new AppError('ID utilisateur requis', 400));
+    }
+    
     if (!workspace.estMembre(utilisateurId)) {
         return next(new AppError('L\'utilisateur doit d\'abord être membre du workspace', 400));
     }
@@ -278,7 +309,7 @@ exports.modifierRoleMembre = catchAsync(async (req, res, next) => {
     const canal = await Canal.findOne({
         _id: req.params.id,
         workspace: req.params.workspaceId
-    });
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
@@ -336,7 +367,7 @@ exports.uploadFichier = catchAsync(async (req, res, next) => {
     const canal = await Canal.findOne({
         _id: req.params.id,
         workspace: req.params.workspaceId
-    });
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
@@ -400,7 +431,7 @@ exports.supprimerMembre = catchAsync(async (req, res, next) => {
     const canal = await Canal.findOne({
         _id: req.params.id,
         workspace: req.params.workspaceId
-    });
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
@@ -436,7 +467,7 @@ exports.supprimerFichier = catchAsync(async (req, res, next) => {
     const canal = await Canal.findOne({
         _id: req.params.id,
         workspace: req.params.workspaceId
-    });
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
@@ -485,7 +516,7 @@ exports.obtenirFichiers = catchAsync(async (req, res, next) => {
     const canal = await Canal.findOne({
         _id: req.params.id,
         workspace: req.params.workspaceId
-    });
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));

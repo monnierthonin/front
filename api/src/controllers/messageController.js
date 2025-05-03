@@ -17,21 +17,37 @@ exports.envoyerMessageGroupe = catchAsync(async (req, res, next) => {
         return next(new AppError('Canal non trouvé', 404));
     }
 
-    // Vérifier si l'utilisateur est membre du canal
-    const estMembre = canalExiste.membres.some(membre => 
-        membre.utilisateur.toString() === req.user._id.toString()
-    );
+    // Pour les canaux privés, vérifier si l'utilisateur est membre
+    if (canalExiste.visibilite === 'prive') {
+        const estMembre = canalExiste.membres.some(membre => 
+            membre.utilisateur.toString() === req.user._id.toString()
+        );
 
-    if (!estMembre) {
-        return next(new AppError('Vous n\'avez pas accès à ce canal', 403));
+        if (!estMembre) {
+            return next(new AppError('Vous n\'avez pas accès à ce canal privé', 403));
+        }
+    }
+
+    // Pour les canaux publics, ajouter automatiquement l'utilisateur comme membre s'il ne l'est pas déjà
+    if (canalExiste.visibilite === 'public') {
+        const estMembre = canalExiste.membres.some(membre => 
+            membre.utilisateur.toString() === req.user._id.toString()
+        );
+
+        if (!estMembre) {
+            canalExiste.membres.push({
+                utilisateur: req.user._id,
+                role: 'membre'
+            });
+            await canalExiste.save();
+        }
     }
 
     const message = await Message.create({
         contenu,
         auteur: req.user._id,
         canal,
-        mentions,
-        horodatage: new Date()
+        mentions
     });
 
     // Émettre via WebSocket
@@ -65,13 +81,30 @@ exports.obtenirMessages = catchAsync(async (req, res, next) => {
         return next(new AppError('Canal non trouvé', 404));
     }
 
-    // Vérifier si l'utilisateur est membre du canal
-    const estMembre = canal.membres.some(membre => 
-        membre.utilisateur.toString() === req.user._id.toString()
-    );
+    // Pour les canaux privés, vérifier si l'utilisateur est membre
+    if (canal.visibilite === 'prive') {
+        const estMembre = canal.membres.some(membre => 
+            membre.utilisateur.toString() === req.user._id.toString()
+        );
 
-    if (!estMembre) {
-        return next(new AppError('Accès non autorisé à ce canal', 403));
+        if (!estMembre) {
+            return next(new AppError('Accès non autorisé à ce canal privé', 403));
+        }
+    }
+
+    // Pour les canaux publics, ajouter automatiquement l'utilisateur comme membre s'il ne l'est pas déjà
+    if (canal.visibilite === 'public') {
+        const estMembre = canal.membres.some(membre => 
+            membre.utilisateur.toString() === req.user._id.toString()
+        );
+
+        if (!estMembre) {
+            canal.membres.push({
+                utilisateur: req.user._id,
+                role: 'membre'
+            });
+            await canal.save();
+        }
     }
 
     const page = parseInt(req.query.page) || 1;
@@ -79,17 +112,17 @@ exports.obtenirMessages = catchAsync(async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const messages = await Message.find({ canal: canal.id })
-        .sort('horodatage')
+        .sort('createdAt')
         .skip(skip)
         .limit(limit)
         .populate([
             { 
                 path: 'auteur', 
-                select: 'nom email username photo' 
+                select: 'username email firstName lastName profilePicture' 
             },
             { 
                 path: 'mentions', 
-                select: 'nom email username photo' 
+                select: 'username email firstName lastName profilePicture' 
             },
             { 
                 path: 'canalsReferenced', 
@@ -100,7 +133,7 @@ exports.obtenirMessages = catchAsync(async (req, res, next) => {
                 select: 'contenu auteur',
                 populate: { 
                     path: 'auteur', 
-                    select: 'nom email username photo' 
+                    select: 'username email firstName lastName profilePicture' 
                 }
             }
         ]);
@@ -137,11 +170,11 @@ exports.modifierMessage = catchAsync(async (req, res, next) => {
         message: await message.populate([
             {
                 path: 'auteur',
-                select: 'nom email username photo'
+                select: 'username email firstName lastName profilePicture'
             },
             {
                 path: 'mentions',
-                select: 'nom email username photo'
+                select: 'username email firstName lastName profilePicture'
             }
         ])
     });
@@ -254,14 +287,14 @@ exports.repondreMessage = catchAsync(async (req, res, next) => {
         message: await message.populate([
             {
                 path: 'auteur',
-                select: 'nom email username photo'
+                select: 'username email firstName lastName profilePicture'
             },
             {
                 path: 'reponseA',
                 select: 'contenu auteur',
                 populate: { 
                     path: 'auteur', 
-                    select: 'nom email username photo' 
+                    select: 'username email firstName lastName profilePicture' 
                 }
             }
         ])

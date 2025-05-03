@@ -165,13 +165,18 @@ canalSchema.methods.hasPermission = function(userId, permission) {
 
     // Obtenir toutes les permissions du rôle + rôles inférieurs
     let permissions = [];
-    switch(membre.role) {
-        case 'admin':
-            permissions = [...permissions, ...PERMISSIONS.admin];
-        case 'moderateur':
-            permissions = [...permissions, ...PERMISSIONS.moderateur];
-        case 'membre':
-            permissions = [...permissions, ...PERMISSIONS.membre];
+    
+    // S'assurer que les admins ont toutes les permissions (admin, moderateur, membre)
+    if (membre.role === 'admin') {
+        permissions = [...PERMISSIONS.admin, ...PERMISSIONS.moderateur, ...PERMISSIONS.membre];
+    }
+    // S'assurer que les moderateurs ont toutes les permissions des moderateurs et membres
+    else if (membre.role === 'moderateur') {
+        permissions = [...PERMISSIONS.moderateur, ...PERMISSIONS.membre];
+    }
+    // Les membres n'ont que les permissions des membres
+    else if (membre.role === 'membre') {
+        permissions = [...PERMISSIONS.membre];
     }
 
     return permissions.includes(permission);

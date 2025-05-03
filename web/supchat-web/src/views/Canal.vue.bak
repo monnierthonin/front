@@ -145,35 +145,18 @@
     <!-- Dialog membres -->
     <v-dialog v-model="showMembers" max-width="600px">
       <v-card>
-        <v-card-title class="d-flex align-center">
-          Membres du canal
-          <v-spacer></v-spacer>
-          <v-btn 
-            v-if="isAdmin" 
-            icon 
-            color="primary" 
-            @click="showInviteDialog = true"
-            class="ml-2"
-          >
-            <v-icon>mdi-plus</v-icon>
-          </v-btn>
-        </v-card-title>
+        <v-card-title>Membres du canal</v-card-title>
         <v-card-text>
           <v-list>
-            <v-list-item v-for="(membre, index) in canal && canal.membres ? canal.membres : []" :key="membre._id || membre.id || index">
+            <v-list-item v-for="membre in canal && canal.membres ? canal.membres : []" :key="membre._id">
               <v-list-item-avatar>
                 <v-avatar>
-                  <v-img v-if="membre.utilisateur && membre.utilisateur.profilePicture" :src="membre.utilisateur.profilePicture"></v-img>
-                  <v-icon v-else>mdi-account</v-icon>
+                  <v-img :src="membre.utilisateur && membre.utilisateur.profilePicture ? membre.utilisateur.profilePicture : ''"></v-img>
                 </v-avatar>
               </v-list-item-avatar>
               <v-list-item-content>
-                <v-list-item-title>
-                  {{ membre.utilisateur && membre.utilisateur.username ? membre.utilisateur.username : 'Utilisateur inconnu' }}
-                </v-list-item-title>
-                <v-list-item-subtitle>
-                  <v-chip :color="membre.role === 'admin' ? 'red' : 'blue'" small>{{ membre.role }}</v-chip>
-                </v-list-item-subtitle>
+                <v-list-item-title>{{ membre.utilisateur ? membre.utilisateur.username : 'Utilisateur inconnu' }}</v-list-item-title>
+                <v-list-item-subtitle>{{ membre.role }}</v-list-item-subtitle>
               </v-list-item-content>
               <v-list-item-action v-if="canManageMembers">
                 <v-btn icon @click="removeMember(membre._id)">
@@ -183,53 +166,6 @@
             </v-list-item>
           </v-list>
         </v-card-text>
-      </v-card>
-    </v-dialog>
-
-    <!-- Dialog invitation membres -->
-    <v-dialog v-model="showInviteDialog" max-width="600px">
-      <v-card>
-        <v-card-title>Inviter des membres</v-card-title>
-        <v-card-text>
-          <v-alert v-if="inviteError" type="error" dense>{{ inviteError }}</v-alert>
-          <v-alert v-if="inviteSuccess" type="success" dense>{{ inviteSuccess }}</v-alert>
-          
-          <div v-if="loadingWorkspaceMembers" class="text-center">
-            <v-progress-circular indeterminate color="primary"></v-progress-circular>
-          </div>
-          
-          <div v-else-if="workspaceMembers.length === 0" class="text-center">
-            Aucun membre disponible à inviter.
-          </div>
-          
-          <v-list v-else>
-            <v-list-item 
-              v-for="membre in nonCanalMembers" 
-              :key="membre._id || membre.id"
-            >
-              <v-list-item-avatar>
-                <v-avatar>
-                  <v-img v-if="membre.utilisateur && membre.utilisateur.profilePicture" :src="membre.utilisateur.profilePicture"></v-img>
-                  <v-icon v-else>mdi-account</v-icon>
-                </v-avatar>
-              </v-list-item-avatar>
-              <v-list-item-content>
-                <v-list-item-title>
-                  {{ membre.utilisateur ? membre.utilisateur.username : 'Utilisateur inconnu' }}
-                </v-list-item-title>
-              </v-list-item-content>
-              <v-list-item-action>
-                <v-btn small color="primary" @click="inviteMember(membre.utilisateur._id)">
-                  Inviter
-                </v-btn>
-              </v-list-item-action>
-            </v-list-item>
-          </v-list>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn text @click="showInviteDialog = false">Fermer</v-btn>
-        </v-card-actions>
       </v-card>
     </v-dialog>
 
@@ -324,12 +260,12 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, watch, onMounted, nextTick } from 'vue'
+import { defineComponent, ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 
 export default defineComponent({
-  name: 'CanalView',
+  name: 'Canal',
   setup() {
     const route = useRoute()
     const router = useRouter()
@@ -340,11 +276,6 @@ export default defineComponent({
     const showSettings = ref(false)
     const showEditMessage = ref(false)
     const showUploadDialog = ref(false)
-    const showInviteDialog = ref(false)
-    const inviteError = ref('')
-    const inviteSuccess = ref('')
-    const workspaceMembers = ref([])
-    const loadingWorkspaceMembers = ref(false)
     const loading = ref(true)
     const sending = ref(false)
     const updating = ref(false)
@@ -374,7 +305,7 @@ export default defineComponent({
 
     const workspaceId = computed(() => route.params.workspaceId)
     const canalId = computed(() => route.params.canalId)
-    const canal = computed(() => store.state.canal.canalActif)
+    const canal = computed(() => store.state.canal.currentCanal)
     const messages = computed(() => store.getters['message/allMessages'])
     const user = computed(() => store.state.auth.user)
     const fichiers = computed(() => {
@@ -394,30 +325,9 @@ export default defineComponent({
     })
 
     const canManageMembers = computed(() => {
-      if (!canal.value || !canal.value.membres) return false
-      const userMembre = canal.value.membres.find(m => m.utilisateur._id === user.value._id)
-      return userMembre && ['admin', 'moderateur'].includes(userMembre.role)
-    })
-    
-    const isAdmin = computed(() => {
-      if (!canal.value || !canal.value.membres) return false
-      const userMembre = canal.value.membres.find(m => m.utilisateur._id === user.value._id)
-      return userMembre && userMembre.role === 'admin'
-    })
-    
-    const nonCanalMembers = computed(() => {
-      if (!canal.value || !canal.value.membres || !workspaceMembers.value) return []
-      
-      // Récupérer les IDs des membres déjà dans le canal
-      const canalMemberIds = canal.value.membres.map(m => 
-        m.utilisateur._id || (typeof m.utilisateur === 'string' ? m.utilisateur : null)
-      )
-      
-      // Filtrer les membres du workspace qui ne sont pas déjà dans le canal
-      return workspaceMembers.value.filter(m => {
-        const userId = m.utilisateur._id || (typeof m.utilisateur === 'string' ? m.utilisateur : null)
-        return userId && !canalMemberIds.includes(userId)
-      })
+      if (!canal.value || !canal.value.membres || !user.value || !user.value._id) return false
+      const membre = canal.value.membres.find(m => m && m.utilisateur && m.utilisateur._id === user.value._id)
+      return membre && membre.role === 'admin'
     })
 
     const canEditMessage = (message) => {
@@ -573,35 +483,6 @@ export default defineComponent({
       }
     }
 
-    const fetchWorkspaceMembers = async () => {
-      loadingWorkspaceMembers.value = true
-      try {
-        const workspace = await store.dispatch('workspace/fetchWorkspace', workspaceId.value)
-        workspaceMembers.value = workspace.membres || []
-      } catch (error) {
-        console.error('Erreur chargement membres du workspace:', error)
-      } finally {
-        loadingWorkspaceMembers.value = false
-      }
-    }
-    
-    const inviteMember = async (userId) => {
-      inviteError.value = ''
-      inviteSuccess.value = ''
-      try {
-        await store.dispatch('canal/addMember', {
-          workspaceId: workspaceId.value,
-          canalId: canalId.value,
-          userId: userId
-        })
-        inviteSuccess.value = 'Membre ajouté avec succès!'
-        setTimeout(() => { inviteSuccess.value = '' }, 3000)
-      } catch (error) {
-        console.error('Erreur invitation membre:', error)
-        inviteError.value = error.response?.data?.message || 'Erreur lors de l\'invitation'
-      }
-    }
-    
     const removeMember = async (membreId) => {
       try {
         await store.dispatch('canal/removeMember', {
@@ -624,12 +505,6 @@ export default defineComponent({
         }
       }
     }, { immediate: true })
-    
-    watch(() => showInviteDialog.value, (isOpen) => {
-      if (isOpen) {
-        fetchWorkspaceMembers()
-      }
-    })
 
     const formatDate = (date) => {
       return new Date(date).toLocaleString()
@@ -663,11 +538,6 @@ export default defineComponent({
       showSettings,
       showEditMessage,
       showUploadDialog,
-      showInviteDialog,
-      inviteError,
-      inviteSuccess,
-      workspaceMembers,
-      loadingWorkspaceMembers,
       loading,
       sending,
       updating,
@@ -683,8 +553,6 @@ export default defineComponent({
       user,
       fichiers,
       canManageMembers,
-      isAdmin,
-      nonCanalMembers,
       messagesContainer,
       formatDate,
       formatFileSize,
@@ -698,9 +566,7 @@ export default defineComponent({
       updateCanal,
       deleteCanal,
       uploadFile,
-      inviteMember,
-      removeMember,
-      fetchWorkspaceMembers
+      removeMember
     }
   }
 })
