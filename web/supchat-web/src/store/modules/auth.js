@@ -46,15 +46,18 @@ const actions = {
       })
       
       if (response.data.success) {
-        const { user, token } = response.data.data;
+        const { token } = response.data;
+        const { user } = response.data.data;
         console.log('Token reçu:', token ? 'Oui' : 'Non');
         
-        if (user) commit('SET_USER', user);
         if (token) {
           commit('SET_TOKEN', token);
           localStorage.setItem('token', token);
         }
-        if (user) localStorage.setItem('user', JSON.stringify(user));
+        if (user) {
+          commit('SET_USER', user);
+          localStorage.setItem('user', JSON.stringify(user));
+        }
         
         return response.data;
       } else {

@@ -93,11 +93,11 @@
           <!-- Zone de saisie de message -->
           <v-card-actions>
             <v-text-field
-              v-model="newMessage"
+              v-model="contenuMessage"
               placeholder="Écrivez votre message..."
               append-icon="mdi-send"
-              @click:append="sendMessage"
-              @keyup.enter="sendMessage"
+              @click:append="envoyerMessage"
+              @keyup.enter="envoyerMessage"
               :loading="sending"
               hide-details
               dense
@@ -324,9 +324,10 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, watch, onMounted, nextTick } from 'vue'
+import { defineComponent, ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
+import socketService from '@/services/socketService'
 
 export default defineComponent({
   name: 'CanalView',
@@ -349,7 +350,7 @@ export default defineComponent({
     const sending = ref(false)
     const updating = ref(false)
     const uploading = ref(false)
-    const newMessage = ref('')
+    const contenuMessage = ref('')
     const fileToUpload = ref(null)
     const editedMessage = ref({
       _id: '',
@@ -425,11 +426,22 @@ export default defineComponent({
     }
 
     const messagesInOrder = computed(() => {
+      console.log('Computing messagesInOrder with messages:', messages.value);
       if (!messages.value) return []
-      return [...messages.value].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).reverse()
+      const sortedMessages = [...messages.value].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).reverse();
+      console.log('Sorted messages:', sortedMessages);
+      return sortedMessages;
     })
 
     const loadMessages = async () => {
+      try {
+        await store.dispatch('canal/chargerMessages', {
+          workspaceId: workspaceId.value,
+          canalId: canalId.value
+        });
+      } catch (error) {
+        console.error('Erreur lors du chargement des messages:', error);
+      }
       loading.value = true
       try {
         await store.dispatch('message/fetchMessages', {
@@ -443,20 +455,21 @@ export default defineComponent({
       }
     }
 
-    const sendMessage = async () => {
-      if (!newMessage.value.trim()) return
-      
+    const envoyerMessage = async () => {
+      if (!contenuMessage.value.trim()) return
       sending.value = true
       try {
-        await store.dispatch('message/sendMessage', {
+        console.log('Envoi du message...');
+        const message = await store.dispatch('canal/envoyerMessage', {
           workspaceId: workspaceId.value,
           canalId: canalId.value,
-          messageData: { contenu: newMessage.value }
+          contenu: contenuMessage.value
         })
-        newMessage.value = ''
-        scrollToBottom()
+        console.log('Message envoyé:', message);
+        contenuMessage.value = ''
+        // Plus besoin de recharger les messages car le store est mis à jour automatiquement
       } catch (error) {
-        console.error('Erreur envoi message:', error)
+        console.error('Erreur lors de l\'envoi du message:', error)
       } finally {
         sending.value = false
       }
@@ -630,6 +643,19 @@ export default defineComponent({
         fetchWorkspaceMembers()
       }
     })
+    
+    // Observer les changements dans les messages
+    watch(() => messages.value, (newMessages, oldMessages) => {
+      console.log('Messages changés:', {
+        nouveaux: newMessages?.length,
+        anciens: oldMessages?.length,
+        diff: newMessages?.length - oldMessages?.length
+      });
+      if (newMessages?.length !== oldMessages?.length) {
+        console.log('Nouveau message détecté, scroll vers le bas');
+        scrollToBottom();
+      }
+    }, { deep: true })
 
     const formatDate = (date) => {
       return new Date(date).toLocaleString()
@@ -644,18 +670,52 @@ export default defineComponent({
     }
 
     onMounted(async () => {
-      if (workspaceId.value && canalId.value) {
-        try {
-          await store.dispatch('canal/fetchCanal', {
-            workspaceId: workspaceId.value,
-            canalId: canalId.value
-          })
-          await loadMessages()
-          scrollToBottom()
-        } catch (error) {
-          console.error('Erreur chargement canal:', error)
+      console.log('Canal component mounted');
+      
+      try {
+        // S'assurer que l'auth est initialisée
+        await store.dispatch('auth/initAuth');
+        const token = localStorage.getItem('token');
+        console.log('Token disponible:', !!token);
+        
+        if (!token) {
+          console.error('Pas de token disponible, redirection vers la page de connexion');
+          router.push('/connexion');
+          return;
         }
+        
+        // Initialiser le WebSocket et attendre la connexion
+        console.log('Initialisation du WebSocket...');
+        await socketService.init();
+        console.log('WebSocket initialisé avec succès');
+        
+        // Rejoindre le canal
+        if (canalId.value) {
+          console.log('Joining canal:', canalId.value);
+          socketService.joinCanal(canalId.value);
+        }
+        if (workspaceId.value && canalId.value) {
+          try {
+            console.log('Chargement du canal et des messages...');
+            await store.dispatch('canal/fetchCanal', {
+              workspaceId: workspaceId.value,
+              canalId: canalId.value
+            })
+            await loadMessages()
+            console.log('Messages chargés');
+            scrollToBottom()
+          } catch (error) {
+            console.error('Erreur chargement canal:', error)
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors de l\'initialisation:', error);
       }
+    })
+
+    onUnmounted(() => {
+      console.log('Canal component unmounting, disconnecting socket');
+      socketService.disconnect();
     })
 
     return {
@@ -672,7 +732,7 @@ export default defineComponent({
       sending,
       updating,
       uploading,
-      newMessage,
+      contenuMessage,
       editedMessage,
       editedCanal,
       typeOptions,
@@ -689,7 +749,7 @@ export default defineComponent({
       formatDate,
       formatFileSize,
       canEditMessage,
-      sendMessage,
+      envoyerMessage,
       editMessage,
       updateMessage,
       deleteMessage,

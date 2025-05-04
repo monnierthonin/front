@@ -14,12 +14,16 @@ class ServiceSocket {
         console.log('Initialisation du service Socket.IO');
         this.io = socketIO(serveur, {
             cors: {
-                origin: "*",
+                origin: process.env.NODE_ENV === 'production' 
+                    ? process.env.FRONTEND_URL 
+                    : ['http://localhost:3001', 'http://127.0.0.1:3001', 'http://localhost:3000'],
                 methods: ["GET", "POST"],
                 credentials: true,
                 allowedHeaders: ["Authorization", "Content-Type"]
-            }
+            },
+            transports: ['websocket']
         });
+        console.log('Socket.IO initialisé avec la configuration CORS:', this.io.opts.cors);
 
         this.io.use(async (socket, next) => {
             try {
@@ -113,8 +117,15 @@ class ServiceSocket {
             console.error('Socket.IO n\'est pas initialisé');
             return;
         }
+        const room = `canal:${idCanal}`;
         console.log(`Émission de l'événement ${evenement} au canal ${idCanal}:`, donnees);
-        this.io.to(`canal:${idCanal}`).emit(evenement, donnees);
+        
+        // Vérifier si la room existe et a des clients
+        const sockets = this.io.sockets.adapter.rooms.get(room);
+        console.log(`Nombre de clients dans le canal ${idCanal}:`, sockets ? sockets.size : 0);
+        
+        this.io.to(room).emit(evenement, donnees);
+        console.log(`Événement ${evenement} émis au canal ${idCanal}`);
     }
 
     // Méthode pour émettre un message à un utilisateur spécifique

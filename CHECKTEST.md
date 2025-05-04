@@ -182,11 +182,11 @@
 ## Tests des Messages
 
 ### Envoi et Réception
-- [ ] Envoi de message
-  - Scénario : Utilisateur envoie "Hello World"
-  - Vérifier : Message visible en temps réel
-  - Vérifier : Horodatage correct
-  - Vérifier : Auteur correctement affiché
+- [x] Envoi de message
+  - Scénario : Utilisateur envoie "Hello World" ✓
+  - Vérifier : Message visible en temps réel ✓
+  - Vérifier : Horodatage correct ✓
+  - Vérifier : Auteur correctement affiché ✓
 
 - [ ] Mentions
   - Scénario : Message avec "@username"

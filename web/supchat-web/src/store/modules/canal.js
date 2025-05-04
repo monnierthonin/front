@@ -1,11 +1,38 @@
 import api from '@/plugins/axios'
 
 const state = {
+  canal: null,
+  messages: [],
   canaux: [],
-  canalActif: null
+  fichiers: []
 }
 
+// Pour debug
+let previousMessages = []
+
 const mutations = {
+  SET_MESSAGES(state, messages) {
+    state.messages = messages
+  },
+  AJOUTER_MESSAGE(state, message) {
+    console.log('AJOUTER_MESSAGE mutation appelée avec:', message);
+    console.log('Messages actuels:', state.messages);
+    
+    // Sauvegarder l'état précédent pour debug
+    previousMessages = [...state.messages];
+    
+    // Vérifier si le message existe déjà
+    const messageExiste = state.messages.some(m => m._id === message._id)
+    if (!messageExiste) {
+      console.log('Ajout du nouveau message à la liste');
+      // Créer un nouveau tableau pour forcer la réactivité
+      state.messages = [...state.messages, message];
+      console.log('Nouveau state.messages:', state.messages);
+      console.log('Différence avec précédent:', state.messages.length - previousMessages.length);
+    } else {
+      console.log('Message déjà présent dans la liste');
+    }
+  },
   SET_CANAUX(state, canaux) {
     state.canaux = canaux
   },
@@ -30,6 +57,28 @@ const mutations = {
 }
 
 const actions = {
+  async envoyerMessage({ commit }, { workspaceId, canalId, contenu }) {
+    try {
+      const response = await api.post(`/workspaces/${workspaceId}/canaux/${canalId}/messages`, { contenu })
+      const message = response.data.data.message;
+      commit('AJOUTER_MESSAGE', message);
+      return message;
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi du message:', error)
+      throw error
+    }
+  },
+
+  async chargerMessages({ commit }, { workspaceId, canalId }) {
+    try {
+      const response = await api.get(`/workspaces/${workspaceId}/canaux/${canalId}/messages`)
+      commit('SET_MESSAGES', response.data.data.messages)
+      return response.data.data.messages
+    } catch (error) {
+      console.error('Erreur lors du chargement des messages:', error)
+      throw error
+    }
+  },
   async fetchCanaux({ commit }, workspaceId) {
     try {
       const response = await api.get(`/workspaces/${workspaceId}/canaux`)
@@ -118,7 +167,8 @@ const actions = {
 }
 
 const getters = {
-  getCanalById: state => id => state.canaux.find(c => c._id === id)
+  getCanalById: state => id => state.canaux.find(c => c._id === id),
+  getMessages: state => state.messages
 }
 
 export default {
