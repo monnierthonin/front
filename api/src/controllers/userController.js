@@ -27,6 +27,63 @@ const userController = {
       });
     }
   },
+  
+  /**
+   * Obtenir le profil d'un utilisateur spécifique par son ID ou son nom d'utilisateur
+   */
+  getUserProfile: async (req, res) => {
+    try {
+      let user;
+      const { identifier } = req.params; // Peut être un ID ou un nom d'utilisateur
+      
+      // Vérifier si l'identifiant est un ID MongoDB valide
+      if (identifier.match(/^[0-9a-fA-F]{24}$/)) {
+        user = await User.findById(identifier).select('-password -email -resetPasswordToken -resetPasswordExpires');
+      } else {
+        // Sinon, chercher par nom d'utilisateur
+        user = await User.findOne({ username: identifier }).select('-password -email -resetPasswordToken -resetPasswordExpires');
+      }
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Utilisateur non trouvé'
+        });
+      }
+      
+      // Ajouter des informations supplémentaires sur l'utilisateur
+      // Nombre de messages
+      const messageCount = await Message.countDocuments({ auteur: user._id });
+      
+      // Workspaces dont l'utilisateur est membre
+      const workspaces = await Workspace.find({ 'membres.utilisateur': user._id })
+        .select('nom description')
+        .limit(5); // Limiter à 5 workspaces pour éviter une réponse trop lourde
+      
+      res.json({
+        success: true,
+        data: {
+          user,
+          stats: {
+            messageCount,
+            workspaceCount: workspaces.length
+          },
+          workspaces: workspaces.map(w => ({
+            id: w._id,
+            nom: w.nom,
+            description: w.description
+          }))
+        }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la récupération du profil utilisateur:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur interne du serveur',
+        error: error.message
+      });
+    }
+  },
 
   /**
    * Mettre à jour le profil de l'utilisateur

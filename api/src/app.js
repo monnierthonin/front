@@ -76,6 +76,7 @@ app.use(passport.initialize());
 configurerSwagger(app);
 require('./docs/auth.swagger');
 require('./docs/user.swagger');
+require('./docs/userProfile.swagger');
 require('./docs/workspace.swagger');
 
 // Documentation Swagger

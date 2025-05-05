@@ -8,7 +8,6 @@ const { nettoyerDonnees } = require('../middleware/validateur');
 exports.envoyerMessageGroupe = catchAsync(async (req, res, next) => {
     const donneesNettoyees = nettoyerDonnees(req.body);
     const { contenu } = donneesNettoyees;
-    const mentions = Array.isArray(donneesNettoyees.mentions) ? donneesNettoyees.mentions : [];
     const canal = req.params.canalId; // Utiliser l'ID du canal depuis les paramètres de route
 
     // Vérifier l'accès au canal
@@ -28,26 +27,22 @@ exports.envoyerMessageGroupe = catchAsync(async (req, res, next) => {
         }
     }
 
-    // Pour les canaux publics, ajouter automatiquement l'utilisateur comme membre s'il ne l'est pas déjà
+    // Pour les canaux publics, vérifier si l'utilisateur est membre
+    // Note: L'ajout automatique de l'utilisateur comme membre est géré par le contrôleur de canal
     if (canalExiste.visibilite === 'public') {
         const estMembre = canalExiste.membres.some(membre => 
-            membre.utilisateur.toString() === req.user._id.toString()
+            membre.utilisateur && membre.utilisateur.toString() === req.user._id.toString()
         );
 
-        if (!estMembre) {
-            canalExiste.membres.push({
-                utilisateur: req.user._id,
-                role: 'membre'
-            });
-            await canalExiste.save();
-        }
+        // Si l'utilisateur n'est pas membre, on le laisse quand même accéder au canal public
+        // mais on ne l'ajoute pas automatiquement pour éviter les duplications
     }
 
+    // Créer le message - les mentions seront extraites automatiquement par le middleware pre('save')
     const message = await Message.create({
         contenu,
         auteur: req.user._id,
-        canal,
-        mentions
+        canal
     });
 
     // Émettre via WebSocket
@@ -61,6 +56,16 @@ exports.envoyerMessageGroupe = catchAsync(async (req, res, next) => {
             select: 'nom email username photo'
         }
     ]);
+
+    // Notifier les utilisateurs mentionnés
+    if (messagePopule.mentions && messagePopule.mentions.length > 0) {
+        messagePopule.mentions.forEach(user => {
+            req.app.get('socketService').emitToUser(user._id, 'nouvelle-mention', {
+                message: messagePopule,
+                canal: canalExiste
+            });
+        });
+    }
 
     req.app.get('socketService').emitToCanal(canal, 'nouveau-message', {
         message: messagePopule
@@ -84,7 +89,7 @@ exports.obtenirMessages = catchAsync(async (req, res, next) => {
     // Pour les canaux privés, vérifier si l'utilisateur est membre
     if (canal.visibilite === 'prive') {
         const estMembre = canal.membres.some(membre => 
-            membre.utilisateur.toString() === req.user._id.toString()
+            membre.utilisateur && membre.utilisateur.toString() === req.user._id.toString()
         );
 
         if (!estMembre) {
@@ -92,19 +97,15 @@ exports.obtenirMessages = catchAsync(async (req, res, next) => {
         }
     }
 
-    // Pour les canaux publics, ajouter automatiquement l'utilisateur comme membre s'il ne l'est pas déjà
+    // Pour les canaux publics, vérifier si l'utilisateur est membre
+    // Note: L'ajout automatique de l'utilisateur comme membre est géré par le contrôleur de canal
     if (canal.visibilite === 'public') {
         const estMembre = canal.membres.some(membre => 
-            membre.utilisateur.toString() === req.user._id.toString()
+            membre.utilisateur && membre.utilisateur.toString() === req.user._id.toString()
         );
 
-        if (!estMembre) {
-            canal.membres.push({
-                utilisateur: req.user._id,
-                role: 'membre'
-            });
-            await canal.save();
-        }
+        // Si l'utilisateur n'est pas membre, on le laisse quand même accéder au canal public
+        // mais on ne l'ajoute pas automatiquement pour éviter les duplications
     }
 
     const page = parseInt(req.query.page) || 1;

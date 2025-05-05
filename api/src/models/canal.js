@@ -160,9 +160,28 @@ canalSchema.pre('remove', async function(next) {
 
 // Méthodes pour vérifier les permissions
 canalSchema.methods.hasPermission = function(userId, permission) {
-    const membre = this.membres.find(m => m.utilisateur.toString() === userId.toString());
-    if (!membre) return false;
-
+    // Convertir userId en string pour la comparaison
+    const userIdStr = userId.toString();
+    
+    // Trouver le membre dans le canal
+    let membre = null;
+    for (const m of this.membres) {
+        // Vérifier si l'utilisateur est un objet ou juste un ID
+        const membreId = m.utilisateur._id ? m.utilisateur._id.toString() : m.utilisateur.toString();
+        if (membreId === userIdStr) {
+            membre = m;
+            break;
+        }
+    }
+    
+    // Si l'utilisateur n'est pas membre du canal, il n'a aucune permission
+    if (!membre) {
+        console.log(`L'utilisateur ${userId} n'est pas membre du canal`);
+        return false;
+    }
+    
+    console.log(`Vérification de la permission ${permission} pour l'utilisateur ${userId} avec le rôle ${membre.role}`);
+    
     // Obtenir toutes les permissions du rôle + rôles inférieurs
     let permissions = [];
     
@@ -178,8 +197,12 @@ canalSchema.methods.hasPermission = function(userId, permission) {
     else if (membre.role === 'membre') {
         permissions = [...PERMISSIONS.membre];
     }
-
-    return permissions.includes(permission);
+    
+    const hasPermission = permissions.includes(permission);
+    console.log(`Permissions disponibles pour ${membre.role}:`, permissions);
+    console.log(`L'utilisateur ${userId} ${hasPermission ? 'a' : 'n\'a pas'} la permission ${permission}`);
+    
+    return hasPermission;
 };
 
 canalSchema.methods.peutLire = function(userId) {

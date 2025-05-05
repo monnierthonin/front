@@ -33,7 +33,7 @@
                       <v-chip x-small v-if="message.modifie" class="ml-2">modifié</v-chip>
                     </v-list-item-subtitle>
                     <v-list-item-title class="text-body-1">
-                      {{ message.contenu }}
+                      <span v-html="formatMessageContent(message)"></span>
                     </v-list-item-title>
                     <!-- Fichiers attachés -->
                     <div v-if="message.fichiers && message.fichiers.length > 0" class="mt-2">
@@ -98,11 +98,47 @@
               append-icon="mdi-send"
               @click:append="envoyerMessage"
               @keyup.enter="envoyerMessage"
+              @input="handleMessageInput"
               :loading="sending"
               hide-details
               dense
               class="mx-4"
+              ref="messageInput"
             ></v-text-field>
+            
+            <!-- Menu de suggestion d'utilisateurs -->
+            <v-menu
+              v-model="showUserSuggestions"
+              :position-x="mentionPosition.x"
+              :position-y="mentionPosition.y"
+              absolute
+              offset-y
+              max-height="300"
+              :close-on-content-click="false"
+            >
+              <v-list dense>
+                <v-list-item
+                  v-for="user in filteredUsers"
+                  :key="user._id"
+                  @click="selectUser(user)"
+                >
+                  <v-list-item-avatar>
+                    <v-avatar size="32">
+                      <v-img v-if="user.profilePicture" :src="user.profilePicture"></v-img>
+                      <v-icon v-else>mdi-account</v-icon>
+                    </v-avatar>
+                  </v-list-item-avatar>
+                  <v-list-item-content>
+                    <v-list-item-title>{{ user.username }}</v-list-item-title>
+                  </v-list-item-content>
+                </v-list-item>
+                <v-list-item v-if="filteredUsers.length === 0">
+                  <v-list-item-content>
+                    <v-list-item-title>Aucun utilisateur trouvé</v-list-item-title>
+                  </v-list-item-content>
+                </v-list-item>
+              </v-list>
+            </v-menu>
           </v-card-actions>
         </v-card>
       </v-col>
@@ -175,6 +211,11 @@
                   <v-chip :color="membre.role === 'admin' ? 'red' : 'blue'" small>{{ membre.role }}</v-chip>
                 </v-list-item-subtitle>
               </v-list-item-content>
+              <v-list-item-action>
+                <v-btn icon small color="primary" @click="showUserProfile(membre.utilisateur._id, membre.utilisateur.username)" title="Voir le profil">
+                  <v-icon>mdi-account-details</v-icon>
+                </v-btn>
+              </v-list-item-action>
               <v-list-item-action v-if="canManageMembers">
                 <v-btn icon @click="removeMember(membre._id)">
                   <v-icon>mdi-delete</v-icon>
@@ -218,6 +259,11 @@
                   {{ membre.utilisateur ? membre.utilisateur.username : 'Utilisateur inconnu' }}
                 </v-list-item-title>
               </v-list-item-content>
+              <v-list-item-action>
+                <v-btn icon small color="info" @click="showUserProfile(membre.utilisateur._id, membre.utilisateur.username)" title="Voir le profil">
+                  <v-icon>mdi-account-details</v-icon>
+                </v-btn>
+              </v-list-item-action>
               <v-list-item-action>
                 <v-btn small color="primary" @click="inviteMember(membre.utilisateur._id)">
                   Inviter
@@ -320,6 +366,72 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    
+    <!-- Dialog profil utilisateur -->
+    <v-dialog v-model="showUserProfileDialog" max-width="600px">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          Profil Utilisateur
+          <v-spacer></v-spacer>
+          <v-btn icon @click="showUserProfileDialog = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-card-text>
+          <div v-if="loadingUserProfile" class="text-center py-4">
+            <v-progress-circular indeterminate color="primary"></v-progress-circular>
+          </div>
+          <div v-else-if="userProfileError" class="text-center py-4 error--text">
+            {{ userProfileError }}
+          </div>
+          <div v-else-if="userProfile" class="user-profile-container">
+            <v-row>
+              <v-col cols="12" sm="4" class="text-center">
+                <v-avatar size="120">
+                  <v-img v-if="userProfile.user.profilePicture" :src="userProfile.user.profilePicture"></v-img>
+                  <v-icon v-else size="120">mdi-account-circle</v-icon>
+                </v-avatar>
+              </v-col>
+              <v-col cols="12" sm="8">
+                <h2 class="text-h4 mb-2">{{ userProfile.user.username }}</h2>
+                <p v-if="userProfile.user.bio" class="text-body-1">{{ userProfile.user.bio }}</p>
+                <p v-else class="text-body-2 font-italic">Aucune biographie</p>
+                
+                <v-divider class="my-3"></v-divider>
+                
+                <div class="d-flex justify-space-between mb-2">
+                  <div>
+                    <div class="text-h6">{{ userProfile.stats.messageCount }}</div>
+                    <div class="text-caption">Messages</div>
+                  </div>
+                  <div>
+                    <div class="text-h6">{{ userProfile.stats.workspaceCount }}</div>
+                    <div class="text-caption">Workspaces</div>
+                  </div>
+                  <div>
+                    <div class="text-h6">{{ userProfile.user.createdAt ? new Date(userProfile.user.createdAt).toLocaleDateString() : 'N/A' }}</div>
+                    <div class="text-caption">Membre depuis</div>
+                  </div>
+                </div>
+              </v-col>
+            </v-row>
+            
+            <v-divider class="my-4"></v-divider>
+            
+            <h3 class="text-h6 mb-2">Workspaces</h3>
+            <v-list v-if="userProfile.workspaces && userProfile.workspaces.length > 0" dense>
+              <v-list-item v-for="workspace in userProfile.workspaces" :key="workspace.id">
+                <v-list-item-content>
+                  <v-list-item-title>{{ workspace.nom }}</v-list-item-title>
+                  <v-list-item-subtitle v-if="workspace.description">{{ workspace.description }}</v-list-item-subtitle>
+                </v-list-item-content>
+              </v-list-item>
+            </v-list>
+            <p v-else class="text-body-2 font-italic">Aucun workspace</p>
+          </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -328,6 +440,10 @@ import { defineComponent, ref, computed, watch, onMounted, onUnmounted, nextTick
 import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import socketService from '@/services/socketService'
+import axios from 'axios'
+
+// URL de l'API
+const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:3000'
 
 export default defineComponent({
   name: 'CanalView',
@@ -362,6 +478,21 @@ export default defineComponent({
       type: 'texte',
       visibilite: 'public'
     })
+
+    // Variables pour la fonctionnalité de mention
+    const showUserSuggestions = ref(false);
+    const mentionPosition = ref({ x: 0, y: 0 });
+    const mentionQuery = ref('');
+    const mentionStartIndex = ref(-1);
+    const messageInput = ref(null);
+    const filteredUsers = ref([]);
+    const mentionnedUsers = ref([]);
+    
+    // Variables pour l'affichage du profil utilisateur
+    const showUserProfileDialog = ref(false);
+    const loadingUserProfile = ref(false);
+    const userProfile = ref(null);
+    const userProfileError = ref('');
 
     const typeOptions = [
       { text: 'Texte', value: 'texte' },
@@ -448,6 +579,11 @@ export default defineComponent({
           workspaceId: workspaceId.value,
           canalId: canalId.value
         })
+        
+        // Configurer les gestionnaires d'événements pour les mentions après le chargement des messages
+        nextTick(() => {
+          setupMentionClickHandlers();
+        });
       } catch (error) {
         console.error('Erreur chargement messages:', error)
       } finally {
@@ -468,6 +604,11 @@ export default defineComponent({
         console.log('Message envoyé:', message);
         contenuMessage.value = ''
         // Plus besoin de recharger les messages car le store est mis à jour automatiquement
+        
+        // Configurer les gestionnaires d'événements pour les mentions après l'envoi d'un message
+        nextTick(() => {
+          setupMentionClickHandlers();
+        });
       } catch (error) {
         console.error('Erreur lors de l\'envoi du message:', error)
       } finally {
@@ -597,6 +738,182 @@ export default defineComponent({
         loadingWorkspaceMembers.value = false
       }
     }
+    
+    const handleMessageInput = (event) => {
+      // Rechercher le dernier @ avant la position du curseur
+      const text = contenuMessage.value;
+      const cursorPosition = event.target.selectionStart;
+      
+      // Détecter si l'utilisateur est en train de taper une mention
+      const lastAtIndex = text.lastIndexOf('@', cursorPosition - 1);
+      
+      if (lastAtIndex !== -1 && 
+          (lastAtIndex === 0 || text[lastAtIndex - 1] === ' ') && 
+          cursorPosition > lastAtIndex) {
+        // Extraire la requête de mention (texte entre @ et la position du curseur)
+        const query = text.substring(lastAtIndex + 1, cursorPosition);
+        
+        // Si un espace est trouvé après @, on ne considère pas comme une mention
+        if (!query.includes(' ')) {
+          // Récupérer tous les utilisateurs du canal
+          const users = canal.value.membres
+            .map(membre => membre.utilisateur)
+            .filter(user => user && user.username);
+          
+          // Exclure les utilisateurs déjà mentionnés dans le message actuel
+          const alreadyMentionedUsernames = [];
+          const regex = /@(\w+)/g;
+          let match;
+          
+          while ((match = regex.exec(contenuMessage.value)) !== null) {
+            alreadyMentionedUsernames.push(match[1]);
+          }
+          
+          // Filtrer selon la requête et exclure les utilisateurs déjà mentionnés
+          filteredUsers.value = users.filter(user => 
+            user.username.toLowerCase().includes(query.toLowerCase()) && 
+            !alreadyMentionedUsernames.includes(user.username)
+          );
+          
+          // Afficher le menu de suggestions
+          showUserSuggestions.value = true;
+          mentionStartIndex.value = lastAtIndex;
+          mentionQuery.value = query;
+          
+          // Calculer la position pour le menu de suggestion
+          const inputRect = messageInput.value.$el.getBoundingClientRect();
+          mentionPosition.value = {
+            x: inputRect.left + 10,
+            y: inputRect.top - 200  // Positionner au-dessus du champ de texte
+          };
+          
+          return;
+        }
+      }
+      
+      // Si on n'est pas en train de taper une mention, cacher le menu
+      showUserSuggestions.value = false;
+      mentionStartIndex.value = -1;
+    };
+    
+    const selectUser = (user) => {
+      if (mentionStartIndex.value !== -1) {
+        const beforeMention = contenuMessage.value.substring(0, mentionStartIndex.value);
+        const afterMention = contenuMessage.value.substring(
+          mentionStartIndex.value + mentionQuery.value.length + 1
+        );
+        
+        // Remplacer la mention par le nom d'utilisateur
+        contenuMessage.value = `${beforeMention}@${user.username} ${afterMention}`;
+        
+        // Ajouter l'utilisateur à la liste des utilisateurs mentionnés
+        mentionnedUsers.value.push(user);
+        
+        // Fermer le menu de suggestion
+        showUserSuggestions.value = false;
+        mentionStartIndex.value = -1;
+        
+        // Mettre le focus sur le champ de texte
+        nextTick(() => {
+          messageInput.value.$el.querySelector('input').focus();
+        });
+      }
+    };
+    
+    const formatMessageContent = (message) => {
+      if (!message || !message.contenu) return '';
+      
+      let formattedContent = message.contenu;
+      
+      // Si le message a des mentions
+      if (message.mentions && Array.isArray(message.mentions) && message.mentions.length > 0) {
+        // Pour chaque mention, remplacer @username par un span stylisé et cliquable
+        message.mentions.forEach(mention => {
+          if (mention && mention.username) {
+            const regex = new RegExp(`@${mention.username}`, 'g');
+            formattedContent = formattedContent.replace(
+              regex, 
+              `<span class="mention-tag mention-clickable" data-user-id="${mention._id}" data-username="${mention.username}">@${mention.username}</span>`
+            );
+          }
+        });
+      } else {
+        // Si le message n'a pas de mentions pré-traitées, chercher les mentions dans le texte
+        const mentionRegex = /@(\w+)/g;
+        let match;
+        
+        while ((match = mentionRegex.exec(formattedContent)) !== null) {
+          const username = match[1];
+          const fullMention = match[0]; // @username
+          
+          // Remplacer par un span cliquable
+          formattedContent = formattedContent.replace(
+            fullMention,
+            `<span class="mention-tag mention-clickable" data-username="${username}">@${username}</span>`
+          );
+        }
+      }
+      
+      return formattedContent;
+    };
+    
+    // Fonction pour ajouter un gestionnaire d'événements aux mentions
+    const setupMentionClickHandlers = () => {
+      nextTick(() => {
+        const mentionElements = document.querySelectorAll('.mention-clickable');
+        mentionElements.forEach(element => {
+          // Supprimer les gestionnaires d'événements existants pour éviter les doublons
+          element.removeEventListener('click', handleMentionClick);
+          // Ajouter le nouveau gestionnaire d'événements
+          element.addEventListener('click', handleMentionClick);
+        });
+      });
+    };
+    
+    // Gestionnaire d'événements pour les clics sur les mentions
+    const handleMentionClick = (event) => {
+      const userId = event.currentTarget.getAttribute('data-user-id');
+      const username = event.currentTarget.getAttribute('data-username');
+      showUserProfile(userId, username);
+    };
+    
+    // Méthode pour afficher le profil d'un utilisateur
+    const showUserProfile = async (userId, username) => {
+      // Réinitialiser les états
+      userProfile.value = null;
+      userProfileError.value = '';
+      loadingUserProfile.value = true;
+      showUserProfileDialog.value = true;
+      
+      try {
+        // Déterminer l'identifiant à utiliser (ID ou nom d'utilisateur)
+        const identifier = userId || username;
+        
+        if (!identifier) {
+          throw new Error('Identifiant utilisateur manquant');
+        }
+        
+        // Appeler l'API pour récupérer le profil de l'utilisateur
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/api/v1/users/profile/${identifier}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          withCredentials: true
+        });
+        
+        if (response.data && response.data.success) {
+          userProfile.value = response.data.data;
+        } else {
+          throw new Error('Erreur lors de la récupération du profil');
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération du profil utilisateur:', error);
+        userProfileError.value = error.response?.data?.message || error.message || 'Erreur lors de la récupération du profil';
+      } finally {
+        loadingUserProfile.value = false;
+      }
+    };
     
     const inviteMember = async (userId) => {
       inviteError.value = ''
@@ -760,7 +1077,20 @@ export default defineComponent({
       uploadFile,
       inviteMember,
       removeMember,
-      fetchWorkspaceMembers
+      fetchWorkspaceMembers,
+      // Nouvelles fonctions pour les mentions
+      showUserSuggestions,
+      mentionPosition,
+      filteredUsers,
+      messageInput,
+      handleMessageInput,
+      selectUser,
+      formatMessageContent,
+      showUserProfile,
+      showUserProfileDialog,
+      userProfile,
+      loadingUserProfile,
+      userProfileError
     }
   }
 })
@@ -775,5 +1105,19 @@ export default defineComponent({
 .messages-list {
   display: flex;
   flex-direction: column;
+}
+
+.mention-tag {
+  color: #1976d2;
+  font-weight: bold;
+  background-color: rgba(25, 118, 210, 0.1);
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.mention-tag:hover {
+  background-color: rgba(25, 118, 210, 0.2);
 }
 </style>

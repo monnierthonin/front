@@ -99,12 +99,20 @@ messageSchema.methods.ajouterReaction = function(emoji, userId) {
 };
 
 // Middleware pour extraire les mentions et références de canaux
-messageSchema.pre('save', function(next) {
+messageSchema.pre('save', async function(next) {
     if (this.isModified('contenu')) {
-        // Extraire les mentions (@user)
+        // Extraire les mentions (@username)
         const mentionsMatch = this.contenu.match(/@(\w+)/g);
         if (mentionsMatch) {
-            this.mentions = mentionsMatch.map(mention => mention.substring(1));
+            // Convertir les mentions en IDs d'utilisateurs
+            const User = mongoose.model('User');
+            const usernames = mentionsMatch.map(mention => mention.substring(1));
+            const users = await User.find({ username: { $in: usernames } });
+            
+            // Stocker les IDs des utilisateurs trouvés
+            this.mentions = users.map(user => user._id);
+        } else {
+            this.mentions = [];
         }
 
         // Extraire les références de canaux (#canal)

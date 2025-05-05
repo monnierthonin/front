@@ -156,7 +156,9 @@ const actions = {
 
   async removeMember({ commit }, { workspaceId, canalId, membreId }) {
     try {
+      console.log(`Tentative de suppression du membre ${membreId} du canal ${canalId}`);
       const response = await api.delete(`/workspaces/${workspaceId}/canaux/${canalId}/membres/${membreId}`)
+      console.log('Réponse suppression membre:', response.data);
       commit('SET_CANAL_ACTIF', response.data.data.canal)
       return response.data.data.canal
     } catch (error) {

@@ -112,12 +112,30 @@ exports.obtenirCanal = catchAsync(async (req, res, next) => {
     }
 
     // Pour les canaux publics, ajouter automatiquement l'utilisateur comme membre s'il ne l'est pas déjà
-    if (canal.visibilite === 'public' && !canal.estMembre(req.user.id)) {
-        canal.membres.push({
-            utilisateur: req.user.id,
-            role: 'membre'
-        });
-        await canal.save();
+    if (canal.visibilite === 'public') {
+        // Vérifier si l'utilisateur est déjà membre en utilisant les IDs
+        const estMembre = canal.membres.some(membre => 
+            membre.utilisateur && 
+            (membre.utilisateur._id 
+                ? membre.utilisateur._id.toString() === req.user.id.toString() 
+                : membre.utilisateur.toString() === req.user.id.toString())
+        );
+        
+        if (!estMembre) {
+            canal.membres.push({
+                utilisateur: req.user.id,
+                role: 'membre'
+            });
+            await canal.save();
+            
+            // Recharger le canal avec les membres populés pour éviter "Utilisateur Inconnu"
+            const canalMisAJour = await Canal.findById(canal._id)
+                .populate('membres.utilisateur', 'username email profilePicture');
+                
+            if (canalMisAJour) {
+                canal = canalMisAJour;
+            }
+        }
     }
 
     res.status(200).json({
@@ -444,10 +462,15 @@ exports.supprimerMembre = catchAsync(async (req, res, next) => {
 
     canal.membres.pull(req.params.membreId);
     await canal.save();
+    
+    // Recharger le canal pour obtenir les données à jour
+    const canalMisAJour = await Canal.findById(canal._id).populate('membres.utilisateur', 'username email profilePicture');
 
-    res.status(204).json({
+    res.status(200).json({
         status: 'success',
-        data: null
+        data: {
+            canal: canalMisAJour
+        }
     });
 });
 

@@ -14,6 +14,9 @@ router.use(authenticate);
 // Obtenir le profil de l'utilisateur connecté
 router.get('/profile', userController.getProfile);
 
+// Obtenir le profil d'un utilisateur spécifique par ID ou nom d'utilisateur
+router.get('/profile/:identifier', userController.getUserProfile);
+
 // Mise à jour du profil
 router.put('/profile', userController.updateProfile);
 

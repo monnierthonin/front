@@ -61,6 +61,32 @@ class SocketService {
                     console.error('Format de message invalide:', data);
                 }
             });
+            
+            // Écouter les notifications de mention
+            this.socket.on('nouvelle-mention', (data) => {
+                console.log('Nouvelle mention reçue:', data);
+                if (data && data.message) {
+                    // Ajouter la notification au store
+                    store.commit('notification/AJOUTER_NOTIFICATION', {
+                        type: 'mention',
+                        message: `Vous avez été mentionné dans un message`,
+                        data: data,
+                        lue: false,
+                        date: new Date()
+                    });
+                    
+                    // Afficher une notification visuelle
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        const auteur = data.message.auteur ? data.message.auteur.username : 'Quelqu\'un';
+                        const canalNom = data.canal ? data.canal.nom : 'un canal';
+                        
+                        new Notification('Nouvelle mention', {
+                            body: `${auteur} vous a mentionné dans ${canalNom}`,
+                            icon: '/favicon.ico'
+                        });
+                    }
+                }
+            });
         });
     }
 
