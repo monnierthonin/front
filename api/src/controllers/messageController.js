@@ -288,7 +288,10 @@ exports.repondreMessage = catchAsync(async (req, res, next) => {
     }
 
     // Vérifier l'accès au canal
-    if (!canal.membres.includes(req.user._id)) {
+    const estMembre = canal.membres.some(membre => 
+        membre.utilisateur && membre.utilisateur.toString() === req.user._id.toString()
+    );
+    if (!estMembre) {
         return next(new AppError('Vous n\'avez pas accès à ce canal', 403));
     }
 

@@ -94,10 +94,22 @@ class SocketService {
             this.socket.on('message-supprime', (data) => {
                 console.log('Message supprimé reçu:', data);
                 if (data && data.messageId) {
-                    console.log('Suppression du message dans le store:', data.messageId);
-                    store.commit('message/DELETE_MESSAGE', data.messageId);
+                    store.commit('canal/REMOVE_MESSAGE', data.messageId);
+                    store.commit('message/REMOVE_MESSAGE', data.messageId);
                 } else {
-                    console.error('Format de message supprimé invalide:', data);
+                    console.error('Format de suppression invalide:', data);
+                }
+            });
+            
+            // Écouter les réponses aux messages
+            this.socket.on('nouvelle-reponse', (data) => {
+                console.log('Nouvelle réponse reçue:', data);
+                if (data && data.message) {
+                    // Ajouter la réponse aux messages du canal
+                    store.commit('canal/ADD_MESSAGE', data.message);
+                    store.commit('message/ADD_MESSAGE', data.message);
+                } else {
+                    console.error('Format de réponse invalide:', data);
                 }
             });
             

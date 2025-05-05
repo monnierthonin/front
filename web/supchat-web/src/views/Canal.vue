@@ -1,21 +1,29 @@
 <template>
-  <v-container fluid>
-    <v-row>
-      <!-- Liste des messages -->
-      <v-col cols="12" md="9">
-        <v-card>
-          <v-toolbar>
-            <v-toolbar-title>
-              {{ canal && canal.type === 'prive' ? '🔒' : '#' }} {{ canal && canal.nom }}
-            </v-toolbar-title>
-            <v-spacer></v-spacer>
-            <v-btn icon @click="showMembers = true">
-              <v-icon>mdi-account-group</v-icon>
-            </v-btn>
-            <v-btn icon @click="showSettings = true">
-              <v-icon>mdi-cog</v-icon>
-            </v-btn>
-          </v-toolbar>
+  <div>
+    <!-- Notification -->
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000" bottom right>
+      {{ snackbar.text }}
+      <template v-slot:action="{ attrs }">
+        <v-btn text v-bind="attrs" @click="snackbar.show = false">Fermer</v-btn>
+      </template>
+    </v-snackbar>
+    <v-container fluid>
+      <v-row>
+        <!-- Liste des messages -->
+        <v-col cols="12" md="9">
+          <v-card>
+            <v-toolbar>
+              <v-toolbar-title>
+                {{ canal && canal.type === 'prive' ? '🔒' : '#' }} {{ canal && canal.nom }}
+              </v-toolbar-title>
+              <v-spacer></v-spacer>
+              <v-btn icon @click="showMembers = true">
+                <v-icon>mdi-account-group</v-icon>
+              </v-btn>
+              <v-btn icon @click="showSettings = true">
+                <v-icon>mdi-cog</v-icon>
+              </v-btn>
+            </v-toolbar>
 
           <v-card-text class="messages-container" ref="messagesContainer">
             <div v-if="loading" class="text-center">
@@ -28,13 +36,25 @@
               <v-list v-else class="messages-list">
                 <v-list-item v-for="message in messagesInOrder" :key="message._id">
                   <v-list-item-content>
-                    <v-list-item-subtitle class="text-caption">
-                      {{ message.auteur && message.auteur.username ? message.auteur.username : 'Utilisateur inconnu' }} - {{ formatDate(message.createdAt) }}
-                      <v-chip x-small v-if="message.modifie" class="ml-2">modifié</v-chip>
-                    </v-list-item-subtitle>
-                    <v-list-item-title class="text-body-1">
-                      <span v-html="formatMessageContent(message)"></span>
+                    <v-list-item-title class="d-flex align-center">
+                      <span class="font-weight-bold">{{ message.auteur ? message.auteur.username : 'Utilisateur' }}</span>
+                      <v-chip x-small class="ml-2" v-if="message.modifie">modifié</v-chip>
+                      <v-spacer></v-spacer>
+                      <span class="text-caption">{{ formatDate(message.createdAt) }}</span>
                     </v-list-item-title>
+                    
+                    <!-- Affichage de la référence au message original si c'est une réponse -->
+                    <div v-if="message.reponseA" class="reply-reference mb-1 pa-2">
+                      <div class="d-flex align-center">
+                        <v-icon small class="mr-1">mdi-reply</v-icon>
+                        <span class="text-caption font-weight-medium">Réponse à {{ message.reponseA.auteur ? message.reponseA.auteur.username : 'Utilisateur' }}</span>
+                      </div>
+                      <div class="text-caption grey--text text--darken-1 text-truncate reply-preview">
+                        {{ message.reponseA.contenu }}
+                      </div>
+                    </div>
+                    
+                    <v-list-item-subtitle v-html="formatMessageContent(message)"></v-list-item-subtitle>
                     <!-- Fichiers attachés -->
                     <div v-if="message.fichiers && message.fichiers.length > 0" class="mt-2">
                       <v-chip
@@ -74,14 +94,30 @@
                     </div>
                   </v-list-item-content>
                   <!-- Actions sur le message -->
-                  <v-list-item-action v-if="canEditMessage(message)">
-                    <v-btn
-                      icon
-                      x-small
-                      @click="openMessageActionsDialog(message)"
-                    >
-                      <v-icon>mdi-dots-vertical</v-icon>
-                    </v-btn>
+                  <v-list-item-action>
+                    <div class="d-flex">
+                      <!-- Bouton de réponse pour tous les messages -->
+                      <v-btn
+                        icon
+                        x-small
+                        class="mr-1"
+                        @click="openReplyDialog(message)"
+                        title="Répondre"
+                      >
+                        <v-icon>mdi-reply</v-icon>
+                      </v-btn>
+                      
+                      <!-- Bouton d'actions pour les messages de l'utilisateur -->
+                      <v-btn
+                        v-if="message.auteur && user && message.auteur._id === user._id"
+                        icon
+                        x-small
+                        @click="openMessageActionsDialog(message)"
+                        title="Plus d'actions"
+                      >
+                        <v-icon>mdi-dots-vertical</v-icon>
+                      </v-btn>
+                    </div>
                   </v-list-item-action>
                 </v-list-item>
               </v-list>
@@ -422,6 +458,42 @@
       </v-card>
     </v-dialog>
     
+    <!-- Dialog pour répondre à un message -->
+    <v-dialog v-model="showReplyDialog" max-width="600px">
+      <v-card>
+        <v-card-title class="headline">Répondre au message</v-card-title>
+        <v-card-text>
+          <!-- Aperçu du message original -->
+          <v-card outlined class="mb-4 pa-3" v-if="replyToMessage">
+            <div class="d-flex align-center mb-2">
+              <v-avatar size="24" class="mr-2">
+                <v-img v-if="replyToMessage.auteur && replyToMessage.auteur.photo" :src="replyToMessage.auteur.photo"></v-img>
+                <v-icon v-else>mdi-account</v-icon>
+              </v-avatar>
+              <span class="font-weight-bold">{{ replyToMessage.auteur ? replyToMessage.auteur.username : 'Utilisateur' }}</span>
+            </div>
+            <div class="grey--text text--darken-1 message-preview">{{ replyToMessage.contenu }}</div>
+          </v-card>
+          
+          <!-- Champ de saisie de la réponse -->
+          <v-textarea
+            v-model="replyContent"
+            label="Votre réponse"
+            rows="4"
+            auto-grow
+            outlined
+            counter="2000"
+            :rules="[v => !!v || 'Veuillez saisir une réponse', v => v.length <= 2000 || 'Maximum 2000 caractères']"
+          ></v-textarea>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="grey darken-1" text @click="showReplyDialog = false">Annuler</v-btn>
+          <v-btn color="primary" text @click="sendReply()" :loading="sending" :disabled="!replyContent.trim()">Envoyer</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+    
     <!-- Dialog profil utilisateur -->
     <v-dialog v-model="showUserProfileDialog" max-width="600px">
       <v-card>
@@ -488,17 +560,18 @@
       </v-card>
     </v-dialog>
   </v-container>
+  </div>
 </template>
 
 <script>
 import { defineComponent, ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
-import socketService from '@/services/socketService'
+import socketService from '../services/socketService'
 import axios from 'axios'
 
 // URL de l'API
-const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:3000'
+const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:3000';
 
 export default defineComponent({
   name: 'CanalView',
@@ -556,6 +629,18 @@ export default defineComponent({
     // Variables pour la boîte de dialogue des actions sur les messages
     const showMessageActionsDialog = ref(false);
     const selectedMessage = ref(null);
+    
+    // Variables pour la réponse aux messages
+    const showReplyDialog = ref(false);
+    const replyToMessage = ref(null);
+    const replyContent = ref('');
+    
+    // Variable pour les notifications
+    const snackbar = ref({
+      show: false,
+      text: '',
+      color: 'info'
+    });
 
     // Liste des emojis courants pour les réactions
     // eslint-disable-next-line no-unused-vars
@@ -770,6 +855,55 @@ export default defineComponent({
     const openMessageActionsDialog = (message) => {
       selectedMessage.value = message;
       showMessageActionsDialog.value = true;
+    }
+    
+    // Ouvre la boîte de dialogue pour répondre à un message
+    const openReplyDialog = (message) => {
+      replyToMessage.value = message;
+      replyContent.value = '';
+      showReplyDialog.value = true;
+    }
+    
+    // Envoie une réponse à un message
+    const sendReply = async () => {
+      if (!replyContent.value.trim() || !replyToMessage.value) return;
+      
+      try {
+        sending.value = true;
+        
+        await axios.post(
+          `${API_URL}/api/v1/workspaces/${workspaceId.value}/canaux/${canalId.value}/messages/${replyToMessage.value._id}/reponses`,
+          { contenu: replyContent.value },
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('token')}`
+            },
+            withCredentials: true
+          }
+        );
+        
+        // Réinitialiser les champs
+        replyContent.value = '';
+        showReplyDialog.value = false;
+        
+        // Afficher un message de succès
+        snackbar.value = {
+          show: true,
+          text: 'Réponse envoyée avec succès',
+          color: 'success'
+        };
+      } catch (error) {
+        console.error('Erreur lors de l\'envoi de la réponse:', error);
+        
+        // Afficher un message d'erreur
+        snackbar.value = {
+          show: true,
+          text: error.response?.data?.message || 'Erreur lors de l\'envoi de la réponse',
+          color: 'error'
+        };
+      } finally {
+        sending.value = false;
+      }
     }
 
     const updateCanal = async () => {
@@ -1196,7 +1330,15 @@ export default defineComponent({
       // Variables et fonctions pour les actions sur les messages
       showMessageActionsDialog,
       selectedMessage,
-      openMessageActionsDialog
+      openMessageActionsDialog,
+      // Variables et fonctions pour les réponses aux messages
+      showReplyDialog,
+      replyToMessage,
+      replyContent,
+      openReplyDialog,
+      sendReply,
+      // Variable pour les notifications
+      snackbar
     }
   }
 })
@@ -1247,5 +1389,19 @@ export default defineComponent({
 
 .mention-tag:hover {
   background-color: rgba(25, 118, 210, 0.2);
+}
+
+.reply-reference {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-left: 3px solid #1976d2;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+
+.reply-preview {
+  max-width: 250px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>
