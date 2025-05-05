@@ -50,40 +50,38 @@
                       </v-chip>
                     </div>
                     <!-- Réactions -->
-                    <div v-if="message.reactions && message.reactions.length > 0" class="mt-2">
-                      <v-chip
-                        v-for="reaction in message.reactions"
-                        :key="reaction.emoji"
+                    <div class="mt-2 d-flex align-center">
+                      <div v-if="message.reactions && message.reactions.length > 0" class="mr-2">
+                        <v-chip
+                          v-for="reaction in message.reactions"
+                          :key="reaction.emoji"
+                          x-small
+                          class="mr-1"
+                          @click="handleReaction(message._id, reaction.emoji)"
+                        >
+                          {{ reaction.emoji }} {{ reaction.utilisateurs.length }}
+                        </v-chip>
+                      </div>
+                      <!-- Bouton pour ajouter une réaction -->
+                      <v-btn
+                        icon
                         x-small
-                        class="mr-2"
-                        @click="handleReaction(message._id, reaction.emoji)"
+                        class="ml-1"
+                        @click="openEmojiDialog(message._id)"
                       >
-                        {{ reaction.emoji }} {{ reaction.utilisateurs.length }}
-                      </v-chip>
+                        <v-icon>mdi-emoticon-outline</v-icon>
+                      </v-btn>
                     </div>
                   </v-list-item-content>
                   <!-- Actions sur le message -->
                   <v-list-item-action v-if="canEditMessage(message)">
-                    <v-menu>
-                      <template v-slot:activator="{ on, attrs }">
-                        <v-btn
-                          icon
-                          x-small
-                          v-bind="attrs"
-                          v-on="on"
-                        >
-                          <v-icon>mdi-dots-vertical</v-icon>
-                        </v-btn>
-                      </template>
-                      <v-list dense>
-                        <v-list-item @click="editMessage(message)">
-                          <v-list-item-title>Modifier</v-list-item-title>
-                        </v-list-item>
-                        <v-list-item @click="deleteMessage(message._id)">
-                          <v-list-item-title class="error--text">Supprimer</v-list-item-title>
-                        </v-list-item>
-                      </v-list>
-                    </v-menu>
+                    <v-btn
+                      icon
+                      x-small
+                      @click="openMessageActionsDialog(message)"
+                    >
+                      <v-icon>mdi-dots-vertical</v-icon>
+                    </v-btn>
                   </v-list-item-action>
                 </v-list-item>
               </v-list>
@@ -367,6 +365,63 @@
       </v-card>
     </v-dialog>
     
+    <!-- Dialog actions sur les messages -->
+    <v-dialog v-model="showMessageActionsDialog" max-width="300px">
+      <v-card>
+        <v-card-title class="headline">Actions</v-card-title>
+        <v-card-text>
+          <v-list>
+            <v-list-item @click="editMessage(selectedMessage); showMessageActionsDialog = false">
+              <v-list-item-icon>
+                <v-icon>mdi-pencil</v-icon>
+              </v-list-item-icon>
+              <v-list-item-content>
+                <v-list-item-title>Modifier</v-list-item-title>
+              </v-list-item-content>
+            </v-list-item>
+            <v-list-item @click="deleteMessage(selectedMessage._id); showMessageActionsDialog = false">
+              <v-list-item-icon>
+                <v-icon color="error">mdi-delete</v-icon>
+              </v-list-item-icon>
+              <v-list-item-content>
+                <v-list-item-title class="error--text">Supprimer</v-list-item-title>
+              </v-list-item-content>
+            </v-list-item>
+          </v-list>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="grey darken-1" text @click="showMessageActionsDialog = false">Fermer</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+    
+    <!-- Dialog sélection d'emoji -->
+    <v-dialog v-model="showEmojiDialog" max-width="400px">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          Réagir au message
+          <v-spacer></v-spacer>
+          <v-btn icon @click="showEmojiDialog = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-card-text>
+          <div class="emoji-grid">
+            <v-btn
+              v-for="emoji in commonEmojis"
+              :key="emoji"
+              text
+              @click="reactToMessage(emoji)"
+              class="emoji-btn ma-1"
+            >
+              {{ emoji }}
+            </v-btn>
+          </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+    
     <!-- Dialog profil utilisateur -->
     <v-dialog v-model="showUserProfileDialog" max-width="600px">
       <v-card>
@@ -493,6 +548,21 @@ export default defineComponent({
     const loadingUserProfile = ref(false);
     const userProfile = ref(null);
     const userProfileError = ref('');
+    
+    // Variables pour la sélection d'emoji
+    const showEmojiDialog = ref(false);
+    const currentMessageId = ref(null);
+    
+    // Variables pour la boîte de dialogue des actions sur les messages
+    const showMessageActionsDialog = ref(false);
+    const selectedMessage = ref(null);
+
+    // Liste des emojis courants pour les réactions
+    // eslint-disable-next-line no-unused-vars
+    const commonEmojis = ref([
+      '👍', '👎', '😀', '😂', '😍', '🎉', '🔥', '👀', '❤️', '🚀',
+      '👏', '🙏', '🤔', '😮', '😢', '👌', '🙌', '💯', '🤝', '✅'
+    ])
 
     const typeOptions = [
       { text: 'Texte', value: 'texte' },
@@ -674,6 +744,32 @@ export default defineComponent({
       } catch (error) {
         console.error('Erreur réaction:', error)
       }
+    }
+    
+    // Ouvre la boîte de dialogue des emojis pour réagir à un message
+    // eslint-disable-next-line no-unused-vars
+    const openEmojiDialog = (messageId) => {
+      currentMessageId.value = messageId;
+      showEmojiDialog.value = true;
+    }
+    
+    // Réagit au message avec l'emoji sélectionné et ferme la boîte de dialogue
+    // eslint-disable-next-line no-unused-vars
+    const reactToMessage = async (emoji) => {
+      if (!currentMessageId.value) return;
+      
+      try {
+        await handleReaction(currentMessageId.value, emoji);
+        showEmojiDialog.value = false;
+      } catch (error) {
+        console.error('Erreur lors de la réaction au message:', error);
+      }
+    }
+    
+    // Ouvre la boîte de dialogue des actions sur un message
+    const openMessageActionsDialog = (message) => {
+      selectedMessage.value = message;
+      showMessageActionsDialog.value = true;
     }
 
     const updateCanal = async () => {
@@ -1090,11 +1186,43 @@ export default defineComponent({
       showUserProfileDialog,
       userProfile,
       loadingUserProfile,
-      userProfileError
+      userProfileError,
+      // Variables et fonctions pour les réactions aux messages
+      showEmojiDialog,
+      currentMessageId,
+      commonEmojis,
+      openEmojiDialog,
+      reactToMessage,
+      // Variables et fonctions pour les actions sur les messages
+      showMessageActionsDialog,
+      selectedMessage,
+      openMessageActionsDialog
     }
   }
 })
 </script>
+
+<style scoped>
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.emoji-btn {
+  min-width: 48px !important;
+  height: 48px !important;
+  font-size: 24px !important;
+  border-radius: 50% !important;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.emoji-btn:hover {
+  transform: scale(1.1);
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+</style>
 
 <style scoped>
 .messages-container {

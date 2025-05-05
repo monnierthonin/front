@@ -131,6 +131,7 @@
   - [ ] Formatage markdown
   - [ ] Mentions (@user)
   - [ ] Réactions aux messages
+  - [ ] Réponses aux messages
 - [ ] Gestion des fichiers
   - [ ] Upload de fichiers
   - [ ] Partage de fichiers

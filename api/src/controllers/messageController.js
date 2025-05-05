@@ -164,6 +164,7 @@ exports.modifierMessage = catchAsync(async (req, res, next) => {
     }
 
     message.contenu = contenu;
+    message.modifie = true;
     await message.save();
 
     // Émettre via WebSocket
@@ -223,20 +224,36 @@ exports.reagirMessage = catchAsync(async (req, res, next) => {
         return next(new AppError('Message non trouvé', 404));
     }
 
-    // Ajouter ou retirer la réaction
-    const reaction = {
-        utilisateur: req.user._id,
-        emoji
-    };
-
-    const index = message.reactions.findIndex(
-        r => r.utilisateur.toString() === req.user._id.toString() && r.emoji === emoji
-    );
-
-    if (index > -1) {
-        message.reactions.splice(index, 1);
+    // Trouver si l'emoji existe déjà dans les réactions
+    let emojiReaction = message.reactions.find(r => r.emoji === emoji);
+    
+    if (emojiReaction) {
+        // Vérifier si l'utilisateur a déjà réagi avec cet emoji
+        const userIndex = emojiReaction.utilisateurs.findIndex(
+            userId => userId.toString() === req.user._id.toString()
+        );
+        
+        if (userIndex > -1) {
+            // Retirer la réaction de l'utilisateur
+            emojiReaction.utilisateurs.splice(userIndex, 1);
+            
+            // Si plus personne ne réagit avec cet emoji, retirer l'emoji
+            if (emojiReaction.utilisateurs.length === 0) {
+                const emojiIndex = message.reactions.findIndex(r => r.emoji === emoji);
+                if (emojiIndex > -1) {
+                    message.reactions.splice(emojiIndex, 1);
+                }
+            }
+        } else {
+            // Ajouter l'utilisateur à la liste des utilisateurs qui réagissent avec cet emoji
+            emojiReaction.utilisateurs.push(req.user._id);
+        }
     } else {
-        message.reactions.push(reaction);
+        // Créer une nouvelle réaction pour cet emoji
+        message.reactions.push({
+            emoji,
+            utilisateurs: [req.user._id]
+        });
     }
 
     await message.save();
@@ -244,7 +261,7 @@ exports.reagirMessage = catchAsync(async (req, res, next) => {
     // Émettre via WebSocket
     req.app.get('socketService').emitToCanal(message.canal, 'reaction-message', {
         messageId: message._id,
-        reaction
+        message: message
     });
 
     res.status(200).json({

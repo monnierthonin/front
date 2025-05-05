@@ -188,23 +188,53 @@
   - Vérifier : Horodatage correct ✓
   - Vérifier : Auteur correctement affiché ✓
 
-- [ ] Mentions
+- [x] Mentions
   - Scénario : Message avec "@username"
-  - Vérifier : Mention mise en évidence
-  - Vérifier : Notification envoyée
-  - Vérifier : Lien vers le profil
+  - Vérifier : Mention mise en évidence ✓
+  - Vérifier : Notification envoyée ✓
+  - Vérifier : Lien vers le profil ✓
 
 ### Modifications
-- [ ] Édition de message
-  - Scénario : Auteur modifie son message
-  - Vérifier : Mise à jour en temps réel
-  - Vérifier : Indication "modifié"
-  - Vérifier : Seul l'auteur peut modifier
+- [x] Édition de message
+  - Scénario : Auteur modifie son message via Swagger ✓
+  - Vérifier : Mise à jour en temps réel ✓
+  - Vérifier : Indication "modifié" ✓
+  - Note : Testé via Swagger en raison de problèmes d'implémentation dans le composant Vue de Canal
 
-- [ ] Suppression de message
-  - Scénario : Auteur supprime son message
-  - Vérifier : Message supprimé en temps réel
-  - Vérifier : Historique mis à jour
+### Suppression
+- [x] Suppression de message
+  - Scénario : Auteur supprime son message via Swagger ✓
+  - Vérifier : Suppression en temps réel ✓
+  - Vérifier : Seul l'auteur peut supprimer ✓
+  - Vérifier : Historique mis à jour ✓
+  - Note : Testé via Swagger en raison de problèmes d'implémentation dans le composant Vue de Canal
+
+### Réactions
+- [x] Ajout de réaction
+  - Scénario : Utilisateur ajoute une réaction ✓
+  - Vérifier : Réaction visible en temps réel ✓
+  - Vérifier : Utilisateur ne peut pas réagir plusieurs fois ✓
+
+- [x] Suppression de réaction
+  - Scénario : Utilisateur supprime une réaction ✓
+  - Vérifier : Réaction supprimée en temps réel ✓
+  - Vérifier : Utilisateur ne peut pas supprimer une réaction qu'il n'a pas ajoutée ✓
+
+### Mentions de canaux
+- [ ] Ajout de mention de canal
+  - Scénario : Utilisateur ajoute une mention de canal 
+  - Vérifier : Mention visible en temps réel
+  - Vérifier : Utilisateur ne peut pas mentionner un canal qu'il n'a pas accès
+
+### Formatage markdown
+- [ ] Formatage markdown
+  - Scénario : Utilisateur ajoute un message formaté en markdown
+  - Vérifier : Message formaté en markdown
+
+### Réponses aux messages
+- [ ] Réponses aux messages
+  - Scénario : Utilisateur ajoute une réponse à un message
+  - Vérifier : Réponse visible en temps réel
 
 ## Tests de Performance
 

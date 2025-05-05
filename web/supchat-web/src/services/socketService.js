@@ -62,6 +62,45 @@ class SocketService {
                 }
             });
             
+            // Écouter les messages modifiés
+            this.socket.on('message-modifie', (data) => {
+                console.log('Message modifié reçu:', data);
+                if (data && data.message) {
+                    console.log('Mise à jour du message dans le store:', data.message);
+                    // Mettre à jour dans les deux stores pour assurer la cohérence
+                    store.commit('canal/UPDATE_MESSAGE', data.message);
+                    store.commit('message/UPDATE_MESSAGE', data.message);
+                } else {
+                    console.error('Format de message modifié invalide:', data);
+                }
+            });
+            
+            // Écouter les réactions aux messages
+            this.socket.on('reaction-message', (data) => {
+                console.log('Réaction à un message reçue:', data);
+                if (data && data.messageId && data.message) {
+                    // Mettre à jour le message avec les nouvelles réactions
+                    const updatedMessage = data.message;
+                    
+                    // Mettre à jour dans les deux stores pour assurer la cohérence
+                    store.commit('canal/UPDATE_MESSAGE', updatedMessage);
+                    store.commit('message/UPDATE_MESSAGE', updatedMessage);
+                } else {
+                    console.error('Format de réaction invalide:', data);
+                }
+            });
+            
+            // Écouter les messages supprimés
+            this.socket.on('message-supprime', (data) => {
+                console.log('Message supprimé reçu:', data);
+                if (data && data.messageId) {
+                    console.log('Suppression du message dans le store:', data.messageId);
+                    store.commit('message/DELETE_MESSAGE', data.messageId);
+                } else {
+                    console.error('Format de message supprimé invalide:', data);
+                }
+            });
+            
             // Écouter les notifications de mention
             this.socket.on('nouvelle-mention', (data) => {
                 console.log('Nouvelle mention reçue:', data);

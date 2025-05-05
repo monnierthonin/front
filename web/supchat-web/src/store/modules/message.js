@@ -60,7 +60,9 @@ const actions = {
 
   async updateMessage({ commit }, { workspaceId, canalId, messageId, messageData }) {
     try {
-      const response = await api.put(`/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}`, messageData)
+      console.log(`Mise à jour du message ${messageId} avec:`, messageData);
+      const response = await api.patch(`/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}`, messageData)
+      console.log('Réponse de mise à jour:', response.data);
       commit('UPDATE_MESSAGE', response.data.data.message)
       return response.data.data.message
     } catch (error) {
@@ -76,6 +78,20 @@ const actions = {
       commit('DELETE_MESSAGE', messageId)
     } catch (error) {
       console.error('Erreur lors de la suppression du message:', error)
+      commit('SET_ERROR', error.message)
+      throw error
+    }
+  },
+
+  async reactToMessage({ commit }, { workspaceId, canalId, messageId, emoji }) {
+    try {
+      console.log(`Réaction au message ${messageId} avec emoji:`, emoji);
+      const response = await api.post(`/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}/reactions`, { emoji })
+      console.log('Réponse de réaction:', response.data);
+      // La mise à jour du message se fera via WebSocket
+      return response.data
+    } catch (error) {
+      console.error('Erreur lors de la réaction au message:', error)
       commit('SET_ERROR', error.message)
       throw error
     }

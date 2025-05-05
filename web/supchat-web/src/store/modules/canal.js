@@ -33,6 +33,20 @@ const mutations = {
       console.log('Message déjà présent dans la liste');
     }
   },
+  UPDATE_MESSAGE(state, updatedMessage) {
+    console.log('UPDATE_MESSAGE mutation appelée avec:', updatedMessage);
+    const index = state.messages.findIndex(m => m._id === updatedMessage._id);
+    if (index !== -1) {
+      console.log('Message trouvé à l\'index:', index);
+      // Créer un nouveau tableau pour forcer la réactivité
+      const newMessages = [...state.messages];
+      newMessages[index] = updatedMessage;
+      state.messages = newMessages;
+      console.log('Message mis à jour dans le store');
+    } else {
+      console.log('Message non trouvé dans le store');
+    }
+  },
   SET_CANAUX(state, canaux) {
     state.canaux = canaux
   },
