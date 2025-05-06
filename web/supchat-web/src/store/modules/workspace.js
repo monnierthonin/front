@@ -18,7 +18,6 @@ const actions = {
   async fetchWorkspaces({ commit }) {
     try {
       const response = await api.get('/workspaces')
-      console.log('Réponse workspaces:', response.data)
       commit('SET_WORKSPACES', response.data.data.workspaces)
       return response.data.data.workspaces
     } catch (error) {
@@ -31,12 +30,6 @@ const actions = {
     try {
       const response = await api.get(`/workspaces/${workspaceId}`)
       const workspace = response.data.data.workspace
-      console.log('Workspace complet:', workspace)
-      console.log('Membres du workspace:', workspace.membres)
-      if (workspace.membres && workspace.membres.length > 0) {
-        console.log('Premier membre:', workspace.membres[0])
-        console.log('Utilisateur du premier membre:', workspace.membres[0].utilisateur)
-      }
       commit('SET_CURRENT_WORKSPACE', workspace)
       return workspace
     } catch (error) {

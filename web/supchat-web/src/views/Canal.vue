@@ -1272,13 +1272,7 @@ export default defineComponent({
     
     // Observer les changements dans les messages
     watch(() => messages.value, (newMessages, oldMessages) => {
-      console.log('Messages changés:', {
-        nouveaux: newMessages?.length,
-        anciens: oldMessages?.length,
-        diff: newMessages?.length - oldMessages?.length
-      });
       if (newMessages?.length !== oldMessages?.length) {
-        console.log('Nouveau message détecté, scroll vers le bas');
         scrollToBottom();
       }
     }, { deep: true })
@@ -1334,7 +1328,6 @@ export default defineComponent({
     })
 
     onUnmounted(() => {
-      console.log('Canal component unmounting, disconnecting socket');
       socketService.disconnect();
     })
 
