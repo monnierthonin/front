@@ -7,18 +7,27 @@ const User = require('../models/user');
  */
 exports.authenticate = async (req, res, next) => {
   try {
-    // Vérifier la présence du token
+    let token;
+
+    // Vérifier d'abord le header Authorization
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+    // Sinon, vérifier le cookie
+    else if (req.cookies && req.cookies.jwt) {
+      token = req.cookies.jwt;
+    }
+
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: 'Token d\'authentification manquant'
       });
     }
 
-    // Extraire et vérifier le token
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Vérifier le token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supchat_secret_dev');
 
     // Vérifier que l'utilisateur existe toujours
     const user = await User.findById(decoded.id).select('-password');
@@ -36,7 +45,7 @@ exports.authenticate = async (req, res, next) => {
     console.error('Erreur d\'authentification:', error);
     res.status(401).json({
       success: false,
-      message: 'Token invalide ou expiré',
+      message: 'Erreur de vérification',
       error: error.message
     });
   }

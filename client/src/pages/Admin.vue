@@ -9,8 +9,8 @@
 </template>
 
 <script>
-import AdminUserManager from '../components/adminFile/AdminUserManager.vue'
-import AdminWorkspaceManager from '../components/adminFile/AdminWorkspaceManager.vue'
+import AdminUserManager from '../components/AdminFile/AdminUserManager.vue'
+import AdminWorkspaceManager from '../components/AdminFile/AdminWorkspaceManager.vue'
 
 export default {
   name: 'Admin',

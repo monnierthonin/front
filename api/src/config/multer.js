@@ -5,7 +5,7 @@ const crypto = require('crypto');
 // Configuration du stockage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../../uploads/profiles'));
+    cb(null, '/uploads/profiles');
   },
   filename: function (req, file, cb) {
     // Générer un nom de fichier unique avec l'extension d'origine

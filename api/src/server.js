@@ -1,37 +1,18 @@
-const app = require('./app');
-const http = require('http');
-const socketIo = require('socket.io');
+const mongoose = require('mongoose');
+const dotenv = require('dotenv');
+const { app, serveur } = require('./app');
 const initialiserBaseDeDonnees = require('./config/database');
 
+// Charger les variables d'environnement
+dotenv.config();
+
 // Configuration du port
-const PORT = process.env.PORT || 3000;
-
-// Création du serveur HTTP
-const server = http.createServer(app);
-
-// Configuration de Socket.IO
-const io = socketIo(server, {
-  cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:8080",
-    methods: ["GET", "POST"]
-  }
-});
+const port = process.env.PORT || 3000;
 
 // Initialisation de la base de données
 initialiserBaseDeDonnees();
 
-// Gestion des connexions Socket.IO
-io.on('connection', (socket) => {
-  // Configuration CORS pour Socket.IO
-  socket.handshake.headers.origin = process.env.CLIENT_URL;
-  console.log('Un client s\'est connecté');
-
-  socket.on('disconnect', () => {
-    console.log('Un client s\'est déconnecté');
-  });
-});
-
 // Démarrage du serveur
-server.listen(PORT, () => {
-  console.log(`Serveur démarré sur le port ${PORT}`);
+serveur.listen(port, () => {
+  console.log(`Serveur démarré sur le port ${port}`);
 });

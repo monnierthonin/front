@@ -4,7 +4,7 @@
       <div class="nav-logo-workspace">
         <div class="logo">
           <router-link to="/">
-            <img src="../../assets/styles/image/logoSupChat.png" alt="LogoSupChat" class="logo">
+            <img src="../../assets/styles/image/logoSupchat.png" alt="LogoSupChat" class="logo">
           </router-link>
         </div>
           <ul class="nav-links">

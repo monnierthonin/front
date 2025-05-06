@@ -1,38 +1,58 @@
 version: '3.8'
 
 services:
-  # Service API Node.js
   api:
     build: 
       context: ./api
       dockerfile: Dockerfile
-    container_name: supchat-api
-    restart: unless-stopped
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - MONGODB_URI=${MONGODB_URI}
-      - JWT_SECRET=${JWT_SECRET}
-      - CLIENT_URL=http://localhost:8080
     ports:
       - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - JWT_SECRET=votre_secret_jwt
+      - JWT_EXPIRES_IN=24h
+      - FRONTEND_URL=http://localhost:3001
+      - API_URL=http://localhost:3000
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - MICROSOFT_CLIENT_ID=${MICROSOFT_CLIENT_ID}
+      - MICROSOFT_CLIENT_SECRET=${MICROSOFT_CLIENT_SECRET}
+      - FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
+      - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    restart: unless-stopped
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+      - uploads:/uploads
     networks:
       - supchat-network
 
-  # Service Web Vue.js
   web:
     build:
-      context: ./web
+      context: ./client
       dockerfile: Dockerfile
-    container_name: supchat-web
-    restart: unless-stopped
     ports:
-      - "8080:80"
+      - "3001:80"
+    environment:
+      - VUE_APP_API_URL=http://api:3000
+      - NODE_ENV=development
     depends_on:
       - api
+    restart: unless-stopped
+    volumes:
+      - ./client:/app
+      - /app/node_modules
     networks:
       - supchat-network
 
 networks:
   supchat-network:
     driver: bridge
+
+volumes:
+  uploads:

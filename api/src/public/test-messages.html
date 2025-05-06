@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Messages SUPCHAT</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .section {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .message {
+            margin: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+
+        .sent {
+            background-color: #DCF8C6;
+            margin-left: auto;
+        }
+
+        .received {
+            background-color: #E8E8E8;
+            margin-right: auto;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .profile-pic {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .message-content {
+            margin: 5px 0;
+        }
+
+        .message-footer {
+            font-size: 0.8em;
+            color: #666;
+            text-align: right;
+        }
+
+        #groupMessages {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        input, textarea, button {
+            margin: 5px 0;
+            padding: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .error {
+            color: red;
+            margin: 5px 0;
+        }
+        .success {
+            color: green;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Messages SUPCHAT</h1>
+    
+    <div class="form-group">
+        <label for="token">Token JWT:</label>
+        <input type="text" id="token" style="width: 500px;">
+        <button onclick="connectWebSocket()">Connecter WebSocket</button>
+    </div>
+
+    <div class="container">
+        <!-- Messages de Groupe -->
+        <div class="section">
+            <h2>Messages de Groupe</h2>
+            <div class="form-group">
+                <label for="canalId">ID du Canal:</label>
+                <input type="text" id="canalId">
+                <button onclick="loadGroupMessages()">Charger Messages</button>
+            </div>
+            <div class="messages" id="groupMessages"></div>
+            <div class="form-group">
+                <textarea id="groupMessageContent" placeholder="Message de groupe..."></textarea>
+                <input type="text" id="groupMentions" placeholder="IDs des mentions (séparés par des virgules)">
+                <button onclick="sendGroupMessage()">Envoyer</button>
+            </div>
+            <div id="groupStatus"></div>
+        </div>
+
+        <!-- Messages Privés -->
+        <div class="section">
+            <h2>Messages Privés</h2>
+            <div class="form-group">
+                <label for="userId">ID de l'utilisateur:</label>
+                <input type="text" id="userId">
+                <button onclick="loadPrivateMessages()">Charger Messages</button>
+            </div>
+            <div class="messages" id="privateMessages"></div>
+            <div class="form-group">
+                <textarea id="privateMessageContent" placeholder="Message privé..."></textarea>
+                <button onclick="sendPrivateMessage()">Envoyer</button>
+            </div>
+            <div id="privateStatus"></div>
+        </div>
+    </div>
+
+    <script>
+        let socket;
+        const API_URL = 'http://localhost:3000/api/v1';
+
+        function showError(containerId, message) {
+            document.getElementById(containerId).innerHTML = `<div class="error">${message}</div>`;
+        }
+
+        function showSuccess(containerId, message) {
+            document.getElementById(containerId).innerHTML = `<div class="success">${message}</div>`;
+        }
+
+        function connectWebSocket() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                showError('groupStatus', 'Token requis');
+                return;
+            }
+
+            socket = io('http://localhost:3000', {
+                auth: {
+                    token
+                }
+            });
+
+            socket.on('connect', () => {
+                showSuccess('groupStatus', 'WebSocket connecté');
+                // Rejoindre le canal actuel après la connexion
+                const canalId = document.getElementById('canalId').value;
+                if (canalId) {
+                    socket.emit('rejoindre-canal', { canalId });
+                }
+            });
+
+            socket.on('nouveau-message', (data) => {
+                console.log('Nouveau message reçu:', data);
+                appendGroupMessage(data.message);
+            });
+
+            socket.on('message-modifie', (data) => {
+                updateMessage(data.message);
+            });
+
+            socket.on('message-supprime', (data) => {
+                removeMessage(data.messageId);
+            });
+
+            socket.on('nouveau-message-prive', (data) => {
+                appendPrivateMessage(data.message);
+            });
+
+            socket.on('message-prive-modifie', (data) => {
+                updatePrivateMessage(data.message);
+            });
+
+            socket.on('message-prive-supprime', (data) => {
+                removePrivateMessage(data.messageId);
+            });
+
+            socket.on('connect_error', (error) => {
+                showError('groupStatus', 'Erreur de connexion WebSocket: ' + error.message);
+            });
+        }
+
+        async function loadGroupMessages() {
+            const token = document.getElementById('token').value;
+            const canalId = document.getElementById('canalId').value;
+
+            try {
+                // Rejoindre le canal via WebSocket
+                if (socket && socket.connected) {
+                    socket.emit('rejoindre-canal', { canalId });
+                }
+
+                const response = await fetch(`${API_URL}/messages/groupe/${canalId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Erreur lors du chargement des messages');
+                }
+
+                const data = await response.json();
+                
+                const container = document.getElementById('groupMessages');
+                container.innerHTML = '';
+                data.data.messages.forEach(message => appendGroupMessage(message));
+                
+                showSuccess('groupStatus', 'Messages chargés');
+            } catch (error) {
+                showError('groupStatus', 'Erreur: ' + error.message);
+            }
+        }
+
+        async function sendGroupMessage() {
+            const token = document.getElementById('token').value;
+            const content = document.getElementById('groupMessageContent').value;
+            const canalId = document.getElementById('canalId').value;
+            const mentions = document.getElementById('groupMentions').value
+                .split(',')
+                .map(id => id.trim())
+                .filter(id => id.length > 0);
+
+            try {
+                const response = await fetch(`${API_URL}/messages/groupe`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contenu: content,
+                        canal: canalId,
+                        mentions
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Erreur envoi message');
+                }
+                
+                document.getElementById('groupMessageContent').value = '';
+                document.getElementById('groupMentions').value = '';
+                showSuccess('groupStatus', 'Message envoyé');
+            } catch (error) {
+                showError('groupStatus', 'Erreur: ' + error.message);
+            }
+        }
+
+        async function loadPrivateMessages() {
+            const token = document.getElementById('token').value;
+            const userId = document.getElementById('userId').value;
+
+            try {
+                const response = await fetch(`${API_URL}/messages/prive/${userId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const data = await response.json();
+                
+                const container = document.getElementById('privateMessages');
+                container.innerHTML = '';
+                data.data.messages.forEach(message => appendPrivateMessage(message));
+                
+                showSuccess('privateStatus', 'Messages chargés');
+            } catch (error) {
+                showError('privateStatus', 'Erreur: ' + error.message);
+            }
+        }
+
+        async function sendPrivateMessage() {
+            const token = document.getElementById('token').value;
+            const content = document.getElementById('privateMessageContent').value;
+            const userId = document.getElementById('userId').value;
+
+            try {
+                const response = await fetch(`${API_URL}/messages/prive`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contenu: content,
+                        destinataire: userId
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Erreur envoi message');
+                
+                document.getElementById('privateMessageContent').value = '';
+                showSuccess('privateStatus', 'Message envoyé');
+            } catch (error) {
+                showError('privateStatus', 'Erreur: ' + error.message);
+            }
+        }
+
+        function appendGroupMessage(message) {
+            console.log('Message à afficher:', message);
+            const container = document.getElementById('groupMessages');
+            const div = document.createElement('div');
+            div.id = `message-${message._id}`;
+            div.className = `message ${message.auteur._id === getUserId() ? 'sent' : 'received'}`;
+            
+            // Vérifier que l'auteur et ses informations existent
+            const auteur = message.auteur || {};
+            const nomAffiche = auteur.username || auteur.firstName + ' ' + auteur.lastName || auteur.email || 'Utilisateur inconnu';
+            
+            // Formater la date
+            const date = message.horodatage ? new Date(message.horodatage) : new Date();
+            const dateFormatee = date instanceof Date && !isNaN(date) 
+                ? date.toLocaleString('fr-FR', { 
+                    dateStyle: 'short', 
+                    timeStyle: 'short' 
+                })
+                : 'Date inconnue';
+            
+            // Ajouter la photo de profil si disponible
+            const photoUrl = auteur.profilePicture || 'default-avatar.png';
+            
+            div.innerHTML = `
+                <div class="message-header">
+                    <img src="${photoUrl}" alt="Photo de profil" class="profile-pic">
+                    <strong>${nomAffiche}</strong>
+                </div>
+                <div class="message-content">${message.contenu}</div>
+                <div class="message-footer">
+                    <small>${dateFormatee}</small>
+                </div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function appendPrivateMessage(message) {
+            const container = document.getElementById('privateMessages');
+            const div = document.createElement('div');
+            div.id = `private-message-${message._id}`;
+            div.className = `message ${message.expediteur._id === getUserId() ? 'sent' : 'received'}`;
+            div.innerHTML = `
+                <div class="message-header">
+                    <img src="${message.expediteur.profilePicture || 'default-avatar.png'}" alt="Photo de profil" class="profile-pic">
+                    <strong>${message.expediteur.firstName + ' ' + message.expediteur.lastName}</strong>
+                </div>
+                <div class="message-content">${message.contenu}</div>
+                <div class="message-footer">
+                    <small>${new Date(message.horodatage).toLocaleString()}</small>
+                    ${!message.lu && message.destinataire._id === getUserId() ? ' <span style="color: blue;">•</span>' : ''}
+                </div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateMessage(message) {
+            const element = document.getElementById(`message-${message._id}`);
+            if (element) {
+                element.innerHTML = `
+                    <div class="message-header">
+                        <img src="${message.auteur.photo || 'default-avatar.png'}" alt="Photo de profil" class="profile-pic">
+                        <strong>${message.auteur.nom}</strong>
+                    </div>
+                    <div class="message-content">${message.contenu}</div>
+                    <div class="message-footer">
+                        <small>${new Date(message.horodatage).toLocaleString()} (modifié)</small>
+                    </div>
+                `;
+            }
+        }
+
+        function updatePrivateMessage(message) {
+            const element = document.getElementById(`private-message-${message._id}`);
+            if (element) {
+                element.innerHTML = `
+                    <div class="message-header">
+                        <img src="${message.expediteur.photo || 'default-avatar.png'}" alt="Photo de profil" class="profile-pic">
+                        <strong>${message.expediteur.nom}</strong>
+                    </div>
+                    <div class="message-content">${message.contenu}</div>
+                    <div class="message-footer">
+                        <small>${new Date(message.horodatage).toLocaleString()} (modifié)</small>
+                        ${!message.lu && message.destinataire._id === getUserId() ? ' <span style="color: blue;">•</span>' : ''}
+                    </div>
+                `;
+            }
+        }
+
+        function removeMessage(messageId) {
+            const element = document.getElementById(`message-${messageId}`);
+            if (element) element.remove();
+        }
+
+        function removePrivateMessage(messageId) {
+            const element = document.getElementById(`private-message-${messageId}`);
+            if (element) element.remove();
+        }
+
+        function getUserId() {
+            const token = document.getElementById('token').value;
+            if (!token) return null;
+            
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                return payload.id;
+            } catch (e) {
+                return null;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -2,6 +2,10 @@ const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const fs = require('fs').promises;
 const path = require('path');
+const emailService = require('../services/emailService');
+const validatePassword = require('../utils/passwordValidator');
+const Message = require('../models/message');
+const Workspace = require('../models/workspace');
 
 const userController = {
   /**
@@ -23,6 +27,63 @@ const userController = {
       });
     }
   },
+  
+  /**
+   * Obtenir le profil d'un utilisateur spécifique par son ID ou son nom d'utilisateur
+   */
+  getUserProfile: async (req, res) => {
+    try {
+      let user;
+      const { identifier } = req.params; // Peut être un ID ou un nom d'utilisateur
+      
+      // Vérifier si l'identifiant est un ID MongoDB valide
+      if (identifier.match(/^[0-9a-fA-F]{24}$/)) {
+        user = await User.findById(identifier).select('-password -email -resetPasswordToken -resetPasswordExpires');
+      } else {
+        // Sinon, chercher par nom d'utilisateur
+        user = await User.findOne({ username: identifier }).select('-password -email -resetPasswordToken -resetPasswordExpires');
+      }
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Utilisateur non trouvé'
+        });
+      }
+      
+      // Ajouter des informations supplémentaires sur l'utilisateur
+      // Nombre de messages
+      const messageCount = await Message.countDocuments({ auteur: user._id });
+      
+      // Workspaces dont l'utilisateur est membre
+      const workspaces = await Workspace.find({ 'membres.utilisateur': user._id })
+        .select('nom description')
+        .limit(5); // Limiter à 5 workspaces pour éviter une réponse trop lourde
+      
+      res.json({
+        success: true,
+        data: {
+          user,
+          stats: {
+            messageCount,
+            workspaceCount: workspaces.length
+          },
+          workspaces: workspaces.map(w => ({
+            id: w._id,
+            nom: w.nom,
+            description: w.description
+          }))
+        }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la récupération du profil utilisateur:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur interne du serveur',
+        error: error.message
+      });
+    }
+  },
 
   /**
    * Mettre à jour le profil de l'utilisateur
@@ -33,7 +94,28 @@ const userController = {
       const updates = {};
 
       if (username) updates.username = username;
-      if (email) updates.email = email;
+      
+      // Vérifier si l'email est modifié
+      const currentUser = await User.findById(req.user.id);
+      if (email && email !== currentUser.email) {
+        // Vérifier si l'email n'est pas déjà utilisé
+        const emailExists = await User.findOne({ email });
+        if (emailExists) {
+          return res.status(400).json({
+            success: false,
+            message: 'Cette adresse email est déjà utilisée'
+          });
+        }
+        updates.email = email;
+        
+        // Envoyer un email de confirmation au nouvel email
+        try {
+          await emailService.envoyerEmailModificationEmail(email, username || currentUser.username);
+        } catch (emailError) {
+          console.error('Erreur lors de l\'envoi de l\'email de confirmation:', emailError);
+          // On continue malgré l'erreur d'envoi d'email
+        }
+      }
 
       const user = await User.findByIdAndUpdate(
         req.user.id,
@@ -43,7 +125,9 @@ const userController = {
 
       res.json({
         success: true,
-        message: 'Profil mis à jour avec succès',
+        message: email !== currentUser.email 
+          ? 'Profil mis à jour avec succès. Un email de confirmation a été envoyé à votre nouvelle adresse.'
+          : 'Profil mis à jour avec succès',
         data: user
       });
     } catch (error) {
@@ -72,7 +156,7 @@ const userController = {
 
       // Supprimer l'ancienne photo si elle existe et n'est pas la photo par défaut
       if (user.profilePicture !== 'default.jpg' && !user.profilePicture.startsWith('http')) {
-        const oldPicturePath = path.join(__dirname, '../../uploads/profiles', user.profilePicture);
+        const oldPicturePath = path.join('/uploads/profiles', user.profilePicture);
         try {
           await fs.unlink(oldPicturePath);
         } catch (error) {
@@ -108,23 +192,52 @@ const userController = {
     try {
       const { currentPassword, newPassword } = req.body;
 
-      const user = await User.findById(req.user.id);
+      // Valider la complexité du nouveau mot de passe
+      const validation = validatePassword(newPassword);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: validation.message
+        });
+      }
+
+      // Important : sélectionner explicitement le champ password
+      const user = await User.findById(req.user.id).select('+password');
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Utilisateur non trouvé'
+        });
+      }
+
+      console.log('Mise à jour du mot de passe pour:', user.email);
+      console.log('Mot de passe actuel existe:', !!user.password);
 
       // Cas des comptes OAuth sans mot de passe
       if (!user.password) {
+        console.log('Compte OAuth - définition du mot de passe initial');
         // Pour un compte OAuth, on permet de définir un mot de passe initial sans vérification
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(newPassword, salt);
+        user.password = newPassword; // Le middleware pre-save s'occupera du hachage
         await user.save();
+
+        // Envoyer un email de confirmation
+        try {
+          await emailService.envoyerEmailModificationMotDePasse(user.email, user.username);
+        } catch (emailError) {
+          console.error('Erreur lors de l\'envoi de l\'email de confirmation:', emailError);
+        }
 
         return res.json({
           success: true,
-          message: 'Mot de passe défini avec succès'
+          message: 'Mot de passe défini avec succès. Un email de confirmation a été envoyé.'
         });
       }
 
       // Pour les comptes avec mot de passe, vérifier l'ancien mot de passe
-      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      console.log('Vérification de l\'ancien mot de passe...');
+      const isMatch = await user.comparePassword(currentPassword);
+      console.log('Ancien mot de passe valide:', isMatch);
+
       if (!isMatch) {
         return res.status(400).json({
           success: false,
@@ -132,14 +245,21 @@ const userController = {
         });
       }
 
-      // Hasher et mettre à jour le nouveau mot de passe
-      const salt = await bcrypt.genSalt(10);
-      user.password = await bcrypt.hash(newPassword, salt);
+      // Mettre à jour le mot de passe - le middleware pre-save s'occupera du hachage
+      user.password = newPassword;
       await user.save();
+      console.log('Nouveau mot de passe enregistré avec succès');
+
+      // Envoyer un email de confirmation
+      try {
+        await emailService.envoyerEmailModificationMotDePasse(user.email, user.username);
+      } catch (emailError) {
+        console.error('Erreur lors de l\'envoi de l\'email de confirmation:', emailError);
+      }
 
       res.json({
         success: true,
-        message: 'Mot de passe mis à jour avec succès'
+        message: 'Mot de passe mis à jour avec succès. Un email de confirmation a été envoyé.'
       });
     } catch (error) {
       console.error('Erreur lors de la mise à jour du mot de passe:', error);
@@ -156,11 +276,29 @@ const userController = {
    */
   deleteAccount: async (req, res) => {
     try {
-      const user = await User.findById(req.user.id);
+      const { password } = req.body;
 
-      // Supprimer la photo de profil si elle n'est pas la photo par défaut ou une URL
+      // Récupérer l'utilisateur avec son mot de passe
+      const user = await User.findById(req.user.id).select('+password');
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Utilisateur non trouvé'
+        });
+      }
+
+      // Vérifier le mot de passe
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: 'Mot de passe incorrect'
+        });
+      }
+
+      // 1. Supprimer la photo de profil
       if (user.profilePicture !== 'default.jpg' && !user.profilePicture.startsWith('http')) {
-        const picturePath = path.join(__dirname, '../../uploads/profiles', user.profilePicture);
+        const picturePath = path.join('/uploads/profiles', user.profilePicture);
         try {
           await fs.unlink(picturePath);
         } catch (error) {
@@ -168,7 +306,49 @@ const userController = {
         }
       }
 
+      // 2. Anonymiser les messages de l'utilisateur
+      await Message.updateMany(
+        { sender: user._id },
+        { 
+          $set: { 
+            senderDeleted: true,
+            senderUsername: 'Utilisateur supprimé'
+          }
+        }
+      );
+
+      // 3. Supprimer les workspaces dont l'utilisateur est le seul propriétaire
+      const userWorkspaces = await Workspace.find({ owner: user._id });
+      for (const workspace of userWorkspaces) {
+        // Vérifier si l'utilisateur est le seul membre
+        if (workspace.members.length === 1 && workspace.members[0].toString() === user._id.toString()) {
+          await Workspace.findByIdAndDelete(workspace._id);
+        } else {
+          // Si d'autres membres existent, transférer la propriété au plus ancien membre
+          const newOwner = workspace.members.find(memberId => memberId.toString() !== user._id.toString());
+          if (newOwner) {
+            workspace.owner = newOwner;
+            workspace.members = workspace.members.filter(memberId => memberId.toString() !== user._id.toString());
+            await workspace.save();
+          }
+        }
+      }
+
+      // 4. Retirer l'utilisateur des workspaces dont il est membre
+      await Workspace.updateMany(
+        { members: user._id },
+        { $pull: { members: user._id } }
+      );
+
+      // 5. Supprimer le compte utilisateur
       await User.findByIdAndDelete(req.user.id);
+
+      // 6. Envoyer un email de confirmation
+      try {
+        await emailService.envoyerEmailSuppressionCompte(user.email);
+      } catch (emailError) {
+        console.error('Erreur lors de l\'envoi de l\'email de confirmation:', emailError);
+      }
 
       res.json({
         success: true,
