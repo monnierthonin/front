@@ -518,6 +518,45 @@ exports.getCurrentUser = async (req, res) => {
     }
 };
 
+// Récupérer le token JWT du cookie
+exports.getToken = async (req, res) => {
+    try {
+        // Vérifier si l'utilisateur est authentifié
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Non authentifié'
+            });
+        }
+
+        // Récupérer l'utilisateur complet
+        const user = await User.findById(req.user.id).select('-password');
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Utilisateur non trouvé'
+            });
+        }
+
+        // Générer un nouveau token
+        const token = genererToken(user);
+
+        res.status(200).json({
+            success: true,
+            token,
+            data: {
+                user
+            }
+        });
+    } catch (error) {
+        console.error('Erreur lors de la récupération du token:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erreur interne du serveur'
+        });
+    }
+};
+
 // Callback Google OAuth2
 exports.googleCallback = async (req, res) => {
     try {
@@ -570,5 +609,6 @@ module.exports = {
     googleCallback: exports.googleCallback,
     microsoftCallback: exports.microsoftCallback,
     facebookCallback: exports.facebookCallback,
-    getCurrentUser: exports.getCurrentUser
+    getCurrentUser: exports.getCurrentUser,
+    getToken: exports.getToken
 };

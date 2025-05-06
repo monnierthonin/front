@@ -22,6 +22,9 @@ router.post('/:userId', messagePrivateController.sendPrivateMessage);
 // Marquer un message privé comme lu
 router.patch('/:messageId/read', messagePrivateController.markMessageAsRead);
 
+// Modifier un message privé
+router.put('/:messageId', messagePrivateController.updatePrivateMessage);
+
 // Supprimer un message privé
 router.delete('/:messageId', messagePrivateController.deletePrivateMessage);
 

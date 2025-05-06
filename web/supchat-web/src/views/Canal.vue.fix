@@ -1,0 +1,31 @@
+// Fonction loadMessages corrigée
+const loadMessages = async () => {
+  loading.value = true;
+  try {
+    // Charger d'abord les informations du canal
+    await store.dispatch('canal/chargerMessages', {
+      workspaceId: workspaceId.value,
+      canalId: canalId.value
+    });
+    
+    // Puis charger les messages
+    await store.dispatch('message/fetchMessages', {
+      workspaceId: workspaceId.value,
+      canalId: canalId.value
+    });
+    
+    // Configurer les gestionnaires d'événements pour les mentions après le chargement des messages
+    nextTick(() => {
+      setupMentionClickHandlers();
+    });
+  } catch (error) {
+    console.error('Erreur chargement messages:', error);
+    snackbar.value = {
+      show: true,
+      text: 'Erreur lors du chargement des messages',
+      color: 'error'
+    };
+  } finally {
+    loading.value = false;
+  }
+}

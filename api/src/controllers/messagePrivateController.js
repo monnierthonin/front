@@ -1,7 +1,11 @@
 const MessagePrivate = require('../models/messagePrivate');
 const User = require('../models/user');
 const AppError = require('../utils/appError');
-const { io } = require('../server');
+// Éviter la dépendance circulaire en utilisant une référence dynamique à io
+let io;
+setTimeout(() => {
+  io = require('../server').io;
+}, 0);
 
 /**
  * Contrôleur pour la gestion des messages privés
@@ -246,11 +250,16 @@ const messagePrivateController = {
   },
   
   /**
-   * Supprimer un message privé
+   * Modifier un message privé
    */
-  deletePrivateMessage: async (req, res, next) => {
+  updatePrivateMessage: async (req, res, next) => {
     try {
       const { messageId } = req.params;
+      const { contenu } = req.body;
+      
+      if (!contenu || contenu.trim() === '') {
+        return next(new AppError('Le contenu du message ne peut pas être vide', 400));
+      }
       
       // Vérifier si le message existe
       const message = await MessagePrivate.findById(messageId);
@@ -260,16 +269,95 @@ const messagePrivateController = {
       
       // Vérifier que l'utilisateur est bien l'expéditeur du message
       if (message.expediteur.toString() !== req.user._id.toString()) {
+        return next(new AppError('Vous n\'êtes pas autorisé à modifier ce message', 403));
+      }
+      
+      // Mettre à jour le message
+      message.contenu = contenu;
+      message.modifie = true;
+      message.dateModification = Date.now();
+      await message.save();
+      
+      // Peupler les références pour la réponse
+      const populatedMessage = await MessagePrivate.findById(message._id)
+        .populate('expediteur', 'username firstName lastName profilePicture')
+        .populate('destinataire', 'username firstName lastName profilePicture')
+        .populate({
+          path: 'reponseA',
+          populate: {
+            path: 'expediteur',
+            select: 'username firstName lastName profilePicture'
+          }
+        });
+      
+      // Notifier le destinataire en temps réel
+      // Note: La notification est gérée par le service Socket
+      
+      res.json({
+        success: true,
+        data: populatedMessage,
+        message: 'Message modifié avec succès'
+      });
+    } catch (error) {
+      console.error('Erreur lors de la modification du message:', error);
+      next(new AppError('Erreur lors de la modification du message', 500));
+    }
+  },
+  
+  /**
+   * Supprimer un message privé
+   */
+  deletePrivateMessage: async (req, res, next) => {
+    try {
+      const { messageId } = req.params;
+      
+      console.log(`Tentative de suppression du message privé: ${messageId}`);
+      
+      // Vérifier si le message existe
+      const message = await MessagePrivate.findById(messageId);
+      if (!message) {
+        console.log(`Message non trouvé: ${messageId}`);
+        return next(new AppError('Message non trouvé', 404));
+      }
+      
+      // Vérifier que l'utilisateur est bien l'expéditeur du message
+      if (message.expediteur.toString() !== req.user._id.toString()) {
+        console.log(`Utilisateur non autorisé: ${req.user._id} pour le message: ${messageId}`);
         return next(new AppError('Vous n\'êtes pas autorisé à supprimer ce message', 403));
       }
       
+      // Rechercher les messages qui font référence à ce message comme réponse
+      console.log(`Recherche des messages qui font référence à: ${messageId}`);
+      const referencingMessages = await MessagePrivate.find({ reponseA: messageId });
+      
+      // Mettre à jour les messages qui font référence à ce message
+      if (referencingMessages.length > 0) {
+        console.log(`${referencingMessages.length} messages font référence à ce message, mise à jour...`);
+        await MessagePrivate.updateMany(
+          { reponseA: messageId },
+          { $unset: { reponseA: 1 } }
+        );
+      }
+      
       // Supprimer le message
+      console.log(`Suppression du message: ${messageId}`);
       await MessagePrivate.findByIdAndDelete(messageId);
       
-      // Notifier le destinataire en temps réel
-      io.to(message.destinataire.toString()).emit('message-prive-supprime', {
-        messageId: message._id
-      });
+      // Notifier le destinataire en temps réel (si io est disponible)
+      console.log(`Notification au destinataire: ${message.destinataire}`);
+      if (io) {
+        try {
+          io.to(message.destinataire.toString()).emit('message-prive-supprime', {
+            messageId: message._id
+          });
+          console.log('Notification envoyée avec succès');
+        } catch (socketError) {
+          console.error('Erreur lors de l\'envoi de la notification socket:', socketError);
+          // Ne pas faire échouer la requête si la notification échoue
+        }
+      } else {
+        console.log('Socket.IO n\'est pas disponible, notification non envoyée');
+      }
       
       res.json({
         success: true,

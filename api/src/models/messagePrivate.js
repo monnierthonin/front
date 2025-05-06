@@ -32,6 +32,14 @@ const messagePrivateSchema = new mongoose.Schema({
     horodatage: {
         type: Date,
         default: Date.now
+    },
+    modifie: {
+        type: Boolean,
+        default: false
+    },
+    dateModification: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true,

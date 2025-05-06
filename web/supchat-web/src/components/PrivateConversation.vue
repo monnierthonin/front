@@ -44,7 +44,7 @@
             </div>
             
             <!-- Message -->
-            <div class="message-bubble">
+            <div class="message-bubble" @contextmenu="(event) => openContextMenu(event, message)">
               <!-- Si c'est une réponse, afficher le message original -->
               <div v-if="message.reponseA" class="reply-preview">
                 <div class="reply-author">
@@ -58,6 +58,24 @@
               <!-- Contenu du message -->
               <div class="message-content">
                 {{ message.contenu }}
+              </div>
+              
+              <!-- Boutons d'action pour tous les messages -->
+              <div class="message-actions">
+                <!-- Bouton de réponse pour tous les messages -->
+                <v-btn icon x-small @click="showReplyDialog(message)" title="Répondre">
+                  <v-icon size="small">mdi-reply</v-icon>
+                </v-btn>
+                
+                <!-- Boutons d'édition et de suppression uniquement pour les messages de l'utilisateur courant -->
+                <template v-if="isFromCurrentUser(message)">
+                  <v-btn icon x-small @click="showEditDialog(message)" title="Modifier">
+                    <v-icon size="small">mdi-pencil</v-icon>
+                  </v-btn>
+                  <v-btn icon x-small @click="showDeleteDialog(message)" title="Supprimer">
+                    <v-icon size="small">mdi-delete</v-icon>
+                  </v-btn>
+                </template>
               </div>
               
               <!-- Horodatage et statut -->
@@ -137,6 +155,16 @@
         
         <v-list-item
           v-if="isFromCurrentUser(contextMenu.message)"
+          @click="editMessage"
+        >
+          <v-list-item-title>
+            <v-icon small class="mr-2">mdi-pencil</v-icon>
+            Modifier
+          </v-list-item-title>
+        </v-list-item>
+        
+        <v-list-item
+          v-if="isFromCurrentUser(contextMenu.message)"
           @click="deleteMessage"
         >
           <v-list-item-title>
@@ -146,11 +174,47 @@
         </v-list-item>
       </v-list>
     </v-menu>
+    
+    <!-- Dialogue pour modifier un message -->
+    <v-dialog v-model="editDialog.show" max-width="500px">
+      <v-card>
+        <v-card-title>Modifier le message</v-card-title>
+        <v-card-text>
+          <v-textarea
+            v-model="editDialog.content"
+            rows="3"
+            auto-grow
+            hide-details
+            placeholder="Modifiez votre message..."
+          ></v-textarea>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn text @click="editDialog.show = false">Annuler</v-btn>
+          <v-btn color="primary" @click="saveEditedMessage">Enregistrer</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+    
+    <!-- Dialogue de confirmation pour supprimer un message -->
+    <v-dialog v-model="deleteDialog.show" max-width="400px">
+      <v-card>
+        <v-card-title class="headline">Supprimer le message</v-card-title>
+        <v-card-text>
+          Êtes-vous sûr de vouloir supprimer ce message ? Cette action est irréversible.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn text @click="deleteDialog.show = false">Annuler</v-btn>
+          <v-btn color="error" @click="confirmDeleteMessage">Supprimer</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, onUpdated, watch } from 'vue';
+import { ref, computed, onMounted, onUpdated, watch, nextTick } from 'vue';
 import { useStore } from 'vuex';
 // eslint-disable-next-line no-unused-vars
 import { useRoute } from 'vue-router';
@@ -178,13 +242,21 @@ export default {
     const messageContent = ref('');
     const loading = ref(false);
     const replyingTo = ref(null);
-    
-    // Menu contextuel pour les actions sur les messages
     const contextMenu = ref({
       show: false,
       x: 0,
       y: 0,
       message: null
+    });
+    const editDialog = ref({
+      show: false,
+      content: '',
+      messageId: null
+    });
+    
+    const deleteDialog = ref({
+      show: false,
+      messageId: null
     });
     
     // Récupérer les messages de la conversation
@@ -335,10 +407,22 @@ export default {
       contextMenu.value.message = message;
     };
     
-    // Fonction pour répondre à un message
+    // Fonction pour répondre à un message via le menu contextuel
     const replyToMessage = () => {
       replyingTo.value = contextMenu.value.message;
       contextMenu.value.show = false;
+    };
+    
+    // Fonction pour répondre à un message via le bouton
+    const showReplyDialog = (message) => {
+      replyingTo.value = message;
+      // Faire défiler jusqu'à la zone de saisie et la mettre en focus
+      nextTick(() => {
+        const textarea = document.querySelector('.message-input textarea');
+        if (textarea) {
+          textarea.focus();
+        }
+      });
     };
     
     // Fonction pour annuler la réponse
@@ -346,13 +430,67 @@ export default {
       replyingTo.value = null;
     };
     
-    // Fonction pour supprimer un message
+    // Fonction pour afficher la boîte de dialogue de modification via le bouton
+    const showEditDialog = (message) => {
+      editDialog.value.content = message.contenu;
+      editDialog.value.messageId = message._id;
+      editDialog.value.show = true;
+    };
+    
+    // Fonction pour afficher la boîte de dialogue de confirmation de suppression via le bouton
+    const showDeleteDialog = (message) => {
+      deleteDialog.value.messageId = message._id;
+      deleteDialog.value.show = true;
+    };
+    
+    // Fonction pour modifier un message (via le menu contextuel)
+    const editMessage = () => {
+      if (!contextMenu.value.message) return;
+      
+      editDialog.value.content = contextMenu.value.message.contenu;
+      editDialog.value.messageId = contextMenu.value.message._id;
+      editDialog.value.show = true;
+      contextMenu.value.show = false;
+    };
+    
+    // Fonction pour enregistrer un message modifié
+    const saveEditedMessage = async () => {
+      if (!editDialog.value.messageId || !editDialog.value.content.trim()) return;
+      
+      try {
+        await store.dispatch('messagePrivate/updateMessage', {
+          messageId: editDialog.value.messageId,
+          contenu: editDialog.value.content.trim()
+        });
+        
+        editDialog.value.show = false;
+        editDialog.value.content = '';
+        editDialog.value.messageId = null;
+      } catch (error) {
+        console.error('Erreur lors de la modification du message:', error);
+      }
+    };
+    
+    // Fonction pour supprimer un message via le menu contextuel
     const deleteMessage = async () => {
       if (!contextMenu.value.message) return;
       
       try {
         await store.dispatch('messagePrivate/deleteMessage', contextMenu.value.message._id);
         contextMenu.value.show = false;
+      } catch (error) {
+        console.error('Erreur lors de la suppression du message:', error);
+      }
+    };
+    
+    // Fonction pour confirmer la suppression d'un message via la boîte de dialogue
+    const confirmDeleteMessage = async () => {
+      if (!deleteDialog.value.messageId) return;
+      
+      try {
+        await store.dispatch('messagePrivate/deleteMessage', deleteDialog.value.messageId);
+        deleteDialog.value.show = false;
+        deleteDialog.value.messageId = null;
       } catch (error) {
         console.error('Erreur lors de la suppression du message:', error);
       }
@@ -367,6 +505,8 @@ export default {
       otherUser,
       replyingTo,
       contextMenu,
+      editDialog,
+      deleteDialog,
       sendMessage,
       isFromCurrentUser,
       formatTime,
@@ -375,8 +515,14 @@ export default {
       getUserAvatar,
       openContextMenu,
       replyToMessage,
+      showReplyDialog,
       cancelReply,
-      deleteMessage
+      editMessage,
+      saveEditedMessage,
+      deleteMessage,
+      showEditDialog,
+      showDeleteDialog,
+      confirmDeleteMessage
     };
   }
 };
@@ -465,6 +611,20 @@ export default {
   margin-top: 4px;
   font-size: 0.75rem;
   color: rgba(0, 0, 0, 0.6);
+}
+
+.message-actions {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.message-bubble:hover .message-actions {
+  opacity: 1;
 }
 
 .message-time {

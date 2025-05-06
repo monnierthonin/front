@@ -193,6 +193,27 @@ const actions = {
     }
   },
   
+  // Modifier un message
+  async updateMessage({ commit }, { messageId, contenu }) {
+    try {
+      const response = await axios.put(
+        `${API_URL}/api/v1/messages/private/${messageId}`,
+        { contenu },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      
+      commit('UPDATE_MESSAGE', response.data.data);
+      return response.data.data;
+    } catch (error) {
+      console.error('Erreur lors de la modification du message:', error);
+      return null;
+    }
+  },
+  
   // Supprimer un message
   async deleteMessage({ commit }, messageId) {
     try {

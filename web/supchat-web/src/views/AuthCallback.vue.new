@@ -1,0 +1,76 @@
+<template>
+  <div class="auth-callback">
+    <div class="loading-container">
+      <div class="spinner"></div>
+      <p>Authentification en cours...</p>
+    </div>
+  </div>
+</template>
+
+<script>
+import api from '@/plugins/axios'
+
+export default {
+  name: 'AuthCallback',
+  async created() {
+    try {
+      // Récupérer le token depuis l'API
+      const response = await api.get('/auth/token')
+      
+      if (response.data.success) {
+        // Stocker le token et les infos utilisateur dans le localStorage et le store
+        const { token, data } = response.data
+        const { user } = data
+        
+        localStorage.setItem('token', token)
+        localStorage.setItem('user', JSON.stringify(user))
+        
+        // Mettre à jour le store
+        this.$store.commit('auth/SET_TOKEN', token)
+        this.$store.commit('auth/SET_USER', user)
+        
+        // Rediriger vers la page d'accueil
+        this.$router.push('/')
+      } else {
+        // En cas d'échec, rediriger vers la page de login
+        this.$router.push('/login')
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération du token:', error)
+      this.$router.push('/login')
+    }
+  }
+}
+</script>
+
+<style scoped>
+.auth-callback {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.loading-container {
+  text-align: center;
+}
+
+.spinner {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border-left-color: #09f;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+</style>

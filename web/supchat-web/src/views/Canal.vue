@@ -33,8 +33,18 @@
               <div v-if="!messages || messages.length === 0" class="text-center py-4">
                 Aucun message dans ce canal
               </div>
+              <!-- Utilisation d'une liste paginée pour éviter les problèmes de performance -->
               <v-list v-else class="messages-list">
-                <v-list-item v-for="message in messagesInOrder" :key="message._id">
+                <!-- Bouton pour charger plus de messages -->
+                <div v-if="hasMoreMessages" class="text-center py-2 mb-2">
+                  <v-btn text color="primary" @click="loadMoreMessages" :disabled="loadingMore">
+                    Afficher plus de messages
+                    <v-progress-circular v-if="loadingMore" indeterminate size="16" width="2" class="ml-2"></v-progress-circular>
+                  </v-btn>
+                </div>
+                
+                <!-- Affichage des messages par lots -->
+                <v-list-item v-for="message in visibleMessages" :key="message._id">
                   <v-list-item-content>
                     <v-list-item-title class="d-flex align-center">
                       <span class="font-weight-bold">{{ message.auteur ? message.auteur.username : 'Utilisateur' }}</span>
@@ -710,39 +720,106 @@ export default defineComponent({
     const canEditMessage = (message) => {
       return message && message.auteur && user.value && message.auteur._id === user.value._id
     }
+    
+    // Variables pour la pagination et le rendu par lots
+    const messagesPerPage = ref(20) // Nombre de messages à afficher par page
+    const currentPage = ref(1) // Page actuelle
+    const loadingMore = ref(false) // Indicateur de chargement lors du clic sur "Afficher plus"
+    const hasMoreMessages = ref(false) // Indique s'il y a plus de messages à charger
 
     const messagesInOrder = computed(() => {
-      console.log('Computing messagesInOrder with messages:', messages.value);
-      if (!messages.value) return []
-      const sortedMessages = [...messages.value].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).reverse();
-      console.log('Sorted messages:', sortedMessages);
-      return sortedMessages;
-    })
-
-    const loadMessages = async () => {
+      // Vérification de sécurité pour éviter les erreurs
+      if (!messages.value || !Array.isArray(messages.value)) return [];
+      
       try {
-        await store.dispatch('canal/chargerMessages', {
-          workspaceId: workspaceId.value,
-          canalId: canalId.value
+        // Créer un nouveau tableau pour ne pas modifier le tableau original
+        const messagesCopy = [...messages.value];
+        
+        // Utiliser une méthode de tri optimisée avec des timestamps numériques
+        return messagesCopy.sort((a, b) => {
+          // Convertir les dates en timestamps numériques une seule fois
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA; // Ordre décroissant (plus récent d'abord)
         });
       } catch (error) {
-        console.error('Erreur lors du chargement des messages:', error);
+        console.error('Erreur lors du tri des messages:', error);
+        return [...messages.value]; // Retourner une copie en cas d'erreur
       }
-      loading.value = true
-      try {
-        await store.dispatch('message/fetchMessages', {
-          workspaceId: workspaceId.value,
-          canalId: canalId.value
-        })
+    })
+
+    // Propriété calculée pour vérifier s'il y a plus de messages à charger
+    const hasMoreMessagesComputed = computed(() => {
+      if (!messagesInOrder.value) return false;
+      return messagesInOrder.value.length > messagesPerPage.value * currentPage.value;
+    });
+    
+    // Mettre à jour hasMoreMessages lorsque hasMoreMessagesComputed change
+    watch(hasMoreMessagesComputed, (newValue) => {
+      hasMoreMessages.value = newValue;
+    }, { immediate: true });
+    
+    // Propriété calculée pour obtenir uniquement les messages visibles selon la pagination
+    const visibleMessages = computed(() => {
+      const allMessages = messagesInOrder.value;
+      if (!allMessages) return [];
+      
+      // Retourner les N messages les plus récents en fonction de la page actuelle
+      // (limité par messagesPerPage * currentPage)
+      return allMessages.slice(0, messagesPerPage.value * currentPage.value);
+    })
+
+    const loadMoreMessages = () => {
+      loadingMore.value = true;
+      
+      // Utiliser setTimeout pour éviter le blocage de l'interface
+      setTimeout(() => {
+        // Incrémenter le nombre de pages pour afficher plus de messages
+        currentPage.value += 1;
+        loadingMore.value = false;
         
-        // Configurer les gestionnaires d'événements pour les mentions après le chargement des messages
+        // Attendre que le DOM soit mis à jour avant de configurer les gestionnaires d'événements
         nextTick(() => {
           setupMentionClickHandlers();
         });
+      }, 10); // Délai minimal pour permettre à l'interface de se mettre à jour
+    };
+
+    const loadMessages = async () => {
+      // Réinitialiser la pagination à chaque nouveau chargement
+      currentPage.value = 1;
+      
+      // Définir un timeout pour éviter que la requête ne bloque indéfiniment
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout: Le chargement des messages a pris trop de temps')), 10000);
+      });
+      
+      loading.value = true;
+      try {
+        // Utiliser Promise.race pour limiter le temps d'attente
+        await Promise.race([
+          timeoutPromise,
+          store.dispatch('message/fetchMessages', {
+            workspaceId: workspaceId.value,
+            canalId: canalId.value
+          })
+        ]);
+        
+        // Configurer les gestionnaires d'événements pour les mentions après le chargement des messages
+        // Utiliser setTimeout pour ne pas bloquer le thread principal
+        setTimeout(() => {
+          setupMentionClickHandlers();
+        }, 0);
       } catch (error) {
-        console.error('Erreur chargement messages:', error)
+        // Afficher un message d'erreur à l'utilisateur
+        snackbar.value = {
+          show: true,
+          text: 'Erreur lors du chargement des messages: ' + (error.message || 'Erreur inconnue'),
+          color: 'error'
+        };
       } finally {
-        loading.value = false
+        // S'assurer que l'indicateur de chargement est désactivé
+        loading.value = false;
       }
     }
 
@@ -750,13 +827,11 @@ export default defineComponent({
       if (!contenuMessage.value.trim()) return
       sending.value = true
       try {
-        console.log('Envoi du message...');
-        const message = await store.dispatch('canal/envoyerMessage', {
+        await store.dispatch('canal/envoyerMessage', {
           workspaceId: workspaceId.value,
           canalId: canalId.value,
           contenu: contenuMessage.value
         })
-        console.log('Message envoyé:', message);
         contenuMessage.value = ''
         // Plus besoin de recharger les messages car le store est mis à jour automatiquement
         
@@ -765,7 +840,11 @@ export default defineComponent({
           setupMentionClickHandlers();
         });
       } catch (error) {
-        console.error('Erreur lors de l\'envoi du message:', error)
+        snackbar.value = {
+          show: true,
+          text: 'Erreur lors de l\'envoi du message',
+          color: 'error'
+        };
       } finally {
         sending.value = false
       }
@@ -1217,13 +1296,11 @@ export default defineComponent({
     }
 
     onMounted(async () => {
-      console.log('Canal component mounted');
       
       try {
         // S'assurer que l'auth est initialisée
         await store.dispatch('auth/initAuth');
         const token = localStorage.getItem('token');
-        console.log('Token disponible:', !!token);
         
         if (!token) {
           console.error('Pas de token disponible, redirection vers la page de connexion');
@@ -1234,22 +1311,18 @@ export default defineComponent({
         // Initialiser le WebSocket et attendre la connexion
         console.log('Initialisation du WebSocket...');
         await socketService.init();
-        console.log('WebSocket initialisé avec succès');
         
         // Rejoindre le canal
         if (canalId.value) {
-          console.log('Joining canal:', canalId.value);
           socketService.joinCanal(canalId.value);
         }
         if (workspaceId.value && canalId.value) {
           try {
-            console.log('Chargement du canal et des messages...');
             await store.dispatch('canal/fetchCanal', {
               workspaceId: workspaceId.value,
               canalId: canalId.value
             })
             await loadMessages()
-            console.log('Messages chargés');
             scrollToBottom()
           } catch (error) {
             console.error('Erreur chargement canal:', error)
@@ -1281,6 +1354,12 @@ export default defineComponent({
       uploading,
       contenuMessage,
       editedMessage,
+      messagesPerPage,
+      currentPage,
+      loadingMore,
+      hasMoreMessages,
+      visibleMessages,
+      loadMoreMessages,
       editedCanal,
       typeOptions,
       visibiliteOptions,

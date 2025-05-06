@@ -7,44 +7,33 @@ const state = {
   fichiers: []
 }
 
-// Pour debug
-let previousMessages = []
+// État interne
 
 const mutations = {
   SET_MESSAGES(state, messages) {
     state.messages = messages
   },
   AJOUTER_MESSAGE(state, message) {
-    console.log('AJOUTER_MESSAGE mutation appelée avec:', message);
-    console.log('Messages actuels:', state.messages);
-    
-    // Sauvegarder l'état précédent pour debug
-    previousMessages = [...state.messages];
-    
-    // Vérifier si le message existe déjà
+    // Vérifier si le message existe déjà (optimisé)
     const messageExiste = state.messages.some(m => m._id === message._id)
     if (!messageExiste) {
-      console.log('Ajout du nouveau message à la liste');
-      // Créer un nouveau tableau pour forcer la réactivité
-      state.messages = [...state.messages, message];
-      console.log('Nouveau state.messages:', state.messages);
-      console.log('Différence avec précédent:', state.messages.length - previousMessages.length);
-    } else {
-      console.log('Message déjà présent dans la liste');
+      // Limiter la taille du tableau des messages pour éviter les problèmes de performance
+      if (state.messages.length > 100) {
+        // Garder seulement les 100 messages les plus récents
+        state.messages = [...state.messages.slice(-99), message];
+      } else {
+        // Créer un nouveau tableau pour forcer la réactivité
+        state.messages = [...state.messages, message];
+      }
     }
   },
   UPDATE_MESSAGE(state, updatedMessage) {
-    console.log('UPDATE_MESSAGE mutation appelée avec:', updatedMessage);
     const index = state.messages.findIndex(m => m._id === updatedMessage._id);
     if (index !== -1) {
-      console.log('Message trouvé à l\'index:', index);
       // Créer un nouveau tableau pour forcer la réactivité
       const newMessages = [...state.messages];
       newMessages[index] = updatedMessage;
       state.messages = newMessages;
-      console.log('Message mis à jour dans le store');
-    } else {
-      console.log('Message non trouvé dans le store');
     }
   },
   SET_CANAUX(state, canaux) {
@@ -85,12 +74,30 @@ const actions = {
 
   async chargerMessages({ commit }, { workspaceId, canalId }) {
     try {
-      const response = await api.get(`/workspaces/${workspaceId}/canaux/${canalId}/messages`)
-      commit('SET_MESSAGES', response.data.data.messages)
-      return response.data.data.messages
+      // Ajouter un timeout pour éviter que la requête ne bloque indéfiniment
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await api.get(`/workspaces/${workspaceId}/canaux/${canalId}/messages`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      // Limiter le nombre de messages à stocker pour éviter les problèmes de performance
+      const messages = response.data.data.messages || [];
+      const limitedMessages = messages.slice(-100); // Garder seulement les 100 derniers messages
+      
+      commit('SET_MESSAGES', limitedMessages);
+      return limitedMessages;
     } catch (error) {
-      console.error('Erreur lors du chargement des messages:', error)
-      throw error
+      if (error.name === 'AbortError') {
+        console.error('La requête de chargement des messages a été interrompue après 5 secondes');
+        commit('SET_MESSAGES', []); // Réinitialiser les messages pour éviter d'afficher des données obsolètes
+        return [];
+      }
+      console.error('Erreur lors du chargement des messages:', error);
+      throw error;
     }
   },
   async fetchCanaux({ commit }, workspaceId) {
@@ -117,7 +124,6 @@ const actions = {
 
   async createCanal({ commit }, { workspaceId, canalData }) {
     try {
-      console.log('Données envoyées à l\'API:', canalData)
       const response = await api.post(`/workspaces/${workspaceId}/canaux`, canalData)
       commit('ADD_CANAL', response.data.data.canal)
       return response.data.data.canal
@@ -150,8 +156,6 @@ const actions = {
 
   async addMember({ commit }, { workspaceId, canalId, userId, role = 'membre' }) {
     try {
-      console.log('Tentative d\'ajout d\'un membre:', { workspaceId, canalId, userId, role });
-      
       // S'assurer que les données envoyées sont dans le format attendu par le backend
       const response = await api.post(`/workspaces/${workspaceId}/canaux/${canalId}/membres`, {
         utilisateur: userId,
@@ -159,7 +163,6 @@ const actions = {
         role
       })
       
-      console.log('Réponse ajout membre:', response.data);
       commit('SET_CANAL_ACTIF', response.data.data.canal)
       return response.data.data.canal
     } catch (error) {
@@ -170,9 +173,7 @@ const actions = {
 
   async removeMember({ commit }, { workspaceId, canalId, membreId }) {
     try {
-      console.log(`Tentative de suppression du membre ${membreId} du canal ${canalId}`);
       const response = await api.delete(`/workspaces/${workspaceId}/canaux/${canalId}/membres/${membreId}`)
-      console.log('Réponse suppression membre:', response.data);
       commit('SET_CANAL_ACTIF', response.data.data.canal)
       return response.data.data.canal
     } catch (error) {
