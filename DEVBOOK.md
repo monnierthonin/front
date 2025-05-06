@@ -122,16 +122,16 @@
 
 ### Messages API
 - [ ] Chat en temps réel
-  - [ ] Configuration WebSocket
+  - [x] Configuration WebSocket
   - [ ] Messages privés
-  - [ ] Messages de groupe
+  - [x] Messages de groupe
   - [ ] Indicateurs de présence
 - [ ] Gestion des messages
-  - [ ] CRUD des messages
+  - [x] CRUD des messages
   - [ ] Formatage markdown
-  - [ ] Mentions (@user)
-  - [ ] Réactions aux messages
-  - [ ] Réponses aux messages
+  - [x] Mentions (@user)
+  - [x] Réactions aux messages
+  - [x] Réponses aux messages
 - [ ] Gestion des fichiers
   - [ ] Upload de fichiers
   - [ ] Partage de fichiers
