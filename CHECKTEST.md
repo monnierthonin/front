@@ -236,6 +236,12 @@
   - Scénario : Utilisateur ajoute une réponse à un message
   - Vérifier : Réponse visible en temps réel
 
+## Tests de statut utilisateur
+- [ ] Statut utilisateur
+  - Scénario : Utilisateur change son statut
+  - Vérifier : Statut visible en temps réel
+  - Vérifier : Indicateur de présence visible en temps réel
+
 ## Tests de Performance
 
 ### Temps de Réponse

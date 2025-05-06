@@ -362,6 +362,51 @@ const userController = {
         error: error.message
       });
     }
+  },
+
+  /**
+   * Rechercher des utilisateurs par nom d'utilisateur, prénom ou nom
+   */
+  searchUsers: async (req, res) => {
+    try {
+      const { query } = req.query;
+      
+      if (!query) {
+        return res.status(400).json({
+          success: false,
+          message: 'Un terme de recherche est requis'
+        });
+      }
+
+      // Limiter la recherche aux utilisateurs actifs
+      // Exclure l'utilisateur actuel des résultats
+      const users = await User.find({
+        $and: [
+          { _id: { $ne: req.user._id } }, // Exclure l'utilisateur actuel
+          {
+            $or: [
+              { username: { $regex: query, $options: 'i' } },
+              { firstName: { $regex: query, $options: 'i' } },
+              { lastName: { $regex: query, $options: 'i' } }
+            ]
+          }
+        ]
+      })
+      .select('_id username firstName lastName profilePicture status') // Sélectionner uniquement les champs nécessaires
+      .limit(10); // Limiter à 10 résultats pour des raisons de performance
+
+      res.json({
+        success: true,
+        data: users
+      });
+    } catch (error) {
+      console.error('Erreur lors de la recherche d\'utilisateurs:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur interne du serveur',
+        error: error.message
+      });
+    }
   }
 };
 

@@ -10,6 +10,8 @@ import CanalPage from '../views/Canal.vue'
 import AuthCallback from '../views/AuthCallback.vue'
 import Profile from '../views/Profile.vue'
 import InvitationWorkspace from '../views/InvitationWorkspace.vue'
+import MessagesPrives from '../views/MessagesPrives.vue'
+import Conversation from '../views/Conversation.vue'
 
 const routes = [
   {
@@ -95,6 +97,25 @@ const routes = [
     name: 'AccepterInvitation',
     component: InvitationWorkspace,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/messages',
+    name: 'MessagesPrives',
+    component: MessagesPrives,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/messages/:userId',
+    name: 'conversation',
+    component: Conversation,
+    meta: { requiresAuth: true },
+    beforeEnter: (to, from, next) => {
+      if (!to.params.userId || to.params.userId === 'undefined') {
+        next('/messages')
+        return
+      }
+      next()
+    }
   }
 ]
 

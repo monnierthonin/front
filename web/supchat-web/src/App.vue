@@ -3,7 +3,20 @@
     <v-app-bar app color="primary" dark v-if="isAuthenticated">
       <v-toolbar-title>SupChat</v-toolbar-title>
       <v-spacer></v-spacer>
+      <v-btn text to="/">
+        <v-icon left>mdi-home</v-icon>
+        Accueil
+      </v-btn>
+      <v-btn text to="/messages">
+        <v-icon left>mdi-message-text</v-icon>
+        Messages
+      </v-btn>
+      <v-btn text to="/profile">
+        <v-icon left>mdi-account</v-icon>
+        Profil
+      </v-btn>
       <v-btn text @click="handleLogout">
+        <v-icon left>mdi-logout</v-icon>
         Déconnexion
       </v-btn>
     </v-app-bar>

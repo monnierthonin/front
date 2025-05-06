@@ -1,0 +1,31 @@
+# Dockerfile pour installer les dépendances manquantes
+FROM node:20-alpine as builder
+
+WORKDIR /app
+
+# Copier les fichiers package.json et package-lock.json
+COPY package*.json ./
+
+# Installer les dépendances
+RUN npm install
+
+# Installer date-fns explicitement
+RUN npm install --save date-fns lodash.debounce
+
+# Copier le reste des fichiers
+COPY . .
+
+# Build pour la production
+RUN npm run build
+
+# Étape de production
+FROM nginx:stable-alpine as production
+
+# Copier les fichiers de build
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Exposer le port 80
+EXPOSE 80
+
+# Commande pour démarrer nginx
+CMD ["nginx", "-g", "daemon off;"]

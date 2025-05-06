@@ -138,6 +138,70 @@ class SocketService {
                     }
                 }
             });
+            
+            // Écouter les nouveaux messages privés
+            this.socket.on('nouveau-message-prive', (message) => {
+                console.log('Nouveau message privé reçu:', message);
+                if (message) {
+                    // Ajouter le message privé au store
+                    store.commit('messagePrivate/ADD_MESSAGE', message);
+                    
+                    // Mettre à jour la liste des conversations
+                    store.dispatch('messagePrivate/updateConversationList');
+                    
+                    // Afficher une notification visuelle
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        const expediteur = message.expediteur ? 
+                            (message.expediteur.prenom && message.expediteur.nom ? 
+                                `${message.expediteur.prenom} ${message.expediteur.nom}` : 
+                                message.expediteur.username) : 
+                            'Quelqu\'un';
+                        
+                        new Notification('Nouveau message privé', {
+                            body: `${expediteur}: ${message.contenu.substring(0, 50)}${message.contenu.length > 50 ? '...' : ''}`,
+                            icon: '/favicon.ico'
+                        });
+                    }
+                } else {
+                    console.error('Format de message privé invalide:', message);
+                }
+            });
+            
+            // Écouter les confirmations d'envoi de messages privés
+            this.socket.on('message-prive-envoye', (data) => {
+                console.log('Confirmation d\'envoi de message privé:', data);
+                if (data && data.messageId) {
+                    // Mettre à jour le statut du message
+                    store.commit('messagePrivate/UPDATE_MESSAGE_STATUS', {
+                        id: data.messageId,
+                        status: { envoye: true }
+                    });
+                }
+            });
+            
+            // Écouter les notifications de lecture de messages privés
+            this.socket.on('message-prive-lu', (data) => {
+                console.log('Notification de lecture de message privé:', data);
+                if (data && data.messageId) {
+                    // Mettre à jour le statut du message
+                    store.commit('messagePrivate/UPDATE_MESSAGE_STATUS', {
+                        id: data.messageId,
+                        status: { lu: true }
+                    });
+                }
+            });
+            
+            // Écouter les suppressions de messages privés
+            this.socket.on('message-prive-supprime', (data) => {
+                console.log('Notification de suppression de message privé:', data);
+                if (data && data.messageId) {
+                    // Supprimer le message du store
+                    store.commit('messagePrivate/REMOVE_MESSAGE', data.messageId);
+                    
+                    // Mettre à jour la liste des conversations
+                    store.dispatch('messagePrivate/updateConversationList');
+                }
+            });
         });
     }
 

@@ -6,6 +6,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
+# Installer explicitement les dépendances manquantes
+RUN npm install --save date-fns lodash.debounce
+
 # Copier le code source et construire l'application
 COPY . .
 RUN npm run build

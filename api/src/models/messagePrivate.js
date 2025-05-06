@@ -21,6 +21,10 @@ const messagePrivateSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    envoye: {
+        type: Boolean,
+        default: true
+    },
     reponseA: {
         type: mongoose.Schema.ObjectId,
         ref: 'MessagePrivate'
