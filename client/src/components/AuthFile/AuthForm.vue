@@ -8,6 +8,7 @@
         v-model="form.username" 
         required
         placeholder="Entrez votre nom d'utilisateur"
+        :disabled="loading"
       >
     </div>
 
@@ -19,6 +20,7 @@
         v-model="form.email" 
         required
         placeholder="Entrez votre email"
+        :disabled="loading"
       >
     </div>
 
@@ -30,11 +32,28 @@
         v-model="form.password" 
         required
         placeholder="Entrez votre mot de passe"
+        :disabled="loading"
       >
     </div>
 
-    <button type="submit" class="submit-btn">
-      {{ isLogin ? 'Se connecter' : "S'inscrire" }}
+    <div class="form-group" v-if="!isLogin">
+      <label for="confirmPassword">Confirmer le mot de passe</label>
+      <input 
+        type="password" 
+        id="confirmPassword" 
+        v-model="form.confirmPassword" 
+        required
+        placeholder="Confirmez votre mot de passe"
+        :disabled="loading"
+      >
+      <div v-if="passwordMismatch" class="password-error">
+        Les mots de passe ne correspondent pas
+      </div>
+    </div>
+
+    <button type="submit" class="submit-btn" :disabled="loading">
+      <span v-if="loading">Chargement...</span>
+      <span v-else>{{ isLogin ? 'Se connecter' : "S'inscrire" }}</span>
     </button>
   </form>
 </template>
@@ -46,6 +65,10 @@ export default {
     isLogin: {
       type: Boolean,
       required: true
+    },
+    loading: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -53,13 +76,22 @@ export default {
       form: {
         username: '',
         email: '',
-        password: ''
-      }
+        password: '',
+        confirmPassword: ''
+      },
+      passwordMismatch: false
     }
   },
   methods: {
     handleSubmit() {
-      this.$emit('submit', this.form)
+      // Vérification de la correspondance des mots de passe lors de l'inscription
+      if (!this.isLogin && this.form.password !== this.form.confirmPassword) {
+        this.passwordMismatch = true;
+        return;
+      }
+      
+      this.passwordMismatch = false;
+      this.$emit('submit', this.form);
     }
   },
   watch: {
@@ -68,8 +100,10 @@ export default {
       this.form = {
         username: '',
         email: '',
-        password: ''
-      }
+        password: '',
+        confirmPassword: ''
+      };
+      this.passwordMismatch = false;
     }
   }
 }
@@ -120,5 +154,10 @@ input:focus {
 
 .submit-btn:hover {
   background-color: var(--primary-color-dark);
+}
+.password-error {
+  color: rgb(239, 68, 68);
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
 }
 </style>

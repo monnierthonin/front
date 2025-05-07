@@ -6,9 +6,18 @@
         <h2>{{ isLogin ? 'Connexion' : 'Inscription' }}</h2>
       </div>
 
+      <div v-if="errorMessage" class="error-message">
+        {{ errorMessage }}
+      </div>
+
+      <div v-if="successMessage" class="success-message">
+        {{ successMessage }}
+      </div>
+
       <AuthForm 
         :isLogin="isLogin"
         @submit="handleSubmit"
+        :loading="loading"
       />
 
       <SocialLogin
@@ -29,6 +38,7 @@
 import AuthForm from '../components/AuthFile/AuthForm.vue'
 import SocialLogin from '../components/AuthFile/SocialLogin.vue'
 import AuthToggle from '../components/AuthFile/AuthToggle.vue'
+import authService from '../services/authService'
 
 export default {
   name: 'Auth',
@@ -39,37 +49,75 @@ export default {
   },
   data() {
     return {
-      isLogin: true
+      isLogin: true,
+      loading: false,
+      errorMessage: '',
+      successMessage: ''
     }
   },
   methods: {
     async handleSubmit(form) {
+      this.errorMessage = ''
+      this.successMessage = ''
+      this.loading = true
+      
       try {
         if (this.isLogin) {
           // Logique de connexion
-          console.log('Tentative de connexion:', form)
+          console.log('Tentative de connexion avec:', form)
+          const response = await authService.login({
+            email: form.email,
+            password: form.password
+          })
+          
+          this.successMessage = 'Connexion réussie!'
+          console.log('Connexion réussie:', response)
+          
+          // Rediriger vers la page d'accueil après 1 seconde
+          setTimeout(() => {
+            this.$router.push('/')
+          }, 1000)
         } else {
           // Logique d'inscription
-          console.log('Tentative d\'inscription:', form)
+          console.log('Tentative d\'inscription avec:', form)
+          const response = await authService.register({
+            username: form.username,
+            email: form.email,
+            password: form.password,
+            confirmPassword: form.confirmPassword // Ajouter la confirmation du mot de passe
+          })
+          
+          this.successMessage = 'Inscription réussie! Un email de vérification a été envoyé.'
+          console.log('Inscription réussie:', response)
+          
+          // Passer en mode connexion après 2 secondes
+          setTimeout(() => {
+            this.isLogin = true
+          }, 2000)
         }
       } catch (error) {
-        console.error('Erreur:', error)
+        this.errorMessage = error.message || 'Une erreur est survenue. Veuillez réessayer.'
+        console.error('Erreur d\'authentification:', error)
+      } finally {
+        this.loading = false
       }
     },
     toggleAuthMode() {
       this.isLogin = !this.isLogin
+      this.errorMessage = ''
+      this.successMessage = ''
     },
     loginWithGoogle() {
-      // Intégrer la connexion Google
-      console.log('Connexion avec Google')
+      // Rediriger vers la route d'authentification Google
+      window.location.href = 'http://localhost:3000/api/v1/auth/google'
     },
     loginWithMicrosoft() {
-      // Intégrer la connexion Microsoft
-      console.log('Connexion avec Microsoft')
+      // Rediriger vers la route d'authentification Microsoft
+      window.location.href = 'http://localhost:3000/api/v1/auth/microsoft'
     },
     loginWithFacebook() {
-      // Intégrer la connexion Facebook
-      console.log('Connexion avec Facebook')
+      // Rediriger vers la route d'authentification Facebook
+      window.location.href = 'http://localhost:3000/api/v1/auth/facebook'
     }
   }
 }
@@ -110,5 +158,23 @@ h2 {
   color: var(--text-primary);
   font-size: 1.5rem;
   margin: 0;
+}
+
+.error-message {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: rgb(239, 68, 68);
+  padding: 0.75rem;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.success-message {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: rgb(34, 197, 94);
+  padding: 0.75rem;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  text-align: center;
 }
 </style>

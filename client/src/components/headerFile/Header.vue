@@ -11,16 +11,18 @@
             <li><router-link to="/" class="nav-link"><img src="../../assets/styles/image/logoAjout.png" alt="ajoutWorkspace" class="AjoutWorkspace"></router-link></li>
             <li class="workspace-container">
               <div class="workspace-list">
-                <div class="workspace-item" style="background-color: #7289da"></div> <!-- a remplacer par les workspace de l'utilisateur-->
-                <div class="workspace-item" style="background-color: #43b581"></div>
-                <div class="workspace-item" style="background-color: #f04747"></div>
-                <div class="workspace-item" style="background-color: #faa61a"></div>
-                <div class="workspace-item" style="background-color: #b9bbbe"></div>
-                <div class="workspace-item" style="background-color: #2c2f33"></div>
-                <div class="workspace-item" style="background-color: #99aab5"></div>
-                <div class="workspace-item" style="background-color: #e91e63"></div>
-                <div class="workspace-item" style="background-color: #9c27b0"></div>
-                <div class="workspace-item" style="background-color: #3f51b5"></div>
+                <div v-if="loading" class="loading-workspace">Chargement...</div>
+                <div v-else-if="errorMessage" class="error-workspace">{{ errorMessage }}</div>
+                <div 
+                  v-else-if="workspaces.length > 0" 
+                  v-for="workspace in workspaces" 
+                  :key="workspace._id"
+                  class="workspace-item" 
+                  :style="getWorkspaceColor(workspace)" 
+                  :title="workspace.nom"
+                  @click="goToWorkspace(workspace._id)"
+                ></div>
+                <div v-else class="empty-workspace">Aucun workspace</div>
               </div>
             </li>
           </ul>
@@ -42,11 +44,85 @@
 </template>
 
 <script>
+import workspaceService from '../../services/workspaceService';
+
 export default {
-  name: 'Header',
   data() {
     return {
-      isAdmin: true // À remplacer par la vraie logique de vérification du rôle admin
+      isAdmin: false, // A remplacer par la vraie valeur (en fonction de l'utilisateur)
+      workspaces: [],
+      loading: true,
+      errorMessage: ''
+    }
+  },
+  async mounted() {
+    // Chargement des workspaces au montage du composant
+    await this.loadWorkspaces();
+  },
+  methods: {
+    async loadWorkspaces() {
+      try {
+        this.loading = true;
+        this.errorMessage = '';
+        
+        // Appel au service pour récupérer les workspaces
+        this.workspaces = await workspaceService.getUserWorkspaces();
+        
+        console.log('Workspaces chargés:', this.workspaces);
+        
+        // Si aucun workspace n'est retourné et qu'il n'y a pas d'erreur, on affiche les workspaces par défaut
+        if (this.workspaces.length === 0) {
+          this.useDefaultWorkspaces();
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des workspaces:', error);
+        // En cas d'erreur, on utilise des workspaces par défaut pour la démonstration
+        this.useDefaultWorkspaces();
+      } finally {
+        this.loading = false;
+      }
+    },
+    
+    // Utiliser des workspaces par défaut pour la démonstration
+    useDefaultWorkspaces() {
+      this.workspaces = [
+        { _id: 'default1', nom: 'Général' },
+        { _id: 'default2', nom: 'Développement' },
+        { _id: 'default3', nom: 'Marketing' },
+        { _id: 'default4', nom: 'Support' },
+        { _id: 'default5', nom: 'RH' }
+      ];
+      console.log('Utilisation des workspaces par défaut');
+    },
+    
+    // Générer une couleur en fonction du nom du workspace
+    getWorkspaceColor(workspace) {
+      // Liste de couleurs prédéfinies
+      const colors = [
+        '#7289da', '#43b581', '#f04747', '#faa61a', '#b9bbbe',
+        '#2c2f33', '#99aab5', '#e91e63', '#9c27b0', '#3f51b5'
+      ];
+      
+      // Utiliser le hash du nom pour choisir une couleur
+      const hash = this.hashString(workspace.nom || 'Workspace');
+      const colorIndex = Math.abs(hash) % colors.length;
+      
+      return { backgroundColor: colors[colorIndex] };
+    },
+    
+    // Fonction simple pour calculer un hash à partir d'une chaîne
+    hashString(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0; // Convertir en entier 32 bits
+      }
+      return hash;
+    },
+    
+    // Naviguer vers un workspace
+    goToWorkspace(id) {
+      this.$router.push(`/workspace/${id}`);
     }
   }
 }
@@ -191,4 +267,15 @@ export default {
 .workspace-item:hover {
   border-radius: 30%;
 }
+  .loading-workspace, .error-workspace, .empty-workspace {
+    text-align: center;
+    padding: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    width: 100%;
+  }
+  
+  .error-workspace {
+    color: rgb(239, 68, 68);
+  }
 </style>
