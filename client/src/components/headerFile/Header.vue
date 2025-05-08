@@ -21,7 +21,9 @@
                   :style="getWorkspaceColor(workspace)" 
                   :title="workspace.nom"
                   @click="goToWorkspace(workspace._id)"
-                ></div>
+                >
+                  <div class="workspace-initiale">{{ getWorkspaceInitiale(workspace) }}</div>
+                </div>
                 <div v-else class="empty-workspace">Aucun workspace</div>
               </div>
             </li>
@@ -52,10 +54,15 @@ export default {
       isAdmin: false, // A remplacer par la vraie valeur (en fonction de l'utilisateur)
       workspaces: [],
       loading: true,
-      errorMessage: ''
+      errorMessage: '',
+      isAuthenticated: false
     }
   },
   async mounted() {
+    // Vérifier si l'utilisateur est authentifié
+    this.isAuthenticated = localStorage.getItem('token') !== null;
+    console.log('Statut d\'authentification:', this.isAuthenticated);
+    
     // Chargement des workspaces au montage du composant
     await this.loadWorkspaces();
   },
@@ -65,17 +72,24 @@ export default {
         this.loading = true;
         this.errorMessage = '';
         
-        // Appel au service pour récupérer les workspaces
-        this.workspaces = await workspaceService.getUserWorkspaces();
+        // Si l'utilisateur est authentifié, essayer de récupérer ses workspaces
+        if (this.isAuthenticated) {
+          // Appel au service pour récupérer les workspaces
+          this.workspaces = await workspaceService.getUserWorkspaces();
+          console.log('Workspaces chargés depuis l\'API:', this.workspaces);
+        }
         
-        console.log('Workspaces chargés:', this.workspaces);
-        
-        // Si aucun workspace n'est retourné et qu'il n'y a pas d'erreur, on affiche les workspaces par défaut
+        // Si aucun workspace n'est retourné ou si l'utilisateur n'est pas authentifié
         if (this.workspaces.length === 0) {
+          // Afficher un message d'erreur si l'utilisateur est connecté mais n'a pas de workspaces
+          if (this.isAuthenticated) {
+            console.log('Utilisateur authentifié mais aucun workspace trouvé, affichage des workspaces par défaut');
+          }
           this.useDefaultWorkspaces();
         }
       } catch (error) {
         console.error('Erreur lors du chargement des workspaces:', error);
+        this.errorMessage = 'Impossible de charger vos workspaces';
         // En cas d'erreur, on utilise des workspaces par défaut pour la démonstration
         this.useDefaultWorkspaces();
       } finally {
@@ -108,6 +122,20 @@ export default {
       const colorIndex = Math.abs(hash) % colors.length;
       
       return { backgroundColor: colors[colorIndex] };
+    },
+    
+    // Récupérer les initiales du nom du workspace
+    getWorkspaceInitiale(workspace) {
+      if (!workspace || !workspace.nom) return '?';
+      
+      const words = workspace.nom.split(' ');
+      if (words.length === 1) {
+        // Si un seul mot, prendre les deux premières lettres
+        return words[0].substring(0, 2).toUpperCase();
+      } else {
+        // Sinon prendre la première lettre de chaque mot (max 2)
+        return (words[0][0] + (words[1] ? words[1][0] : '')).toUpperCase();
+      }
     },
     
     // Fonction simple pour calculer un hash à partir d'une chaîne
@@ -253,6 +281,17 @@ export default {
   border-radius: 50%;
   cursor: pointer;
   transition: border-radius 0.2s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.workspace-initiale {
+  color: white;
+  font-weight: bold;
+  font-size: 18px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  user-select: none;
 }
 
 .botom-header {

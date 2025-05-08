@@ -288,11 +288,20 @@ const userController = {
       }
 
       // Vérifier le mot de passe
-      const isMatch = await user.comparePassword(password);
-      if (!isMatch) {
-        return res.status(401).json({
+      // Vérification du mot de passe si fourni
+      if (password) {
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+          return res.status(401).json({
+            success: false,
+            message: 'Mot de passe incorrect'
+          });
+        }
+      } else {
+        // Si le mot de passe n'est pas fourni
+        return res.status(400).json({
           success: false,
-          message: 'Mot de passe incorrect'
+          message: 'Le mot de passe est requis pour supprimer votre compte'
         });
       }
 
@@ -308,27 +317,34 @@ const userController = {
 
       // 2. Anonymiser les messages de l'utilisateur
       await Message.updateMany(
-        { sender: user._id },
+        { auteur: user._id },
         { 
           $set: { 
-            senderDeleted: true,
-            senderUsername: 'Utilisateur supprimé'
+            modifie: true,
+            contenu: '[Message supprimé]'
           }
         }
       );
 
       // 3. Supprimer les workspaces dont l'utilisateur est le seul propriétaire
-      const userWorkspaces = await Workspace.find({ owner: user._id });
+      const userWorkspaces = await Workspace.find({ proprietaire: user._id });
       for (const workspace of userWorkspaces) {
         // Vérifier si l'utilisateur est le seul membre
-        if (workspace.members.length === 1 && workspace.members[0].toString() === user._id.toString()) {
+        if (workspace.membres.length === 1 && 
+            workspace.membres[0].utilisateur && 
+            workspace.membres[0].utilisateur.toString() === user._id.toString()) {
           await Workspace.findByIdAndDelete(workspace._id);
         } else {
           // Si d'autres membres existent, transférer la propriété au plus ancien membre
-          const newOwner = workspace.members.find(memberId => memberId.toString() !== user._id.toString());
-          if (newOwner) {
-            workspace.owner = newOwner;
-            workspace.members = workspace.members.filter(memberId => memberId.toString() !== user._id.toString());
+          const autreMembre = workspace.membres.find(membre => 
+            membre.utilisateur && membre.utilisateur.toString() !== user._id.toString()
+          );
+          
+          if (autreMembre) {
+            workspace.proprietaire = autreMembre.utilisateur;
+            workspace.membres = workspace.membres.filter(membre => 
+              !membre.utilisateur || membre.utilisateur.toString() !== user._id.toString()
+            );
             await workspace.save();
           }
         }
@@ -336,8 +352,8 @@ const userController = {
 
       // 4. Retirer l'utilisateur des workspaces dont il est membre
       await Workspace.updateMany(
-        { members: user._id },
-        { $pull: { members: user._id } }
+        { 'membres.utilisateur': user._id },
+        { $pull: { membres: { utilisateur: user._id } } }
       );
 
       // 5. Supprimer le compte utilisateur

@@ -6,7 +6,7 @@ const API_URL = 'http://localhost:3000/api/v1';
  */
 const workspaceService = {
   /**
-   * Récupérer tous les workspaces de l'utilisateur
+   * Récupérer tous les workspaces de l'utilisate ur
    * @returns {Promise} Promesse avec la liste des workspaces
    */
   async getUserWorkspaces() {
@@ -14,26 +14,65 @@ const workspaceService = {
       // Récupérer le token dans le localStorage (s'il existe)
       const token = localStorage.getItem('token');
       
+      if (!token) {
+        console.log('Aucun token d\'authentification trouvé, utilisation des workspaces par défaut');
+        return [];
+      }
+      
       // Appeler l'API pour récupérer les workspaces
       // La route est simplement /workspaces qui retourne les workspaces accessibles à l'utilisateur
       const response = await fetch(`${API_URL}/workspaces`, {
         method: 'GET',
         headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
         credentials: 'include',
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          // Si non autorisé, on retourne un tableau vide
+          console.error('Non autorisé: le token peut être invalide ou expiré');
+          // Supprimer le token invalide
+          localStorage.removeItem('token');
           return [];
         }
-        throw new Error('Erreur lors de la récupération des workspaces');
+        throw new Error(`Erreur lors de la récupération des workspaces: ${response.status}`);
       }
 
       const data = await response.json();
-      return data.data || [];
+      console.log('Données reçues de l\'API:', data);
+      
+      // Vérifier que les données reçues ont la structure attendue
+      if (data && Array.isArray(data.data)) {
+        // Récupérer l'ID de l'utilisateur depuis le token JWT
+        const userId = this.getUserIdFromToken(token);
+        console.log('ID utilisateur extrait du token:', userId);
+        
+        // Ne conserver que les workspaces où l'utilisateur est membre
+        const workspacesUtilisateur = data.data.filter(workspace => {
+          // Vérifier si l'utilisateur est membre du workspace
+          const estMembre = workspace.membres && workspace.membres.some(membre => 
+            (membre.utilisateur._id === userId) || 
+            (membre.utilisateur === userId) ||
+            (typeof membre.utilisateur === 'object' && membre.utilisateur.id === userId)
+          );
+          
+          console.log(`Workspace "${workspace.nom}" - Utilisateur membre: ${estMembre}`);
+          return estMembre;
+        });
+        
+        console.log('Workspaces filtrés dont l\'utilisateur est membre:', workspacesUtilisateur.length);
+        
+        return workspacesUtilisateur.map(workspace => ({
+          _id: workspace._id || workspace.id,
+          nom: workspace.nom || workspace.name || 'Sans nom',
+          // Ajouter d'autres propriétés si nécessaire pour l'affichage
+        }));
+      }
+      
+      // Si les données ne sont pas au format attendu, retourner un tableau vide
+      return [];
     } catch (error) {
       console.error('Erreur lors de la récupération des workspaces:', error);
       // En cas d'erreur, on retourne un tableau vide
@@ -50,16 +89,25 @@ const workspaceService = {
     try {
       const token = localStorage.getItem('token');
       
+      if (!token) {
+        throw new Error('Vous devez être connecté pour accéder aux workspaces');
+      }
+      
       const response = await fetch(`${API_URL}/workspaces/${id}`, {
         method: 'GET',
         headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
         credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error('Erreur lors de la récupération du workspace');
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          throw new Error('Session expirée, veuillez vous reconnecter');
+        }
+        throw new Error(`Erreur lors de la récupération du workspace: ${response.status}`);
       }
 
       const data = await response.json();
@@ -67,6 +115,27 @@ const workspaceService = {
     } catch (error) {
       console.error(`Erreur lors de la récupération du workspace ${id}:`, error);
       throw error;
+    }
+  },
+  
+  // Extraire l'ID utilisateur à partir du token JWT
+  getUserIdFromToken(token) {
+    try {
+      if (!token) return null;
+      
+      // Décoder le payload du JWT (partie du milieu entre les points)
+      const payload = token.split('.')[1];
+      if (!payload) return null;
+      
+      // Décoder de base64 et parser le JSON
+      const decoded = JSON.parse(atob(payload));
+      console.log('Token décodé:', decoded);
+      
+      // Retourner l'ID utilisateur (peut être dans id, _id, ou userId selon votre implémentation)
+      return decoded.id || decoded._id || decoded.userId || null;
+    } catch (error) {
+      console.error('Erreur lors du décodage du token JWT:', error);
+      return null;
     }
   }
 };
