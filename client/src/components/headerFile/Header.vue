@@ -74,39 +74,20 @@ export default {
         
         // Si l'utilisateur est authentifié, essayer de récupérer ses workspaces
         if (this.isAuthenticated) {
-          // Appel au service pour récupérer les workspaces
+          // Appel au service pour récupérer les workspaces avec l'endpoint mes-workspaces
           this.workspaces = await workspaceService.getUserWorkspaces();
-          console.log('Workspaces chargés depuis l\'API:', this.workspaces);
-        }
-        
-        // Si aucun workspace n'est retourné ou si l'utilisateur n'est pas authentifié
-        if (this.workspaces.length === 0) {
-          // Afficher un message d'erreur si l'utilisateur est connecté mais n'a pas de workspaces
-          if (this.isAuthenticated) {
-            console.log('Utilisateur authentifié mais aucun workspace trouvé, affichage des workspaces par défaut');
-          }
-          this.useDefaultWorkspaces();
+          console.log('Workspaces chargés depuis l\'API (mes-workspaces):', this.workspaces);
+        } else {
+          // Si l'utilisateur n'est pas authentifié, afficher un tableau vide
+          this.workspaces = [];
         }
       } catch (error) {
         console.error('Erreur lors du chargement des workspaces:', error);
         this.errorMessage = 'Impossible de charger vos workspaces';
-        // En cas d'erreur, on utilise des workspaces par défaut pour la démonstration
-        this.useDefaultWorkspaces();
+        this.workspaces = []; // En cas d'erreur, ne pas afficher de workspaces par défaut
       } finally {
         this.loading = false;
       }
-    },
-    
-    // Utiliser des workspaces par défaut pour la démonstration
-    useDefaultWorkspaces() {
-      this.workspaces = [
-        { _id: 'default1', nom: 'Général' },
-        { _id: 'default2', nom: 'Développement' },
-        { _id: 'default3', nom: 'Marketing' },
-        { _id: 'default4', nom: 'Support' },
-        { _id: 'default5', nom: 'RH' }
-      ];
-      console.log('Utilisation des workspaces par défaut');
     },
     
     // Générer une couleur en fonction du nom du workspace

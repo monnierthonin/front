@@ -19,9 +19,9 @@ const workspaceService = {
         return [];
       }
       
-      // Appeler l'API pour récupérer les workspaces
-      // La route est simplement /workspaces qui retourne les workspaces accessibles à l'utilisateur
-      const response = await fetch(`${API_URL}/workspaces`, {
+      // Appeler l'API pour récupérer les workspaces dont l'utilisateur est membre
+      // Utiliser l'endpoint /mes-workspaces au lieu de /workspaces
+      const response = await fetch(`${API_URL}/workspaces/mes-workspaces`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -41,30 +41,15 @@ const workspaceService = {
       }
 
       const data = await response.json();
-      console.log('Données reçues de l\'API:', data);
+      console.log('Données reçues de l\'API (mes-workspaces):', data);
       
       // Vérifier que les données reçues ont la structure attendue
-      if (data && Array.isArray(data.data)) {
-        // Récupérer l'ID de l'utilisateur depuis le token JWT
-        const userId = this.getUserIdFromToken(token);
-        console.log('ID utilisateur extrait du token:', userId);
+      if (data && data.status === 'success') {
+        // Récupérer les workspaces depuis data.workspaces (nouvelle structure)
+        const workspaces = data.data && data.data.workspaces ? data.data.workspaces : [];
+        console.log('Nombre de workspaces récupérés:', workspaces.length);
         
-        // Ne conserver que les workspaces où l'utilisateur est membre
-        const workspacesUtilisateur = data.data.filter(workspace => {
-          // Vérifier si l'utilisateur est membre du workspace
-          const estMembre = workspace.membres && workspace.membres.some(membre => 
-            (membre.utilisateur._id === userId) || 
-            (membre.utilisateur === userId) ||
-            (typeof membre.utilisateur === 'object' && membre.utilisateur.id === userId)
-          );
-          
-          console.log(`Workspace "${workspace.nom}" - Utilisateur membre: ${estMembre}`);
-          return estMembre;
-        });
-        
-        console.log('Workspaces filtrés dont l\'utilisateur est membre:', workspacesUtilisateur.length);
-        
-        return workspacesUtilisateur.map(workspace => ({
+        return workspaces.map(workspace => ({
           _id: workspace._id || workspace.id,
           nom: workspace.nom || workspace.name || 'Sans nom',
           // Ajouter d'autres propriétés si nécessaire pour l'affichage
