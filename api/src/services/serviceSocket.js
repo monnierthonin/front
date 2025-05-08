@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const configJWT = require('../config/jwt');
 const Canal = require('../models/canal');
 const Workspace = require('../models/workspace');
+const MessagePrivate = require('../models/messagePrivate');
 
 class ServiceSocket {
     constructor() {
@@ -103,6 +104,246 @@ class ServiceSocket {
                 }
             });
 
+            // Rejoindre la room personnelle pour les messages privés
+            socket.join(`user:${socket.idUtilisateur}`);
+            console.log(`Utilisateur ${socket.idUtilisateur} a rejoint sa room personnelle`);
+            
+            // Gérer les messages privés
+            socket.on('envoyer-message-prive', async ({ destinataireId, contenu, reponseA }) => {
+                try {
+                    console.log(`Tentative d'envoi de message privé à ${destinataireId} par ${socket.idUtilisateur}`);
+                    
+                    // Créer le message privé
+                    const nouveauMessage = await MessagePrivate.create({
+                        contenu,
+                        expediteur: socket.idUtilisateur,
+                        destinataire: destinataireId,
+                        reponseA: reponseA || null,
+                        envoye: true,
+                        lu: false
+                    });
+                    
+                    // Peupler les références pour la réponse
+                    const messagePopule = await MessagePrivate.findById(nouveauMessage._id)
+                        .populate('expediteur', 'username firstName lastName profilePicture')
+                        .populate('destinataire', 'username firstName lastName profilePicture')
+                        .populate({
+                            path: 'reponseA',
+                            populate: {
+                                path: 'expediteur',
+                                select: 'username firstName lastName profilePicture'
+                            }
+                        });
+                    
+                    // Émettre l'événement au destinataire
+                    this.io.to(`user:${destinataireId}`).emit('nouveau-message-prive', messagePopule);
+                    
+                    // Confirmer l'envoi à l'expéditeur
+                    socket.emit('message-prive-envoye', {
+                        messageId: nouveauMessage._id,
+                        envoye: true
+                    });
+                    
+                    console.log(`Message privé envoyé avec succès à ${destinataireId}`);
+                } catch (error) {
+                    console.error('Erreur lors de l\'envoi du message privé:', error);
+                    socket.emit('erreur-message-prive', {
+                        message: 'Erreur lors de l\'envoi du message privé',
+                        error: error.message
+                    });
+                }
+            });
+            
+            // Marquer un message privé comme lu
+            socket.on('marquer-message-lu', async ({ messageId }) => {
+                try {
+                    console.log(`Tentative de marquer le message ${messageId} comme lu par ${socket.idUtilisateur}`);
+                    
+                    // Vérifier si le message existe
+                    const message = await MessagePrivate.findById(messageId);
+                    if (!message) {
+                        console.error(`Message ${messageId} non trouvé`);
+                        return;
+                    }
+                    
+                    // Vérifier que l'utilisateur est bien le destinataire du message
+                    if (message.destinataire.toString() !== socket.idUtilisateur) {
+                        console.error(`Utilisateur ${socket.idUtilisateur} non autorisé à marquer ce message comme lu`);
+                        return;
+                    }
+                    
+                    // Marquer le message comme lu
+                    message.lu = true;
+                    await message.save();
+                    
+                    // Notifier l'expéditeur
+                    this.io.to(`user:${message.expediteur.toString()}`).emit('message-prive-lu', {
+                        messageId: message._id,
+                        lu: true
+                    });
+                    
+                    console.log(`Message ${messageId} marqué comme lu avec succès`);
+                } catch (error) {
+                    console.error('Erreur lors du marquage du message comme lu:', error);
+                }
+            });
+            
+            // Modifier un message privé
+            socket.on('modifier-message-prive', async ({ messageId, contenu }) => {
+                try {
+                    console.log(`Tentative de modification du message ${messageId} par ${socket.idUtilisateur}`);
+                    
+                    if (!contenu || contenu.trim() === '') {
+                        socket.emit('erreur-message-prive', {
+                            message: 'Le contenu du message ne peut pas être vide',
+                            messageId
+                        });
+                        return;
+                    }
+                    
+                    // Vérifier si le message existe
+                    const message = await MessagePrivate.findById(messageId);
+                    if (!message) {
+                        console.error(`Message ${messageId} non trouvé`);
+                        socket.emit('erreur-message-prive', {
+                            message: 'Message non trouvé',
+                            messageId
+                        });
+                        return;
+                    }
+                    
+                    // Vérifier que l'utilisateur est bien l'expéditeur du message
+                    if (message.expediteur.toString() !== socket.idUtilisateur) {
+                        console.error(`Utilisateur ${socket.idUtilisateur} non autorisé à modifier ce message`);
+                        socket.emit('erreur-message-prive', {
+                            message: 'Vous n\'\u00eates pas autorisé à modifier ce message',
+                            messageId
+                        });
+                        return;
+                    }
+                    
+                    // Mettre à jour le message
+                    message.contenu = contenu;
+                    message.modifie = true;
+                    message.dateModification = Date.now();
+                    await message.save();
+                    
+                    // Peupler les références pour la réponse
+                    const messagePopule = await MessagePrivate.findById(message._id)
+                        .populate('expediteur', 'username firstName lastName profilePicture')
+                        .populate('destinataire', 'username firstName lastName profilePicture')
+                        .populate({
+                            path: 'reponseA',
+                            populate: {
+                                path: 'expediteur',
+                                select: 'username firstName lastName profilePicture'
+                            }
+                        });
+                    
+                    // Notifier le destinataire
+                    this.io.to(`user:${message.destinataire.toString()}`).emit('message-prive-modifie', messagePopule);
+                    
+                    // Confirmer la modification à l'expéditeur
+                    socket.emit('message-prive-modifie', messagePopule);
+                    
+                    console.log(`Message ${messageId} modifié avec succès`);
+                } catch (error) {
+                    console.error('Erreur lors de la modification du message:', error);
+                    socket.emit('erreur-message-prive', {
+                        message: 'Erreur lors de la modification du message',
+                        error: error.message,
+                        messageId
+                    });
+                }
+            });
+            
+            // Supprimer un message privé
+            socket.on('supprimer-message-prive', async ({ messageId }) => {
+                try {
+                    console.log(`Tentative de suppression du message ${messageId} par ${socket.idUtilisateur}`);
+                    
+                    // Vérifier si le message existe
+                    const message = await MessagePrivate.findById(messageId);
+                    if (!message) {
+                        console.error(`Message ${messageId} non trouvé`);
+                        socket.emit('erreur-message-prive', {
+                            message: 'Message non trouvé',
+                            messageId
+                        });
+                        return;
+                    }
+                    
+                    // Vérifier que l'utilisateur est bien l'expéditeur du message
+                    if (message.expediteur.toString() !== socket.idUtilisateur) {
+                        console.error(`Utilisateur ${socket.idUtilisateur} non autorisé à supprimer ce message`);
+                        socket.emit('erreur-message-prive', {
+                            message: 'Vous n\'\u00eates pas autorisé à supprimer ce message',
+                            messageId
+                        });
+                        return;
+                    }
+                    
+                    // Sauvegarder l'ID du destinataire avant de supprimer le message
+                    const destinataireId = message.destinataire.toString();
+                    
+                    // Supprimer le message
+                    await MessagePrivate.findByIdAndDelete(messageId);
+                    
+                    // Notifier le destinataire
+                    this.io.to(`user:${destinataireId}`).emit('message-prive-supprime', {
+                        messageId
+                    });
+                    
+                    // Confirmer la suppression à l'expéditeur
+                    socket.emit('message-prive-supprime', {
+                        messageId
+                    });
+                    
+                    console.log(`Message ${messageId} supprimé avec succès`);
+                } catch (error) {
+                    console.error('Erreur lors de la suppression du message:', error);
+                    socket.emit('erreur-message-prive', {
+                        message: 'Erreur lors de la suppression du message',
+                        error: error.message,
+                        messageId
+                    });
+                }
+            });
+            
+            // Marquer un message privé comme lu
+            socket.on('marquer-message-lu', async ({ messageId }) => {
+                try {
+                    console.log(`Tentative de marquer le message ${messageId} comme lu par ${socket.idUtilisateur}`);
+                    
+                    // Vérifier si le message existe
+                    const message = await MessagePrivate.findById(messageId);
+                    if (!message) {
+                        console.error(`Message ${messageId} non trouvé`);
+                        return;
+                    }
+                    
+                    // Vérifier que l'utilisateur est bien le destinataire du message
+                    if (message.destinataire.toString() !== socket.idUtilisateur) {
+                        console.error(`Utilisateur ${socket.idUtilisateur} non autorisé à marquer ce message comme lu`);
+                        return;
+                    }
+                    
+                    // Marquer le message comme lu
+                    message.lu = true;
+                    await message.save();
+                    
+                    // Notifier l'expéditeur
+                    this.io.to(`user:${message.expediteur.toString()}`).emit('message-prive-lu', {
+                        messageId: message._id,
+                        lu: true
+                    });
+                    
+                    console.log(`Message ${messageId} marqué comme lu avec succès`);
+                } catch (error) {
+                    console.error('Erreur lors du marquage du message comme lu:', error);
+                }
+            });
+            
             // Gérer la déconnexion
             socket.on('disconnect', () => {
                 console.log(`Utilisateur déconnecté: ${socket.idUtilisateur}`);

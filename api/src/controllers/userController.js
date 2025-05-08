@@ -9,6 +9,57 @@ const Workspace = require('../models/workspace');
 
 const userController = {
   /**
+   * Rechercher des utilisateurs par nom d'utilisateur, prénom ou nom
+   * ou récupérer tous les utilisateurs
+   */
+  searchUsers: async (req, res) => {
+    try {
+      // Option pour récupérer tous les utilisateurs, prioritaire sur les autres paramètres
+      const all = req.query.all === 'true';
+      
+      // Récupérer le paramètre de recherche, défaut à chaîne vide si non fourni
+      const q = req.query.q || '';
+      let query = {};
+      
+      // Si le paramètre all est fourni, on retourne tous les utilisateurs
+      if (!all) {
+        // Sinon, on filtre par le terme de recherche si fourni
+        if (q && q.trim() !== '') {
+          query = {
+            $or: [
+              { username: { $regex: q, $options: 'i' } },
+              { firstName: { $regex: q, $options: 'i' } },
+              { lastName: { $regex: q, $options: 'i' } }
+            ]
+          };
+        }
+      }
+      
+      // Exclure l'utilisateur connecté des résultats
+      query._id = { $ne: req.user._id };
+      
+      // Récupérer les utilisateurs
+      const users = await User.find(query)
+        .select('username firstName lastName profilePicture status')
+        .limit(20);
+      
+      res.json({
+        status: 'success',
+        data: {
+          users
+        }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la recherche d\'utilisateurs:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Erreur lors de la recherche d\'utilisateurs',
+        error: error.message
+      });
+    }
+  },
+  
+  /**
    * Obtenir le profil de l'utilisateur connecté
    */
   getProfile: async (req, res) => {
@@ -288,20 +339,11 @@ const userController = {
       }
 
       // Vérifier le mot de passe
-      // Vérification du mot de passe si fourni
-      if (password) {
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-          return res.status(401).json({
-            success: false,
-            message: 'Mot de passe incorrect'
-          });
-        }
-      } else {
-        // Si le mot de passe n'est pas fourni
-        return res.status(400).json({
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({
           success: false,
-          message: 'Le mot de passe est requis pour supprimer votre compte'
+          message: 'Mot de passe incorrect'
         });
       }
 
@@ -317,34 +359,27 @@ const userController = {
 
       // 2. Anonymiser les messages de l'utilisateur
       await Message.updateMany(
-        { auteur: user._id },
+        { sender: user._id },
         { 
           $set: { 
-            modifie: true,
-            contenu: '[Message supprimé]'
+            senderDeleted: true,
+            senderUsername: 'Utilisateur supprimé'
           }
         }
       );
 
       // 3. Supprimer les workspaces dont l'utilisateur est le seul propriétaire
-      const userWorkspaces = await Workspace.find({ proprietaire: user._id });
+      const userWorkspaces = await Workspace.find({ owner: user._id });
       for (const workspace of userWorkspaces) {
         // Vérifier si l'utilisateur est le seul membre
-        if (workspace.membres.length === 1 && 
-            workspace.membres[0].utilisateur && 
-            workspace.membres[0].utilisateur.toString() === user._id.toString()) {
+        if (workspace.members.length === 1 && workspace.members[0].toString() === user._id.toString()) {
           await Workspace.findByIdAndDelete(workspace._id);
         } else {
           // Si d'autres membres existent, transférer la propriété au plus ancien membre
-          const autreMembre = workspace.membres.find(membre => 
-            membre.utilisateur && membre.utilisateur.toString() !== user._id.toString()
-          );
-          
-          if (autreMembre) {
-            workspace.proprietaire = autreMembre.utilisateur;
-            workspace.membres = workspace.membres.filter(membre => 
-              !membre.utilisateur || membre.utilisateur.toString() !== user._id.toString()
-            );
+          const newOwner = workspace.members.find(memberId => memberId.toString() !== user._id.toString());
+          if (newOwner) {
+            workspace.owner = newOwner;
+            workspace.members = workspace.members.filter(memberId => memberId.toString() !== user._id.toString());
             await workspace.save();
           }
         }
@@ -352,8 +387,8 @@ const userController = {
 
       // 4. Retirer l'utilisateur des workspaces dont il est membre
       await Workspace.updateMany(
-        { 'membres.utilisateur': user._id },
-        { $pull: { membres: { utilisateur: user._id } } }
+        { members: user._id },
+        { $pull: { members: user._id } }
       );
 
       // 5. Supprimer le compte utilisateur
@@ -375,6 +410,51 @@ const userController = {
       res.status(500).json({
         success: false,
         message: 'Erreur lors de la suppression du compte',
+        error: error.message
+      });
+    }
+  },
+
+  /**
+   * Rechercher des utilisateurs par nom d'utilisateur, prénom ou nom
+   */
+  searchUsers: async (req, res) => {
+    try {
+      const { query } = req.query;
+      
+      if (!query) {
+        return res.status(400).json({
+          success: false,
+          message: 'Un terme de recherche est requis'
+        });
+      }
+
+      // Limiter la recherche aux utilisateurs actifs
+      // Exclure l'utilisateur actuel des résultats
+      const users = await User.find({
+        $and: [
+          { _id: { $ne: req.user._id } }, // Exclure l'utilisateur actuel
+          {
+            $or: [
+              { username: { $regex: query, $options: 'i' } },
+              { firstName: { $regex: query, $options: 'i' } },
+              { lastName: { $regex: query, $options: 'i' } }
+            ]
+          }
+        ]
+      })
+      .select('_id username firstName lastName profilePicture status') // Sélectionner uniquement les champs nécessaires
+      .limit(10); // Limiter à 10 résultats pour des raisons de performance
+
+      res.json({
+        success: true,
+        data: users
+      });
+    } catch (error) {
+      console.error('Erreur lors de la recherche d\'utilisateurs:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur interne du serveur',
         error: error.message
       });
     }

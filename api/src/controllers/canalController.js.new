@@ -220,17 +220,12 @@ exports.supprimerCanal = catchAsync(async (req, res, next) => {
     }
 
     // Vérifier les permissions
-    if (!canal.peutSupprimerCanal(req.user.id)) {
+    if (!canal.peutSupprimer(req.user.id)) {
         return next(new AppError('Vous n\'avez pas la permission de supprimer ce canal', 403));
     }
 
     // Supprimer d'abord les messages associés
-    console.log(`Suppression des messages du canal: ${canal._id}`);
-    const messagesSupprimes = await Message.deleteMany({ canal: canal._id });
-    console.log(`${messagesSupprimes.deletedCount} messages supprimés`);
-    
-    // Supprimer également les réactions et les fichiers associés aux messages
-    // Note: Cela pourrait être géré par des hooks dans le modèle Message si nécessaire
+    await Message.deleteMany({ canal: req.params.id });
 
     // Puis supprimer le canal
     await canal.deleteOne();

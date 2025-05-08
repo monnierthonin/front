@@ -76,6 +76,12 @@ router.get('/me',
   authController.getCurrentUser
 );
 
+// Route pour récupérer le token JWT
+router.get('/token',
+  authenticate,
+  authController.getToken
+);
+
 // Route de développement pour vérifier directement un utilisateur
 if (process.env.NODE_ENV !== 'production') {
   router.get('/dev/verifier/:email',

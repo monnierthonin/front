@@ -33,7 +33,8 @@ const options = {
     './src/docs/user.swagger.js',
     './src/docs/workspace.swagger.js',
     './src/docs/canal.swagger.js',
-    './src/docs/message.swagger.js'
+    './src/docs/message.swagger.js',
+    './src/docs/messagePrivate.swagger.js'
   ]
 };
 

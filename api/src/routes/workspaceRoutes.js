@@ -14,6 +14,9 @@ router.use('/:workspaceId/canaux', canalRouter);
 // Obtenir tous les workspaces
 router.get('/', authenticate, workspaceController.obtenirWorkspaces);
 
+// Obtenir les workspaces dont l'utilisateur est membre
+router.get('/mes-workspaces', authenticate, workspaceController.obtenirMesWorkspaces);
+
 // Créer un nouveau workspace
 router.post('/', authenticate, workspaceController.creerWorkspace);
 
