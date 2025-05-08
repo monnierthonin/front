@@ -1,21 +1,23 @@
 <template>
   <div class="conversation-list">
     <v-list>
+      <!-- Section des messages directs -->
       <v-subheader>Messages directs</v-subheader>
       
       <div v-if="loading" class="text-center pa-4">
         <v-progress-circular indeterminate color="primary"></v-progress-circular>
       </div>
       
-      <div v-else-if="conversations.length === 0" class="text-center pa-4">
+      <div v-else-if="directConversations.length === 0 && groupConversations.length === 0" class="text-center pa-4">
         <p class="text-body-2">Aucune conversation</p>
         <p class="text-caption">Utilisez la recherche pour trouver des utilisateurs</p>
       </div>
       
       <template v-else>
+        <!-- Messages directs (1:1) -->
         <v-list-item
-          v-for="conversation in conversations"
-          :key="conversation.user._id"
+          v-for="conversation in directConversations"
+          :key="conversation._id"
           :class="{ 'active-conversation': isActive(conversation.user._id) }"
           @click="openConversation(conversation.user._id)"
         >
@@ -41,22 +43,72 @@
                  conversation.user.username }}
             </v-list-item-title>
             <v-list-item-subtitle class="text-truncate">
-              <span v-if="conversation.lastMessage.isFromMe" class="text-caption">
+              <span v-if="conversation.lastMessage && conversation.lastMessage.isFromMe" class="text-caption">
                 Vous: 
               </span>
-              {{ conversation.lastMessage.contenu }}
+              {{ conversation.lastMessage ? conversation.lastMessage.contenu : 'Pas de message' }}
             </v-list-item-subtitle>
           </v-list-item-content>
           
           <v-list-item-action>
-            <v-list-item-action-text>
+            <v-list-item-action-text v-if="conversation.lastMessage && conversation.lastMessage.horodatage">
               {{ formatDate(conversation.lastMessage.horodatage) }}
             </v-list-item-action-text>
-            <v-icon v-if="conversation.lastMessage.isFromMe" 
+            <v-list-item-action-text v-else>
+              {{ formatDate(conversation.updatedAt || conversation.createdAt) }}
+            </v-list-item-action-text>
+            <v-icon v-if="conversation.lastMessage && conversation.lastMessage.isFromMe" 
                    :color="conversation.lastMessage.lu ? 'success' : 'grey'"
                    small>
               {{ conversation.lastMessage.lu ? 'mdi-eye' : 'mdi-check' }}
             </v-icon>
+          </v-list-item-action>
+        </v-list-item>
+        
+        <!-- Section des conversations de groupe -->
+        <v-divider v-if="groupConversations.length > 0" class="my-2"></v-divider>
+        <v-subheader v-if="groupConversations.length > 0">Conversations de groupe</v-subheader>
+        
+        <v-list-item
+          v-for="conversation in groupConversations"
+          :key="conversation._id"
+          :class="{ 'active-conversation': isActiveGroup(conversation._id) }"
+          @click="openGroupConversation(conversation._id)"
+        >
+          <v-list-item-avatar>
+            <v-badge
+              :content="conversation.unreadCount"
+              :value="conversation.unreadCount > 0"
+              color="error"
+              offset-x="10"
+              offset-y="10"
+            >
+              <v-img
+                :src="conversation.user.profilePicture || '/img/group-avatar.png'"
+                alt="Avatar du groupe"
+              ></v-img>
+            </v-badge>
+          </v-list-item-avatar>
+          
+          <v-list-item-content>
+            <v-list-item-title>
+              {{ conversation.user.username }}
+            </v-list-item-title>
+            <v-list-item-subtitle class="text-truncate">
+              <span v-if="conversation.lastMessage && conversation.lastMessage.isFromMe" class="text-caption">
+                Vous: 
+              </span>
+              {{ conversation.lastMessage ? conversation.lastMessage.contenu : 'Pas de message' }}
+            </v-list-item-subtitle>
+          </v-list-item-content>
+          
+          <v-list-item-action>
+            <v-list-item-action-text v-if="conversation.lastMessage && conversation.lastMessage.horodatage">
+              {{ formatDate(conversation.lastMessage.horodatage) }}
+            </v-list-item-action-text>
+            <v-list-item-action-text v-else>
+              {{ formatDate(conversation.updatedAt || conversation.createdAt) }}
+            </v-list-item-action-text>
           </v-list-item-action>
         </v-list-item>
       </template>
@@ -82,13 +134,30 @@ export default {
     
     const loading = ref(false);
     
-    // Récupérer les conversations depuis le store
-    const conversations = computed(() => store.state.messagePrivate.conversations);
+    // Récupérer toutes les conversations depuis le store
+    const allConversations = computed(() => store.state.messagePrivate.conversations);
     
-    // Récupérer l'ID de l'utilisateur actif (si on est dans une conversation)
+    // Séparer les conversations directes (1:1) des conversations de groupe
+    const directConversations = computed(() => {
+      return allConversations.value.filter(conv => !conv.isGroup);
+    });
+    
+    const groupConversations = computed(() => {
+      return allConversations.value.filter(conv => conv.isGroup);
+    });
+    
+    // Récupérer l'ID de l'utilisateur actif (si on est dans une conversation 1:1)
     const activeUserId = computed(() => {
       if (route.name === 'conversation' && route.params.userId) {
         return route.params.userId;
+      }
+      return null;
+    });
+    
+    // Récupérer l'ID de la conversation de groupe active (si on est dans une conversation de groupe)
+    const activeGroupId = computed(() => {
+      if (route.name === 'conversationGroup' && route.params.id) {
+        return route.params.id;
       }
       return null;
     });
@@ -126,26 +195,36 @@ export default {
       return `${API_URL}/uploads/profiles/${user.profilePicture}`;
     };
     
-    // Vérifier si une conversation est active
+    // Vérifier si une conversation directe est active
     const isActive = (userId) => {
       return userId === activeUserId.value;
     };
     
-    // Ouvrir une conversation
+    // Vérifier si une conversation de groupe est active
+    const isActiveGroup = (groupId) => {
+      return groupId === activeGroupId.value;
+    };
+    
+    // Ouvrir une conversation directe (1:1)
     const openConversation = (userId) => {
-      router.push({ 
-        name: 'conversation', 
-        params: { userId } 
-      });
+      router.push(`/messages/${userId}`);
+    };
+    
+    // Ouvrir une conversation de groupe
+    const openGroupConversation = (groupId) => {
+      router.push(`/messages/conversation/${groupId}`);
     };
     
     return {
-      conversations,
+      directConversations,
+      groupConversations,
       loading,
       formatDate,
       getUserAvatar,
       isActive,
-      openConversation
+      isActiveGroup,
+      openConversation,
+      openGroupConversation
     };
   }
 };

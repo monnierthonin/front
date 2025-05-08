@@ -16,6 +16,10 @@
             {{ otherUser.status || 'En ligne' }}
           </div>
         </div>
+        <v-spacer></v-spacer>
+        <v-btn icon @click="showAddUserDialog = true" title="Ajouter des utilisateurs">
+          <v-icon>mdi-account-plus</v-icon>
+        </v-btn>
       </v-card-title>
       
       <!-- Corps de la conversation (messages) -->
@@ -210,6 +214,81 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    
+    <!-- Dialogue pour ajouter des utilisateurs à la conversation -->
+    <v-dialog v-model="showAddUserDialog" max-width="500px">
+      <v-card>
+        <v-card-title>Ajouter des utilisateurs à la conversation</v-card-title>
+        <v-card-text>
+          <p v-if="addUserError" class="error--text">{{ addUserError }}</p>
+          <div v-if="availableUsers.length === 0 && !loadingUsers" class="text-center pa-4">
+            <p class="text-body-2">Aucun utilisateur disponible</p>
+          </div>
+          <div v-else-if="loadingUsers" class="text-center pa-4">
+            <v-progress-circular indeterminate color="primary"></v-progress-circular>
+            <p class="mt-2">Chargement des utilisateurs...</p>
+          </div>
+          <div v-else>
+            <p class="mb-2">Utilisateurs disponibles ({{ availableUsers.length }}) :</p>
+            
+            <!-- Liste de sélection plus simple -->
+            <v-list dense>
+              <v-list-item
+                v-for="user in availableUsers"
+                :key="user._id"
+                @click="toggleUserSelection(user)"
+              >
+                <v-list-item-avatar>
+                  <v-img :src="getUserAvatar(user)"></v-img>
+                </v-list-item-avatar>
+                
+                <v-list-item-content>
+                  <v-list-item-title>{{ user.username }}</v-list-item-title>
+                  <v-list-item-subtitle v-if="user.firstName && user.lastName">
+                    {{ user.firstName }} {{ user.lastName }}
+                  </v-list-item-subtitle>
+                </v-list-item-content>
+                
+                <v-list-item-action>
+                  <v-checkbox
+                    :input-value="isUserSelected(user)"
+                    color="primary"
+                    @click.stop
+                    @change="toggleUserSelection(user)"
+                  ></v-checkbox>
+                </v-list-item-action>
+              </v-list-item>
+            </v-list>
+            
+            <!-- Afficher les utilisateurs sélectionnés -->
+            <div v-if="selectedUsers.length > 0" class="selected-users-container mt-4">
+              <p class="subtitle-1">Utilisateurs sélectionnés ({{ selectedUsers.length }}) :</p>
+              <v-chip-group column>
+                <v-chip
+                  v-for="user in selectedUsers"
+                  :key="user._id"
+                  close
+                  @click:close="toggleUserSelection(user)"
+                >
+                  <v-avatar left>
+                    <v-img :src="getUserAvatar(user)"></v-img>
+                  </v-avatar>
+                  {{ user.username }}
+                </v-chip>
+              </v-chip-group>
+            </div>
+          </div>
+          <div v-if="addUserError" class="error--text mt-2">
+            {{ addUserError }}
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn text @click="showAddUserDialog = false">Annuler</v-btn>
+          <v-btn color="primary" @click="addUsersToConversation" :loading="addingUsers">Ajouter</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -228,6 +307,10 @@ export default {
     userId: {
       type: String,
       required: true
+    },
+    conversationId: {
+      type: String,
+      default: null
     }
   },
   
@@ -259,6 +342,14 @@ export default {
       messageId: null
     });
     
+    // Variables pour l'ajout d'utilisateurs à la conversation
+    const showAddUserDialog = ref(false);
+    const selectedUsers = ref([]);
+    const availableUsers = ref([]);
+    const loadingUsers = ref(false);
+    const addingUsers = ref(false);
+    const addUserError = ref('');
+    
     // Récupérer les messages de la conversation
     const messages = computed(() => {
       return store.getters['messagePrivate/getMessagesSorted'];
@@ -270,18 +361,44 @@ export default {
     });
     
     // Récupérer l'autre utilisateur de la conversation
-    const otherUser = computed(() => {
-      // Trouver la conversation correspondante dans la liste des conversations
-      const conversation = store.state.messagePrivate.conversations.find(
-        conv => conv.user._id === props.userId
-      );
-      
-      return conversation ? conversation.user : { username: 'Utilisateur' };
-    });
+    const otherUser = ref({ username: 'Chargement...' });
+    
+    // Fonction pour charger les détails de l'utilisateur
+    const loadUserDetails = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/v1/users/profile/${props.userId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          otherUser.value = data.data.user;
+        } else {
+          // Fallback à la méthode précédente si l'API ne répond pas
+          const conversation = store.state.messagePrivate.conversations.find(
+            conv => conv.user._id === props.userId
+          );
+          
+          otherUser.value = conversation ? conversation.user : { username: 'Utilisateur inconnu' };
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des détails de l\'utilisateur:', error);
+        // Fallback à la méthode précédente
+        const conversation = store.state.messagePrivate.conversations.find(
+          conv => conv.user._id === props.userId
+        );
+        
+        otherUser.value = conversation ? conversation.user : { username: 'Utilisateur inconnu' };
+      }
+    };
     
     // Charger les messages au montage du composant
     onMounted(async () => {
       loading.value = true;
+      // Charger les détails de l'utilisateur
+      await loadUserDetails();
       await store.dispatch('messagePrivate/fetchMessages', props.userId);
       loading.value = false;
       scrollToBottom();
@@ -496,6 +613,217 @@ export default {
       }
     };
     
+    // Fonction pour charger les utilisateurs disponibles
+    const loadAvailableUsers = async () => {
+      loadingUsers.value = true;
+      addUserError.value = '';
+      
+      try {
+        // Utiliser plusieurs termes de recherche pour récupérer un maximum d'utilisateurs
+        // Nous allons faire plusieurs requêtes avec des termes différents et fusionner les résultats
+        const searchTerms = ['a', 'e', 'i', 'o', 'u', 'user'];
+        let allUsers = [];
+        
+        // Effectuer les requêtes en parallèle pour plus d'efficacité
+        const promises = searchTerms.map(term => 
+          fetch(`${API_URL}/api/v1/users/search?query=${term}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          })
+          .then(response => {
+            if (!response.ok) {
+              console.warn(`Erreur lors de la recherche avec le terme '${term}'`);
+              return { success: false, data: [] };
+            }
+            return response.json();
+          })
+          .then(data => {
+            if (data.success && Array.isArray(data.data)) {
+              return data.data;
+            }
+            return [];
+          })
+          .catch(error => {
+            console.warn(`Erreur lors de la recherche avec le terme '${term}':`, error);
+            return [];
+          })
+        );
+        
+        // Attendre que toutes les requêtes soient terminées
+        const results = await Promise.all(promises);
+        
+        // Fusionner les résultats et éliminer les doublons par ID
+        const userMap = new Map();
+        results.flat().forEach(user => {
+          if (user && user._id) {
+            userMap.set(user._id, user);
+          }
+        });
+        
+        allUsers = Array.from(userMap.values());
+        console.log('Utilisateurs récupérés:', allUsers.length);
+        
+        // Filtrer les utilisateurs pour exclure l'utilisateur courant et l'autre utilisateur de la conversation
+        availableUsers.value = allUsers.filter(user => 
+          user._id !== currentUser.value._id && 
+          user._id !== props.userId
+        );
+        
+        console.log('Utilisateurs disponibles après filtrage:', availableUsers.value.length);
+      } catch (error) {
+        console.error('Erreur lors du chargement des utilisateurs:', error);
+        addUserError.value = 'Impossible de charger les utilisateurs. Veuillez réessayer.';
+      } finally {
+        loadingUsers.value = false;
+      }
+    };
+    
+    // Fonction pour ajouter des utilisateurs à la conversation
+    const addUsersToConversation = async () => {
+      if (!selectedUsers.value || selectedUsers.value.length === 0) {
+        addUserError.value = 'Veuillez sélectionner au moins un utilisateur';
+        return;
+      }
+      
+      addingUsers.value = true;
+      addUserError.value = '';
+      
+      try {
+        // Vérifier si nous avons un ID de conversation
+        const conversationId = props.conversationId;
+        
+        if (!conversationId) {
+          // Cas où nous n'avons pas encore d'ID de conversation (conversation 1:1 sans ID spécifique)
+          // D'abord, vérifier si une conversation existe déjà entre ces utilisateurs
+          // Nous allons créer une nouvelle conversation avec tous les participants
+          
+          // Préparer la liste des participants (utilisateur courant, destinataire, et nouveaux utilisateurs)
+          const participants = [
+            ...selectedUsers.value.map(user => user._id)
+          ];
+          
+          // Si nous avons un ID d'utilisateur destinataire, l'ajouter à la liste
+          if (props.userId) {
+            participants.push(props.userId);
+          }
+          
+          // Créer la conversation
+          const response = await fetch(`${API_URL}/api/v1/conversations`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+              participants,
+              nom: `Groupe (${participants.length + 1} participants)` // +1 pour l'utilisateur courant
+            })
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Erreur API:', errorData);
+            throw new Error(errorData.message || 'Erreur lors de la création de la conversation');
+          }
+          
+          const data = await response.json();
+          console.log('Conversation créée:', data);
+          
+          // Fermer la boîte de dialogue
+          showAddUserDialog.value = false;
+          
+          // Afficher un message de succès
+          alert('Conversation de groupe créée avec succès. Vous allez être redirigé.');
+          
+          // Rediriger vers la nouvelle conversation après un court délai
+          setTimeout(() => {
+            window.location.href = `/messages/conversation/${data.data.conversation._id}`;
+          }, 500);
+        } else {
+          // Cas où nous avons déjà un ID de conversation (conversation existante)
+          console.log('Ajout d\'utilisateurs à la conversation existante:', conversationId);
+          
+          // Ajouter les utilisateurs sélectionnés à la conversation existante
+          const results = [];
+          
+          for (const user of selectedUsers.value) {
+            try {
+              const response = await fetch(`${API_URL}/api/v1/conversations/${conversationId}/participants`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                  userId: user._id
+                })
+              });
+              
+              if (!response.ok) {
+                const errorData = await response.json();
+                console.error(`Erreur lors de l'ajout de l'utilisateur ${user.username}:`, errorData);
+                results.push({ user: user.username, success: false, message: errorData.message });
+              } else {
+                const data = await response.json();
+                results.push({ user: user.username, success: true });
+                console.log(`Utilisateur ${user.username} ajouté avec succès:`, data);
+              }
+            } catch (error) {
+              console.error(`Erreur lors de l'ajout de l'utilisateur ${user.username}:`, error);
+              results.push({ user: user.username, success: false, message: error.message });
+            }
+          }
+          
+          // Fermer la boîte de dialogue
+          showAddUserDialog.value = false;
+          
+          // Afficher un résumé des résultats
+          const successCount = results.filter(r => r.success).length;
+          if (successCount === selectedUsers.value.length) {
+            alert(`Tous les utilisateurs (${successCount}) ont été ajoutés avec succès.`);
+          } else {
+            alert(`${successCount} utilisateur(s) sur ${selectedUsers.value.length} ont été ajoutés avec succès.`);
+          }
+          
+          // Recharger la page après un court délai
+          setTimeout(() => {
+            window.location.reload();
+          }, 500);
+        }
+      } catch (error) {
+        console.error('Erreur lors de l\'ajout des utilisateurs:', error);
+        addUserError.value = 'Impossible d\'ajouter les utilisateurs. Veuillez réessayer.';
+      } finally {
+        addingUsers.value = false;
+      }
+    };
+    
+    // Charger les utilisateurs disponibles lorsque le dialogue est ouvert
+    watch(showAddUserDialog, (newValue) => {
+      if (newValue) {
+        loadAvailableUsers();
+        // Réinitialiser la sélection quand on ouvre le dialogue
+        selectedUsers.value = [];
+      }
+    });
+    
+    // Vérifier si un utilisateur est sélectionné
+    const isUserSelected = (user) => {
+      return selectedUsers.value.some(selectedUser => selectedUser._id === user._id);
+    };
+    
+    // Ajouter ou retirer un utilisateur de la sélection
+    const toggleUserSelection = (user) => {
+      if (isUserSelected(user)) {
+        // Si l'utilisateur est déjà sélectionné, le retirer
+        selectedUsers.value = selectedUsers.value.filter(selectedUser => selectedUser._id !== user._id);
+      } else {
+        // Sinon, l'ajouter
+        selectedUsers.value.push(user);
+      }
+    };
+    
     return {
       messagesContainer,
       messageContent,
@@ -522,7 +850,19 @@ export default {
       deleteMessage,
       showEditDialog,
       showDeleteDialog,
-      confirmDeleteMessage
+      confirmDeleteMessage,
+      
+      // Variables et fonctions pour l'ajout d'utilisateurs
+      showAddUserDialog,
+      selectedUsers,
+      availableUsers,
+      loadingUsers,
+      addingUsers,
+      addUserError,
+      loadAvailableUsers,
+      addUsersToConversation,
+      isUserSelected,
+      toggleUserSelection
     };
   }
 };

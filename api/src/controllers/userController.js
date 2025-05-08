@@ -9,6 +9,57 @@ const Workspace = require('../models/workspace');
 
 const userController = {
   /**
+   * Rechercher des utilisateurs par nom d'utilisateur, prénom ou nom
+   * ou récupérer tous les utilisateurs
+   */
+  searchUsers: async (req, res) => {
+    try {
+      // Option pour récupérer tous les utilisateurs, prioritaire sur les autres paramètres
+      const all = req.query.all === 'true';
+      
+      // Récupérer le paramètre de recherche, défaut à chaîne vide si non fourni
+      const q = req.query.q || '';
+      let query = {};
+      
+      // Si le paramètre all est fourni, on retourne tous les utilisateurs
+      if (!all) {
+        // Sinon, on filtre par le terme de recherche si fourni
+        if (q && q.trim() !== '') {
+          query = {
+            $or: [
+              { username: { $regex: q, $options: 'i' } },
+              { firstName: { $regex: q, $options: 'i' } },
+              { lastName: { $regex: q, $options: 'i' } }
+            ]
+          };
+        }
+      }
+      
+      // Exclure l'utilisateur connecté des résultats
+      query._id = { $ne: req.user._id };
+      
+      // Récupérer les utilisateurs
+      const users = await User.find(query)
+        .select('username firstName lastName profilePicture status')
+        .limit(20);
+      
+      res.json({
+        status: 'success',
+        data: {
+          users
+        }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la recherche d\'utilisateurs:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Erreur lors de la recherche d\'utilisateurs',
+        error: error.message
+      });
+    }
+  },
+  
+  /**
    * Obtenir le profil de l'utilisateur connecté
    */
   getProfile: async (req, res) => {

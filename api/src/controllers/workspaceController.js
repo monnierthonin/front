@@ -60,6 +60,24 @@ exports.obtenirWorkspaces = catchAsync(async (req, res) => {
     });
 });
 
+// Obtenir uniquement les workspaces dont l'utilisateur est membre
+exports.obtenirMesWorkspaces = catchAsync(async (req, res) => {
+    const workspaces = await Workspace.find({
+        'membres.utilisateur': req.user.id
+    })
+        .populate('proprietaire', 'firstName lastName username email')
+        .populate('membres.utilisateur', 'firstName lastName username email profilePicture')
+        .sort({ 'nom': 1 }); // Tri par nom par ordre alphabétique
+
+    res.status(200).json({
+        status: 'success',
+        resultats: workspaces.length,
+        data: {
+            workspaces
+        }
+    });
+});
+
 // Obtenir un workspace spécifique
 exports.obtenirWorkspace = catchAsync(async (req, res, next) => {
     console.log('Obtenir workspace - ID:', req.params.id);

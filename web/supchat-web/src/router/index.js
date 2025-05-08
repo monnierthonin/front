@@ -12,6 +12,7 @@ import Profile from '../views/Profile.vue'
 import InvitationWorkspace from '../views/InvitationWorkspace.vue'
 import MessagesPrives from '../views/MessagesPrives.vue'
 import Conversation from '../views/Conversation.vue'
+import ConversationView from '../views/ConversationView.vue'
 
 const routes = [
   {
@@ -111,6 +112,19 @@ const routes = [
     meta: { requiresAuth: true },
     beforeEnter: (to, from, next) => {
       if (!to.params.userId || to.params.userId === 'undefined') {
+        next('/messages')
+        return
+      }
+      next()
+    }
+  },
+  {
+    path: '/messages/conversation/:id',
+    name: 'conversationGroup',
+    component: ConversationView,
+    meta: { requiresAuth: true },
+    beforeEnter: (to, from, next) => {
+      if (!to.params.id || to.params.id === 'undefined') {
         next('/messages')
         return
       }
