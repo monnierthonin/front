@@ -57,6 +57,8 @@ const actions = {
         if (user) {
           commit('SET_USER', user);
           localStorage.setItem('user', JSON.stringify(user));
+          // Stocker l'ID de l'utilisateur séparément pour un accès facile
+          localStorage.setItem('userId', user._id);
         }
         
         return response.data;
@@ -167,12 +169,15 @@ const actions = {
       commit('LOGOUT')
       localStorage.removeItem('token')
       localStorage.removeItem('user')
+      localStorage.removeItem('userId')
+      return true
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error)
-      // On déconnecte quand même localement en cas d'erreur
       commit('LOGOUT')
       localStorage.removeItem('token')
       localStorage.removeItem('user')
+      localStorage.removeItem('userId')
+      return false
     }
   },
 
@@ -180,8 +185,14 @@ const actions = {
     const token = localStorage.getItem('token')
     const user = localStorage.getItem('user')
     if (token && user) {
+      const userData = JSON.parse(user)
       commit('SET_TOKEN', token)
-      commit('SET_USER', JSON.parse(user))
+      commit('SET_USER', userData)
+      
+      // S'assurer que l'ID de l'utilisateur est également stocké séparément
+      if (userData._id && !localStorage.getItem('userId')) {
+        localStorage.setItem('userId', userData._id)
+      }
     }
   }
 }

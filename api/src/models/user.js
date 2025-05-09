@@ -120,6 +120,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['online', 'offline', 'away'],
     default: 'offline'
+  },
+  theme: {
+    type: String,
+    enum: ['clair', 'sombre'],
+    default: 'sombre'
   }
 }, {
   timestamps: true

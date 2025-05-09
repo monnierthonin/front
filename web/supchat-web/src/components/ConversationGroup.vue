@@ -264,11 +264,11 @@
             <v-subheader>Vous</v-subheader>
             <v-list-item>
               <v-list-item-avatar>
-                <v-img :src="getUserAvatar(currentUser.value)" alt="Votre avatar"></v-img>
+                <v-img :src="getUserAvatar(currentUser.value || {})" alt="Votre avatar"></v-img>
               </v-list-item-avatar>
               <v-list-item-content>
-                <v-list-item-title>{{ currentUser.value.username }} (Vous)</v-list-item-title>
-                <v-list-item-subtitle v-if="currentUser.value.firstName && currentUser.value.lastName">
+                <v-list-item-title>{{ currentUser.value && currentUser.value.username ? currentUser.value.username : 'Vous' }} (Vous)</v-list-item-title>
+                <v-list-item-subtitle v-if="currentUser.value && currentUser.value.firstName && currentUser.value.lastName">
                   {{ currentUser.value.firstName }} {{ currentUser.value.lastName }}
                 </v-list-item-subtitle>
               </v-list-item-content>
@@ -408,10 +408,40 @@ export default {
       try {
         // Vérifier que nous avons bien un token et un ID d'utilisateur
         const token = localStorage.getItem('token');
-        const userId = localStorage.getItem('userId');
+        
+        // Récupérer l'ID utilisateur depuis plusieurs sources possibles
+        let userId = localStorage.getItem('userId');
+        
+        // Si l'ID n'est pas dans localStorage, essayer de le récupérer depuis le store
+        if (!userId && currentUser.value && currentUser.value._id) {
+          userId = currentUser.value._id;
+          // Sauvegarder l'ID pour les prochaines utilisations
+          localStorage.setItem('userId', userId);
+        }
+        
+        // Si toujours pas d'ID, essayer de le récupérer depuis l'objet user stocké
+        if (!userId) {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            try {
+              const userObj = JSON.parse(userStr);
+              if (userObj && userObj._id) {
+                userId = userObj._id;
+                localStorage.setItem('userId', userId);
+              }
+            } catch (e) {
+              console.error('Erreur lors de la récupération de l\'ID utilisateur:', e);
+            }
+          }
+        }
         
         if (!token) {
           console.error('Aucun token d\'authentification trouvé');
+          return;
+        }
+        
+        if (!userId) {
+          console.error('Impossible de déterminer l\'ID de l\'utilisateur connecté');
           return;
         }
         
@@ -546,9 +576,13 @@ export default {
     
     // Fonction pour obtenir l'avatar d'un utilisateur
     const getUserAvatar = (user) => {
-      if (!user) return '/img/default-avatar.png';
+      // Vérifier si l'utilisateur est défini et valide
+      if (!user || typeof user !== 'object') {
+        return '/img/default-avatar.png';
+      }
       
-      if (user.profilePicture) {
+      // Vérifier si la propriété profilePicture existe et est valide
+      if (user.profilePicture && typeof user.profilePicture === 'string' && user.profilePicture.trim() !== '') {
         return `${API_URL}/${user.profilePicture}`;
       }
       
@@ -695,34 +729,38 @@ export default {
     const loadAvailableUsers = async () => {
       loadingUsers.value = true;
       addUserError.value = '';
+      let allUsers = [];
       
       try {
-        // Utiliser une approche plus directe pour récupérer tous les utilisateurs
-        console.log('Chargement de tous les utilisateurs...');
+        console.log('Chargement des utilisateurs...');
         
-        // D'abord, essayer de récupérer tous les utilisateurs
-        const response = await fetch(`${API_URL}/api/v1/users`, {
+        // Essayer d'abord de récupérer tous les utilisateurs avec le paramètre all=true
+        const initialResponse = await fetch(`${API_URL}/api/v1/users/search?all=true`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
         });
         
-        if (!response.ok) {
-          throw new Error(`Erreur HTTP ${response.status} lors de la récupération des utilisateurs`);
+        if (!initialResponse.ok) {
+          console.warn(`Erreur HTTP ${initialResponse.status} pour la recherche avec all=true`);
+        } else {
+          const initialData = await initialResponse.json();
+          allUsers = initialData.data?.users || [];
+          
+          if (allUsers.length > 0) {
+            // Si nous avons déjà des utilisateurs, pas besoin de continuer
+            console.log('Utilisateurs récupérés avec all=true:', allUsers.length);
+          }
         }
         
-        const data = await response.json();
-        let allUsers = data.data.users || [];
-        
-        // Si nous n'avons pas assez d'utilisateurs, essayons avec la recherche
+        // Si nous n'avons pas assez d'utilisateurs, essayer avec des termes de recherche
         if (allUsers.length < 5) {
-          console.log('Pas assez d\'utilisateurs trouvés, utilisation de la recherche...');
-          // Utiliser plusieurs termes de recherche pour maximiser les résultats
-          const searchTerms = ['a', 'e', 'i', 'o', 'u', 'y'];
+          console.log('Utilisation de termes de recherche spécifiques...');
+          const searchTerms = ['a', 'e', 'i', 'o', 'u'];
           
           // Créer un tableau de promesses pour toutes les requêtes
           const promises = searchTerms.map(term => 
-            fetch(`${API_URL}/api/v1/users/search?query=${term}`, {
+            fetch(`${API_URL}/api/v1/users/search?q=${term}`, {
               headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               }
@@ -734,7 +772,7 @@ export default {
               }
               return response.json();
             })
-            .then(data => data.data.users || [])
+            .then(data => data.data?.users || [])
             .catch(error => {
               console.error(`Erreur lors de la recherche avec le terme '${term}':`, error);
               return [];
@@ -764,13 +802,13 @@ export default {
           allUsers = Array.from(userMap.values());
         }
         
-        console.log('Utilisateurs récupérés:', allUsers.length);
+        console.log('Total des utilisateurs récupérés:', allUsers.length);
         
-        // Vérifier que nous avons bien les participants
+        // Filtrer les utilisateurs pour exclure les participants actuels
         if (!participants.value || participants.value.length === 0) {
           console.warn('Aucun participant trouvé, impossible de filtrer les utilisateurs disponibles');
           availableUsers.value = allUsers.filter(user => 
-            user._id !== currentUser.value._id
+            user._id !== currentUser.value?._id
           );
         } else {
           // Filtrer les utilisateurs déjà participants
@@ -778,7 +816,7 @@ export default {
           console.log('IDs des participants actuels:', participantIds);
           
           availableUsers.value = allUsers.filter(user => 
-            !participantIds.includes(user._id) && user._id !== currentUser.value._id
+            !participantIds.includes(user._id) && user._id !== currentUser.value?._id
           );
         }
         
