@@ -61,7 +61,7 @@
               
               <!-- Contenu du message -->
               <div class="message-content">
-                {{ message.contenu }}
+                <div class="markdown-content" v-html="formatMarkdown(message.contenu)"></div>
               </div>
               
               <!-- Boutons d'action pour tous les messages -->
@@ -269,17 +269,6 @@
                 :key="user._id"
                 @click="toggleUserSelection(user)"
               >
-                <v-list-item-avatar>
-                  <v-img :src="getUserAvatar(user)"></v-img>
-                </v-list-item-avatar>
-                
-                <v-list-item-content>
-                  <v-list-item-title>{{ user.username }}</v-list-item-title>
-                  <v-list-item-subtitle v-if="user.firstName && user.lastName">
-                    {{ user.firstName }} {{ user.lastName }}
-                  </v-list-item-subtitle>
-                </v-list-item-content>
-                
                 <v-list-item-action>
                   <v-checkbox
                     :input-value="isUserSelected(user)"
@@ -330,9 +319,12 @@ import { useStore } from 'vuex';
 import { useRoute } from 'vue-router';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import * as marked from 'marked';
+import DOMPurify from 'dompurify';
 
 export default {
   name: 'PrivateConversation',
+
   
   props: {
     userId: {
@@ -351,6 +343,39 @@ export default {
     // eslint-disable-next-line no-unused-vars
     const route = useRoute();
     const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:3000';
+    
+    // Fonction pour convertir le Markdown en HTML sécurisé
+    const formatMarkdown = (text) => {
+      if (!text) return '';
+      
+      try {
+        // Configuration de marked
+        const options = {
+          gfm: true, // GitHub Flavored Markdown
+          breaks: true, // Convertir les retours à la ligne en <br>
+          pedantic: false, // Ne pas suivre les spécifications strictes
+          headerIds: false, // Pas d'IDs pour les titres
+          mangle: false, // Ne pas masquer les emails
+          sanitize: false, // Nous utilisons DOMPurify pour la sanitisation
+          silent: true // Ne pas lancer d'erreur en cas de problème
+        };
+        
+        // Prétraitement du texte pour s'assurer que les listes sont correctement formatées
+        // Ajouter un espace après les marqueurs de liste si nécessaire
+        let processedText = text.replace(/^([-*+])(\S)/gm, '$1 $2');
+        // Ajouter un espace après les numéros de liste si nécessaire
+        processedText = processedText.replace(/^(\d+\.)(\S)/gm, '$1 $2');
+        
+        // Convertir le Markdown en HTML
+        const html = marked.parse(processedText, options);
+        
+        // Sanitiser l'HTML pour éviter les attaques XSS
+        return DOMPurify.sanitize(html);
+      } catch (error) {
+        console.error('Erreur lors du formatage Markdown:', error);
+        return text; // Retourner le texte original en cas d'erreur
+      }
+    };
     
     const messagesContainer = ref(null);
     const messageContent = ref('');
@@ -1009,6 +1034,7 @@ export default {
       showEditDialog,
       showDeleteDialog,
       confirmDeleteMessage,
+      formatMarkdown,
       
       // Variables et fonctions pour l'ajout d'utilisateurs
       showAddUserDialog,
@@ -1107,6 +1133,88 @@ export default {
 .message-content {
   word-break: break-word;
   white-space: pre-wrap;
+}
+
+/* Styles pour le formatage Markdown */
+.markdown-content {
+  word-break: break-word;
+  white-space: pre-wrap;
+  overflow: visible;
+  text-overflow: initial;
+  max-width: none;
+}
+
+.markdown-content :deep(h1) {
+  font-size: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content :deep(h2) {
+  font-size: 1.25rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content :deep(h3) {
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content :deep(p) {
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content :deep(ul), 
+.markdown-content :deep(ol) {
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content :deep(li) {
+  margin-bottom: 0.25rem;
+}
+
+.markdown-content :deep(code) {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+.markdown-content :deep(pre) {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.5rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content :deep(pre code) {
+  background-color: transparent;
+  padding: 0;
+}
+
+.markdown-content :deep(blockquote) {
+  border-left: 3px solid rgba(0, 0, 0, 0.2);
+  padding-left: 0.5rem;
+  margin-left: 0.5rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.markdown-content :deep(a) {
+  color: #1976d2;
+  text-decoration: none;
+}
+
+.markdown-content :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.markdown-content :deep(img) {
+  max-width: 100%;
+  height: auto;
 }
 
 .message-footer {

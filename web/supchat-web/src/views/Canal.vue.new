@@ -53,7 +53,7 @@
                       </div>
                       
                       <v-list-item-subtitle>
-                        <div class="markdown-content" v-html="formatMarkdown(message.contenu)"></div>
+                        {{ message.contenu }}
                       </v-list-item-subtitle>
                     </v-list-item-content>
                   </v-list-item>
@@ -67,7 +67,7 @@
                 placeholder="Écrivez votre message..."
                 append-icon="mdi-send"
                 @click:append="envoyerMessage"
-                @keyup.enter="envoyerMessage"
+                @keydown.enter="envoyerMessage"
                 hide-details
                 dense
                 outlined
@@ -83,53 +83,21 @@
 
 <script>
 import { defineComponent, ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import socketService from '../services/socketService'
-// eslint-disable-next-line no-unused-vars
 import axios from 'axios'
-import * as marked from 'marked'
-import DOMPurify from 'dompurify'
+
+// URL de l'API
+const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:3000';
 
 export default defineComponent({
   name: 'CanalView',
   
   setup() {
     const route = useRoute()
+    const router = useRouter()
     const store = useStore()
-    
-    // Fonction pour convertir le Markdown en HTML sécurisé
-    const formatMarkdown = (text) => {
-      if (!text) return ''
-      
-      try {
-        // Configuration de marked
-        const options = {
-          gfm: true, // GitHub Flavored Markdown
-          breaks: true, // Convertir les retours à la ligne en <br>
-          pedantic: false, // Ne pas suivre les spécifications strictes
-          headerIds: false, // Pas d'IDs pour les titres
-          mangle: false, // Ne pas masquer les emails
-          sanitize: false, // Nous utilisons DOMPurify pour la sanitisation
-          silent: true // Ne pas lancer d'erreur en cas de problème
-        }
-        
-        // Prétraitement du texte pour s'assurer que les listes sont correctement formatées
-        // Ajouter un espace après les marqueurs de liste si nécessaire
-        let processedText = text.replace(/^([-*+])(\S)/gm, '$1 $2');
-        // Ajouter un espace après les numéros de liste si nécessaire
-        processedText = processedText.replace(/^(\d+\.)(\S)/gm, '$1 $2');
-        
-        // Convertir le Markdown en HTML
-        const html = marked.parse(processedText, options)
-        
-        // Sanitiser l'HTML pour éviter les attaques XSS
-        return DOMPurify.sanitize(html)
-      } catch (error) {
-        console.error('Erreur lors du formatage Markdown:', error)
-        return text // Retourner le texte original en cas d'erreur
-      }
-    }
     
     const messagesContainer = ref(null)
     const showMembers = ref(false)
@@ -238,10 +206,8 @@ export default defineComponent({
       try {
         await store.dispatch('message/sendMessage', {
           canalId: canalId.value,
-          workspaceId: workspaceId.value,
-          messageData: {
-            contenu: contenuMessage.value
-          }
+          contenu: contenuMessage.value,
+          workspaceId: workspaceId.value
         });
         
         contenuMessage.value = '';
@@ -330,8 +296,7 @@ export default defineComponent({
       messagesContainer,
       formatDate,
       envoyerMessage,
-      scrollToBottom,
-      formatMarkdown
+      scrollToBottom
     };
   }
 });
@@ -364,87 +329,5 @@ export default defineComponent({
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* Styles pour le formatage Markdown */
-.markdown-content {
-  word-break: break-word;
-  white-space: pre-wrap;
-  overflow: visible;
-  text-overflow: initial;
-  max-width: none;
-}
-
-.markdown-content :deep(h1) {
-  font-size: 1.5rem;
-  margin-top: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.markdown-content :deep(h2) {
-  font-size: 1.25rem;
-  margin-top: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.markdown-content :deep(h3) {
-  font-size: 1.1rem;
-  margin-top: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.markdown-content :deep(p) {
-  margin-bottom: 0.5rem;
-}
-
-.markdown-content :deep(ul), 
-.markdown-content :deep(ol) {
-  padding-left: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.markdown-content :deep(li) {
-  margin-bottom: 0.25rem;
-}
-
-.markdown-content :deep(code) {
-  background-color: rgba(0, 0, 0, 0.05);
-  padding: 0.1rem 0.3rem;
-  border-radius: 3px;
-  font-family: monospace;
-}
-
-.markdown-content :deep(pre) {
-  background-color: rgba(0, 0, 0, 0.05);
-  padding: 0.5rem;
-  border-radius: 4px;
-  overflow-x: auto;
-  margin-bottom: 0.5rem;
-}
-
-.markdown-content :deep(pre code) {
-  background-color: transparent;
-  padding: 0;
-}
-
-.markdown-content :deep(blockquote) {
-  border-left: 3px solid rgba(0, 0, 0, 0.2);
-  padding-left: 0.5rem;
-  margin-left: 0.5rem;
-  color: rgba(0, 0, 0, 0.6);
-}
-
-.markdown-content :deep(a) {
-  color: #1976d2;
-  text-decoration: none;
-}
-
-.markdown-content :deep(a:hover) {
-  text-decoration: underline;
-}
-
-.markdown-content :deep(img) {
-  max-width: 100%;
-  height: auto;
 }
 </style>

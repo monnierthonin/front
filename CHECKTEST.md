@@ -294,9 +294,9 @@
   - Vérifier : Utilisateur ne peut pas mentionner un canal qu'il n'a pas accès ✓
 
 ### Formatage markdown
-- [ ] Formatage markdown
-  - Scénario : Utilisateur ajoute un message formaté en markdown
-  - Vérifier : Message formaté en markdown
+- [x] Formatage markdown
+  - Scénario : Utilisateur ajoute un message formaté en markdown ✓
+  - Vérifier : Message formaté en markdown ✓
 
 ### Réponses aux messages
 - [x] Réponses aux messages
