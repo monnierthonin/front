@@ -288,10 +288,10 @@
   - Vérifier : Utilisateur ne peut pas supprimer une réaction qu'il n'a pas ajoutée ✓
 
 ### Mentions de canaux
-- [ ] Ajout de mention de canal
-  - Scénario : Utilisateur ajoute une mention de canal 
-  - Vérifier : Mention visible en temps réel
-  - Vérifier : Utilisateur ne peut pas mentionner un canal qu'il n'a pas accès
+- [x] Ajout de mention de canal
+  - Scénario : Utilisateur ajoute une mention de canal ✓
+  - Vérifier : Mention visible en temps réel ✓
+  - Vérifier : Utilisateur ne peut pas mentionner un canal qu'il n'a pas accès ✓
 
 ### Formatage markdown
 - [ ] Formatage markdown

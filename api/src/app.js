@@ -18,6 +18,7 @@ const userRouter = require('./routes/userRoutes');
 const workspaceRouter = require('./routes/workspaceRoutes');
 const messagePrivateRouter = require('./routes/messagePrivateRoutes');
 const conversationPriveeRouter = require('./routes/conversationPriveeRoutes');
+const searchRoutes = require('./routes/searchRoutes');
 const http = require('http');
 const serviceSocket = require('./services/serviceSocket');
 const swaggerUi = require('swagger-ui-express');
@@ -84,6 +85,7 @@ require('./docs/userProfile.swagger');
 require('./docs/workspace.swagger');
 require('./docs/messagePrivate.swagger');
 require('./docs/conversationPrivee.swagger');
+require('./docs/search.swagger');
 
 // Documentation Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -104,6 +106,7 @@ app.use('/api/v1/users', updateActivity, userRouter);
 app.use('/api/v1/workspaces', updateActivity, workspaceRouter);
 app.use('/api/v1/messages/private', updateActivity, messagePrivateRouter);
 app.use('/api/v1/conversations', updateActivity, conversationPriveeRouter);
+app.use('/api/v1/search', updateActivity, searchRoutes);
 
 // Gestion des erreurs 404
 app.use((req, res, next) => {

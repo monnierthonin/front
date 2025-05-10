@@ -125,10 +125,41 @@
           rows="1"
           auto-grow
           hide-details
-          placeholder="Écrivez votre message..."
+          placeholder="Écrivez votre message... (Utilisez @ pour mentionner)"
           class="message-input"
           @keydown.enter.prevent="sendMessage"
+          @input="handleMessageInput"
+          ref="messageInputRef"
         ></v-textarea>
+        
+        <!-- Menu de suggestion pour les mentions d'utilisateurs -->
+        <v-menu
+          v-model="showUserSuggestions"
+          :close-on-content-click="true"
+          :close-on-click="true"
+          offset-y
+          bottom
+          left
+          max-height="300"
+        >
+          <v-list dense>
+            <v-subheader>Utilisateur</v-subheader>
+            <v-list-item
+              @click="selectUser(otherUser)"
+            >
+              <v-list-item-avatar>
+                <v-avatar size="32">
+                  <v-img v-if="otherUser && otherUser.profilePicture" :src="getUserAvatar(otherUser)"></v-img>
+                  <v-icon v-else>mdi-account</v-icon>
+                </v-avatar>
+              </v-list-item-avatar>
+              <v-list-item-content>
+                <v-list-item-title v-if="otherUser && otherUser.username">{{ otherUser.username }}</v-list-item-title>
+                <v-list-item-title v-else>Utilisateur</v-list-item-title>
+              </v-list-item-content>
+            </v-list-item>
+          </v-list>
+        </v-menu>
         
         <v-btn
           icon
@@ -350,6 +381,11 @@ export default {
     const addingUsers = ref(false);
     const addUserError = ref('');
     
+    // Variables pour les mentions d'utilisateurs
+    const showUserSuggestions = ref(false);
+    const messageInputRef = ref(null);
+    const mentionStartIndex = ref(-1);
+    
     // Récupérer les messages de la conversation
     const messages = computed(() => {
       return store.getters['messagePrivate/getMessagesSorted'];
@@ -479,6 +515,92 @@ export default {
     // Fonction pour formater l'heure d'un message
     const formatTime = (dateString) => {
       return format(new Date(dateString), 'HH:mm');
+    };
+    
+    // Fonction pour gérer la détection des mentions d'utilisateurs
+    const handleMessageInput = () => {
+      try {
+        // Vérifier si messageContent est défini
+        if (!messageContent.value) {
+          showUserSuggestions.value = false;
+          mentionStartIndex.value = -1;
+          return;
+        }
+        
+        // Détecter les mentions d'utilisateurs avec @
+        const lastAtIndex = messageContent.value.lastIndexOf('@');
+        
+        // Vérifier si nous sommes en train de taper une mention d'utilisateur
+        if (lastAtIndex !== -1) {
+          // Extraire la requête (texte après @) avec vérification de sécurité
+          let query = '';
+          try {
+            query = messageContent.value.substring(lastAtIndex + 1);
+          } catch (e) {
+            console.error('Erreur lors de l\'extraction de la requête:', e);
+            query = '';
+          }
+          
+          // Si un espace est trouvé après @, on ne considère pas comme une mention
+          if (query && !query.includes(' ')) {
+            console.log('Détection de mention d\'utilisateur');
+            
+            // Afficher le menu de suggestions
+            showUserSuggestions.value = true;
+            mentionStartIndex.value = lastAtIndex;
+            
+            return;
+          }
+        }
+        
+        // Si pas de @ dans le message ou si un espace est trouvé après @, cacher le menu de suggestions
+        showUserSuggestions.value = false;
+        mentionStartIndex.value = -1;
+      } catch (error) {
+        console.error('Erreur dans handleMessageInput:', error);
+        // Réinitialiser l'état en cas d'erreur
+        showUserSuggestions.value = false;
+        mentionStartIndex.value = -1;
+      }
+    };
+    
+    // Fonction pour sélectionner un utilisateur dans le menu de suggestions
+    const selectUser = (user) => {
+      try {
+        // Vérifications de sécurité pour éviter les erreurs de nullité
+        if (!user || mentionStartIndex.value === -1 || !messageContent.value) {
+          showUserSuggestions.value = false;
+          mentionStartIndex.value = -1;
+          return;
+        }
+        
+        // S'assurer que username existe, sinon utiliser une valeur par défaut
+        const username = user && user.username ? user.username : 'utilisateur';
+        
+        // Récupérer le texte avant et après la mention avec vérification de sécurité
+        const textBefore = messageContent.value.substring(0, mentionStartIndex.value);
+        const textAfter = messageContent.value.substring(mentionStartIndex.value + 1);
+        
+        // Remplacer le texte de la mention par le nom d'utilisateur complet
+        messageContent.value = `${textBefore}@${username} ${textAfter}`;
+        
+        // Cacher le menu de suggestions
+        showUserSuggestions.value = false;
+        mentionStartIndex.value = -1;
+        
+        // Mettre le focus sur le champ de texte si disponible
+        nextTick(() => {
+          const textarea = document.querySelector('.message-input textarea');
+          if (textarea) {
+            textarea.focus();
+          }
+        });
+      } catch (error) {
+        console.error('Erreur lors de la sélection d\'un utilisateur:', error);
+        // Réinitialiser l'état en cas d'erreur
+        showUserSuggestions.value = false;
+        mentionStartIndex.value = -1;
+      }
     };
     
     // Fonction pour formater la date d'un message (en-tête)
@@ -898,7 +1020,14 @@ export default {
       loadAvailableUsers,
       addUsersToConversation,
       isUserSelected,
-      toggleUserSelection
+      toggleUserSelection,
+      
+      // Variables et fonctions pour les mentions d'utilisateurs
+      showUserSuggestions,
+      messageInputRef,
+      mentionStartIndex,
+      handleMessageInput,
+      selectUser
     };
   }
 };

@@ -85,13 +85,25 @@ export default {
       loading.value = true;
       
       try {
-        const response = await axios.get(`${API_URL}/api/v1/users/search?query=${query}`, {
+        const response = await axios.get(`${API_URL}/api/v1/search/users?q=${query}`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }
         });
         
-        results.value = response.data.data || [];
+        console.log('Réponse de recherche d\'utilisateurs:', response.data);
+        
+        // Vérifier la structure exacte de la réponse et extraire les utilisateurs
+        if (response.data.success && response.data.data && Array.isArray(response.data.data.users)) {
+          results.value = response.data.data.users;
+          console.log('Utilisateurs trouvés:', results.value.length);
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          results.value = response.data.data;
+          console.log('Utilisateurs trouvés directement dans data:', results.value.length);
+        } else {
+          console.warn('Structure de réponse inattendue, impossible de trouver les utilisateurs');
+          results.value = [];
+        }
       } catch (error) {
         console.error('Erreur lors de la recherche d\'utilisateurs:', error);
         results.value = [];

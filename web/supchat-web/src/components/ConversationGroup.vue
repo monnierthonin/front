@@ -789,7 +789,7 @@ export default {
         console.log('Chargement des utilisateurs...');
         
         // Essayer d'abord de récupérer tous les utilisateurs avec le paramètre all=true
-        const initialResponse = await fetch(`${API_URL}/api/v1/users/search?all=true`, {
+        const initialResponse = await fetch(`${API_URL}/api/v1/search/users?all=true`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -816,7 +816,7 @@ export default {
           
           // Créer un tableau de promesses pour toutes les requêtes
           const promises = searchTerms.map(term => 
-            fetch(`${API_URL}/api/v1/users/search?q=${term}`, {
+            fetch(`${API_URL}/api/v1/search/users?q=${term}`, {
               headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               }

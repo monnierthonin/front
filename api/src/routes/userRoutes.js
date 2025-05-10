@@ -14,9 +14,6 @@ router.use(authenticate);
 // Obtenir le profil de l'utilisateur connecté
 router.get('/profile', userController.getProfile);
 
-// Rechercher des utilisateurs par nom d'utilisateur, prénom ou nom
-router.get('/search', userController.searchUsers);
-
 // Obtenir le profil d'un utilisateur spécifique par ID ou nom d'utilisateur
 router.get('/profile/:identifier', userController.getUserProfile);
 

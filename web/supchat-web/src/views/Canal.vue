@@ -7,6 +7,8 @@
         <v-btn text v-bind="attrs" @click="snackbar.show = false">Fermer</v-btn>
       </template>
     </v-snackbar>
+    
+
     <v-container fluid>
       <v-row>
         <!-- Liste des messages -->
@@ -138,35 +140,37 @@
           <v-card-actions>
             <v-text-field
               v-model="contenuMessage"
-              placeholder="Écrivez votre message..."
+              placeholder="Écrivez votre message... (Utilisez @ pour mentionner un utilisateur, # pour mentionner un canal)"
               append-icon="mdi-send"
               @click:append="envoyerMessage"
-              @keyup.enter="envoyerMessage"
+              @keydown.enter.prevent="envoyerMessage"
               @input="handleMessageInput"
-              :loading="sending"
-              hide-details
-              dense
-              class="mx-4"
               ref="messageInput"
+              outlined
+              dense
+              hide-details
+              class="message-input"
             ></v-text-field>
             
-            <!-- Menu de suggestion d'utilisateurs -->
+            <!-- Menu de suggestion pour les mentions d'utilisateurs -->
             <v-menu
+              v-if="showUserSuggestions"
               v-model="showUserSuggestions"
-              :position-x="mentionPosition.x"
-              :position-y="mentionPosition.y"
-              absolute
+              :close-on-click-outside="true"
+              bottom
+              left
               offset-y
               max-height="300"
               :close-on-content-click="false"
             >
               <v-list dense>
+                <v-subheader>Utilisateurs</v-subheader>
                 <v-list-item
                   v-for="user in filteredUsers"
                   :key="user._id"
                   @click="selectUser(user)"
                 >
-                  <v-list-item-avatar>
+                    <v-list-item-avatar>
                     <v-avatar size="32">
                       <v-img v-if="user.profilePicture" :src="user.profilePicture"></v-img>
                       <v-icon v-else>mdi-account</v-icon>
@@ -183,9 +187,48 @@
                 </v-list-item>
               </v-list>
             </v-menu>
+            
+            <!-- Menu de suggestion pour les mentions de canaux -->
+            <v-menu
+              v-if="showCanalSuggestions"
+              v-model="showCanalSuggestions"
+              :close-on-click-outside="true"
+              bottom
+              left
+              offset-y
+              max-height="300"
+              :close-on-content-click="false"
+            >
+              <v-list dense>
+                <v-subheader>Canaux</v-subheader>
+                <v-list-item
+                  v-for="canal in filteredCanaux"
+                  :key="canal._id"
+                  @click="selectCanal(canal)"
+                >
+                  <v-list-item-avatar>
+                    <v-avatar size="32" color="primary" class="white--text">
+                      <v-icon>mdi-pound</v-icon>
+                    </v-avatar>
+                  </v-list-item-avatar>
+                  <v-list-item-content>
+                    <v-list-item-title>{{ canal.nom }}</v-list-item-title>
+                    <v-list-item-subtitle>{{ canal.workspaceNom }}</v-list-item-subtitle>
+                  </v-list-item-content>
+                </v-list-item>
+                <v-list-item v-if="filteredCanaux.length === 0">
+                  <v-list-item-content>
+                    <v-list-item-title>Aucun canal trouvé</v-list-item-title>
+                  </v-list-item-content>
+                </v-list-item>
+              </v-list>
+            </v-menu>
+            
           </v-card-actions>
         </v-card>
       </v-col>
+      
+      <!-- Liste des fichiers -->
 
       <!-- Liste des fichiers -->
       <v-col cols="12" md="3">
@@ -626,6 +669,15 @@ export default defineComponent({
     const filteredUsers = ref([]);
     const mentionnedUsers = ref([]);
     
+    // Variables pour les mentions de canaux
+    const showCanalSuggestions = ref(false);
+    const filteredCanaux = ref([]);
+    const canaux = ref([]);
+    const canalMentionStartIndex = ref(-1);
+    const canalMentionQuery = ref('');
+    const canalMentionPosition = ref({ x: 0, y: 0 });
+    const mentionnedCanaux = ref([]);
+    
     // Variables pour l'affichage du profil utilisateur
     const showUserProfileDialog = ref(false);
     const loadingUserProfile = ref(false);
@@ -1048,19 +1100,21 @@ export default defineComponent({
       }
     }
     
-    const handleMessageInput = (event) => {
-      // Rechercher le dernier @ avant la position du curseur
-      const text = contenuMessage.value;
-      const cursorPosition = event.target.selectionStart;
+    const handleMessageInput = () => {
+      console.log('handleMessageInput appelé');
+      console.log('contenuMessage:', contenuMessage.value);
       
-      // Détecter si l'utilisateur est en train de taper une mention
-      const lastAtIndex = text.lastIndexOf('@', cursorPosition - 1);
+      // Détecter les mentions d'utilisateurs avec @
+      const lastAtIndex = contenuMessage.value.lastIndexOf('@');
+      const lastHashIndex = contenuMessage.value.lastIndexOf('#');
       
-      if (lastAtIndex !== -1 && 
-          (lastAtIndex === 0 || text[lastAtIndex - 1] === ' ') && 
-          cursorPosition > lastAtIndex) {
-        // Extraire la requête de mention (texte entre @ et la position du curseur)
-        const query = text.substring(lastAtIndex + 1, cursorPosition);
+      console.log('lastAtIndex:', lastAtIndex);
+      console.log('lastHashIndex:', lastHashIndex);
+      
+      // Vérifier si nous sommes en train de taper une mention d'utilisateur
+      if (lastAtIndex !== -1) {
+        // Extraire la requête (texte après @)
+        const query = contenuMessage.value.substring(lastAtIndex + 1);
         
         // Si un espace est trouvé après @, on ne considère pas comme une mention
         if (!query.includes(' ')) {
@@ -1086,23 +1140,83 @@ export default defineComponent({
           
           // Afficher le menu de suggestions
           showUserSuggestions.value = true;
+          showCanalSuggestions.value = false; // Cacher l'autre menu
           mentionStartIndex.value = lastAtIndex;
           mentionQuery.value = query;
           
           // Calculer la position pour le menu de suggestion
-          const inputRect = messageInput.value.$el.getBoundingClientRect();
-          mentionPosition.value = {
-            x: inputRect.left + 10,
-            y: inputRect.top - 200  // Positionner au-dessus du champ de texte
-          };
+          if (messageInput.value && messageInput.value.$el) {
+            const inputRect = messageInput.value.$el.getBoundingClientRect();
+            mentionPosition.value = {
+              x: inputRect.left + 10,
+              y: inputRect.top - 200  // Positionner au-dessus du champ de texte
+            };
+          } else {
+            // Position par défaut si l'élément n'est pas disponible
+            mentionPosition.value = {
+              x: window.innerWidth / 2,
+              y: window.innerHeight / 2
+            };
+          }
           
           return;
         }
       }
       
-      // Si on n'est pas en train de taper une mention, cacher le menu
+      // Vérifier si nous sommes en train de taper une mention de canal
+      if (lastHashIndex !== -1) {
+        console.log('Détection de # détectée');
+        // Extraire la requête (texte après #)
+        const query = contenuMessage.value.substring(lastHashIndex + 1);
+        console.log('Query après #:', query);
+        
+        // Si un espace est trouvé après #, on ne considère pas comme une mention
+        if (!query.includes(' ')) {
+          console.log('Pas d\'espace après #, traitement de la mention de canal');
+          // Charger les canaux publics
+          console.log('Appel de loadCanaux() avec query:', query);
+          loadCanaux(query);
+          console.log('Canaux disponibles avant chargement:', canaux.value.length);
+          
+          // Filtrer les canaux selon la requête
+          filteredCanaux.value = canaux.value.filter(canal => 
+            canal.nom.toLowerCase().includes(query.toLowerCase()) || 
+            canal.workspaceNom.toLowerCase().includes(query.toLowerCase())
+          );
+          
+          // Afficher le menu de suggestions
+          console.log('Activation du menu de suggestions de canaux');
+          showCanalSuggestions.value = true;
+          showUserSuggestions.value = false; // Cacher l'autre menu
+          canalMentionStartIndex.value = lastHashIndex;
+          canalMentionQuery.value = query;
+          console.log('showCanalSuggestions:', showCanalSuggestions.value);
+          console.log('filteredCanaux:', filteredCanaux.value);
+          
+          // Calculer la position pour le menu de suggestion
+          if (messageInput.value && messageInput.value.$el) {
+            const inputRect = messageInput.value.$el.getBoundingClientRect();
+            canalMentionPosition.value = {
+              x: inputRect.left + 10,
+              y: inputRect.top - 200  // Positionner au-dessus du champ de texte
+            };
+          } else {
+            // Position par défaut si l'élément n'est pas disponible
+            canalMentionPosition.value = {
+              x: window.innerWidth / 2,
+              y: window.innerHeight / 2
+            };
+          }
+          
+          return;
+        }
+      }
+      
+      // Si on n'est pas en train de taper une mention, cacher les menus
       showUserSuggestions.value = false;
+      showCanalSuggestions.value = false;
       mentionStartIndex.value = -1;
+      canalMentionStartIndex.value = -1;
     };
     
     const selectUser = (user) => {
@@ -1129,12 +1243,94 @@ export default defineComponent({
       }
     };
     
+    // Fonction pour sélectionner un canal dans le menu de suggestions
+    // eslint-disable-next-line no-unused-vars
+    const selectCanal = (canal) => {
+      if (canalMentionStartIndex.value !== -1) {
+        const beforeMention = contenuMessage.value.substring(0, canalMentionStartIndex.value);
+        const afterMention = contenuMessage.value.substring(
+          canalMentionStartIndex.value + canalMentionQuery.value.length + 1
+        );
+        
+        // Remplacer la mention par le nom du canal et son identifiant unique
+        // Format: #canal:workspaceId:canalId pour permettre la redirection
+        contenuMessage.value = `${beforeMention}#${canal.nom}:${canal._id} ${afterMention}`;
+        
+        // Ajouter le canal à la liste des canaux mentionnés
+        mentionnedCanaux.value.push(canal);
+        
+        // Fermer le menu de suggestion
+        showCanalSuggestions.value = false;
+        canalMentionStartIndex.value = -1;
+        
+        // Mettre le focus sur le champ de texte
+        nextTick(() => {
+          messageInput.value.$el.querySelector('input').focus();
+        });
+      }
+    };
+    
+    // Fonction pour charger les canaux publics pour les mentions
+    const loadCanaux = async (query = '') => {
+      console.log('loadCanaux appelé avec query:', query);
+      try {
+        loading.value = true;
+        const authToken = localStorage.getItem('token');
+        console.log('URL de recherche de canaux:', `${API_URL}/api/v1/search/canaux?all=true`);
+        const response = await axios.get(`${API_URL}/api/v1/search/canaux?all=true`, {
+          headers: { Authorization: `Bearer ${authToken}` }
+        });
+        console.log('Réponse de la recherche de canaux:', response.data);
+        
+        if (response.data.status === 'success') {
+          // Formatter les canaux pour l'affichage
+          canaux.value = response.data.data.canaux.map(canal => ({
+            _id: canal._id,
+            nom: canal.nom,
+            description: canal.description,
+            workspaceId: canal.workspace ? canal.workspace._id : '',
+            workspaceNom: canal.workspace ? canal.workspace.nom : 'Workspace inconnu'
+          }));
+          
+          console.log('Canaux chargés:', canaux.value.length);
+          
+          // Mettre à jour filteredCanaux avec le filtre actuel
+          if (query !== '') {
+            filteredCanaux.value = canaux.value.filter(canal => 
+              canal.nom.toLowerCase().includes(query.toLowerCase()) || 
+              canal.workspaceNom.toLowerCase().includes(query.toLowerCase())
+            );
+          } else {
+            // Si pas de query, afficher tous les canaux
+            filteredCanaux.value = [...canaux.value];
+          }
+          
+          console.log('filteredCanaux après chargement:', filteredCanaux.value.length);
+          
+          // Réactiver le menu de suggestions si nécessaire
+          if (canalMentionStartIndex.value !== -1) {
+            showCanalSuggestions.value = true;
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des canaux publics:', error);
+        // Utiliser snackbar au lieu de notify
+        snackbar.value = {
+          show: true,
+          text: 'Impossible de charger les canaux publics.',
+          color: 'error'
+        };
+      } finally {
+        loading.value = false;
+      }
+    };
+    
     const formatMessageContent = (message) => {
       if (!message || !message.contenu) return '';
       
       let formattedContent = message.contenu;
       
-      // Si le message a des mentions
+      // Si le message a des mentions d'utilisateurs
       if (message.mentions && Array.isArray(message.mentions) && message.mentions.length > 0) {
         // Pour chaque mention, remplacer @username par un span stylisé et cliquable
         message.mentions.forEach(mention => {
@@ -1163,27 +1359,68 @@ export default defineComponent({
         }
       }
       
+      // Traiter les mentions de canaux
+      // Format attendu: #nomCanal:canalId
+      const canalMentionRegex = /#([\w-]+):(\w+)/g;
+      let canalMatch;
+      
+      while ((canalMatch = canalMentionRegex.exec(formattedContent)) !== null) {
+        const canalNom = canalMatch[1];
+        const canalId = canalMatch[2];
+        const fullCanalMention = canalMatch[0]; // #nomCanal:canalId
+        
+        // Remplacer par un span cliquable pour le canal
+        formattedContent = formattedContent.replace(
+          fullCanalMention,
+          `<span class="canal-mention-tag canal-mention-clickable" data-canal-id="${canalId}" data-canal-nom="${canalNom}">#${canalNom}</span>`
+        );
+      }
+      
       return formattedContent;
     };
     
     // Fonction pour ajouter un gestionnaire d'événements aux mentions
     const setupMentionClickHandlers = () => {
       nextTick(() => {
-        const mentionElements = document.querySelectorAll('.mention-clickable');
-        mentionElements.forEach(element => {
+        // Gestionnaires pour les mentions d'utilisateurs
+        const userMentionElements = document.querySelectorAll('.mention-clickable');
+        userMentionElements.forEach(element => {
           // Supprimer les gestionnaires d'événements existants pour éviter les doublons
           element.removeEventListener('click', handleMentionClick);
           // Ajouter le nouveau gestionnaire d'événements
           element.addEventListener('click', handleMentionClick);
         });
+        
+        // Gestionnaires pour les mentions de canaux
+        const canalMentionElements = document.querySelectorAll('.canal-mention-clickable');
+        canalMentionElements.forEach(element => {
+          // Supprimer les gestionnaires d'événements existants pour éviter les doublons
+          element.removeEventListener('click', handleCanalMentionClick);
+          // Ajouter le nouveau gestionnaire d'événements
+          element.addEventListener('click', handleCanalMentionClick);
+        });
       });
     };
     
-    // Gestionnaire d'événements pour les clics sur les mentions
+    // Gestionnaire d'événements pour les clics sur les mentions d'utilisateurs
     const handleMentionClick = (event) => {
       const userId = event.currentTarget.getAttribute('data-user-id');
       const username = event.currentTarget.getAttribute('data-username');
       showUserProfile(userId, username);
+    };
+    
+    // Gestionnaire d'événements pour les clics sur les mentions de canaux
+    const handleCanalMentionClick = (event) => {
+      const canalId = event.currentTarget.getAttribute('data-canal-id');
+      // canalNom est utilisé pour l'affichage dans la console pour le débogage
+      const canalNom = event.currentTarget.getAttribute('data-canal-nom');
+      
+      if (canalId) {
+        // Log pour le débogage
+        console.log(`Navigation vers le canal: ${canalNom} (${canalId})`);
+        // Rediriger vers le canal mentionné
+        router.push({ name: 'Canal', params: { id: canalId } });
+      }
     };
     
     // Méthode pour afficher le profil d'un utilisateur
@@ -1420,8 +1657,39 @@ export default defineComponent({
 .emoji-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
-  padding: 10px 0;
+  gap: 8px;
+}
+
+.mention-tag {
+  background-color: rgba(29, 155, 240, 0.1);
+  color: #1d9bf0;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.mention-tag:hover {
+  background-color: rgba(29, 155, 240, 0.2);
+  text-decoration: underline;
+}
+
+.canal-mention-tag {
+  background-color: rgba(76, 175, 80, 0.1);
+  color: #4caf50;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.canal-mention-tag:hover {
+  background-color: rgba(76, 175, 80, 0.2);
+  text-decoration: underline;
+}
+
+.message-input {
+  width: 100%;
 }
 
 .emoji-btn {
