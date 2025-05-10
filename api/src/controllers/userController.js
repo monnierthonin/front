@@ -417,38 +417,46 @@ const userController = {
 
   /**
    * Rechercher des utilisateurs par nom d'utilisateur, prénom ou nom
+   * ou récupérer tous les utilisateurs
    */
   searchUsers: async (req, res) => {
     try {
-      const { query } = req.query;
+      // Support pour les paramètres 'q' et 'query' pour la rétro-compatibilité
+      const searchTerm = req.query.q || req.query.query;
+      const all = req.query.all === 'true';
       
-      if (!query) {
+      let query = {};
+      
+      // Si le paramètre all est fourni, on ne vérifie pas la présence d'un terme de recherche
+      if (!all && !searchTerm) {
         return res.status(400).json({
           success: false,
-          message: 'Un terme de recherche est requis'
+          message: 'Un terme de recherche est requis ou le paramètre all=true'
         });
       }
 
-      // Limiter la recherche aux utilisateurs actifs
       // Exclure l'utilisateur actuel des résultats
-      const users = await User.find({
-        $and: [
-          { _id: { $ne: req.user._id } }, // Exclure l'utilisateur actuel
-          {
-            $or: [
-              { username: { $regex: query, $options: 'i' } },
-              { firstName: { $regex: query, $options: 'i' } },
-              { lastName: { $regex: query, $options: 'i' } }
-            ]
-          }
-        ]
-      })
-      .select('_id username firstName lastName profilePicture status') // Sélectionner uniquement les champs nécessaires
-      .limit(10); // Limiter à 10 résultats pour des raisons de performance
+      query._id = { $ne: req.user._id };
+      
+      // Ajouter les critères de recherche si all n'est pas spécifié
+      if (!all && searchTerm) {
+        query.$or = [
+          { username: { $regex: searchTerm, $options: 'i' } },
+          { firstName: { $regex: searchTerm, $options: 'i' } },
+          { lastName: { $regex: searchTerm, $options: 'i' } }
+        ];
+      }
+      
+      // Récupérer les utilisateurs
+      const users = await User.find(query)
+        .select('_id username firstName lastName profilePicture status') // Sélectionner uniquement les champs nécessaires
+        .limit(all ? 50 : 10); // Limiter à 50 résultats si all=true, sinon 10
 
       res.json({
         success: true,
-        data: users
+        data: {
+          users: users
+        }
       });
     } catch (error) {
       console.error('Erreur lors de la recherche d\'utilisateurs:', error);

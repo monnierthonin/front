@@ -204,35 +204,75 @@
       <v-card>
         <v-card-title>Ajouter des utilisateurs à la conversation</v-card-title>
         <v-card-text>
-          <v-autocomplete
-            v-model="selectedUsers"
-            :items="availableUsers"
-            item-text="username"
-            item-value="_id"
-            chips
-            label="Sélectionner des utilisateurs"
-            multiple
-            return-object
-            :loading="loadingUsers"
-          >
-            <template v-slot:selection="{ item }">
-              <v-chip>
-                <v-avatar left>
-                  <v-img :src="getUserAvatar(item)"></v-img>
-                </v-avatar>
-                {{ item.username }}
-              </v-chip>
-            </template>
-            <template v-slot:item="{ item }">
-              <v-list-item-avatar>
-                <v-img :src="getUserAvatar(item)"></v-img>
-              </v-list-item-avatar>
-              <v-list-item-content>
-                <v-list-item-title>{{ item.username }}</v-list-item-title>
-                <v-list-item-subtitle>{{ item.email }}</v-list-item-subtitle>
-              </v-list-item-content>
-            </template>
-          </v-autocomplete>
+          <div>
+            <p class="mb-2">Utilisateurs disponibles ({{ availableUsers.length }})</p>
+            
+            <div v-if="loadingUsers" class="text-center">
+              <v-progress-circular indeterminate color="primary" size="24"></v-progress-circular>
+              <p class="text-caption mt-2">Chargement des utilisateurs...</p>
+            </div>
+            
+            <div v-else-if="availableUsers.length === 0" class="text-center pa-4">
+              <p>Aucun utilisateur disponible</p>
+            </div>
+            
+            <div v-else>
+              <v-select
+                v-model="selectedUsers"
+                :items="availableUsers"
+                item-text="username"
+                item-value="_id"
+                chips
+                label="Sélectionner des utilisateurs"
+                multiple
+                return-object
+                dense
+                outlined
+              >
+                <template v-slot:selection="{ item }">
+                  <v-chip>
+                    <v-avatar left>
+                      <v-img :src="getUserAvatar(item)"></v-img>
+                    </v-avatar>
+                    {{ item.username }}
+                  </v-chip>
+                </template>
+                <template v-slot:item="{ item }">
+                  <v-list-item-avatar>
+                    <v-img :src="getUserAvatar(item)"></v-img>
+                  </v-list-item-avatar>
+                  <v-list-item-content>
+                    <v-list-item-title>{{ item.username }}</v-list-item-title>
+                    <v-list-item-subtitle v-if="item.firstName && item.lastName">
+                      {{ item.firstName }} {{ item.lastName }}
+                    </v-list-item-subtitle>
+                  </v-list-item-content>
+                </template>
+              </v-select>
+              
+              <!-- Liste simple des utilisateurs disponibles (alternative) -->
+              <div v-if="availableUsers.length > 0 && selectedUsers.length === 0" class="user-list mt-4">
+                <p class="text-caption">Cliquez sur un utilisateur pour le sélectionner :</p>
+                <v-list dense>
+                  <v-list-item 
+                    v-for="user in availableUsers" 
+                    :key="user._id"
+                    @click="selectedUsers = [user]"
+                  >
+                    <v-list-item-avatar size="32">
+                      <v-img :src="getUserAvatar(user)"></v-img>
+                    </v-list-item-avatar>
+                    <v-list-item-content>
+                      <v-list-item-title>{{ user.username }}</v-list-item-title>
+                      <v-list-item-subtitle v-if="user.firstName && user.lastName">
+                        {{ user.firstName }} {{ user.lastName }}
+                      </v-list-item-subtitle>
+                    </v-list-item-content>
+                  </v-list-item>
+                </v-list>
+              </div>
+            </div>
+          </div>
           <div v-if="addUserError" class="error--text mt-2">
             {{ addUserError }}
           </div>
@@ -725,6 +765,20 @@ export default {
       }
     };
     
+    // Fonction de filtrage personnalisée pour l'autocomplete
+    const customFilter = (item, queryText) => {
+      if (!queryText) return true;
+      
+      const username = item.username ? item.username.toLowerCase() : '';
+      const firstName = item.firstName ? item.firstName.toLowerCase() : '';
+      const lastName = item.lastName ? item.lastName.toLowerCase() : '';
+      const query = queryText.toLowerCase();
+      
+      return username.includes(query) || 
+             firstName.includes(query) || 
+             lastName.includes(query);
+    };
+    
     // Fonction pour charger les utilisateurs disponibles
     const loadAvailableUsers = async () => {
       loadingUsers.value = true;
@@ -745,7 +799,9 @@ export default {
           console.warn(`Erreur HTTP ${initialResponse.status} pour la recherche avec all=true`);
         } else {
           const initialData = await initialResponse.json();
-          allUsers = initialData.data?.users || [];
+          console.log('Réponse initiale:', initialData);
+          // Vérifier si les données sont dans data.users ou directement dans data
+          allUsers = initialData.data?.users || initialData.data || [];
           
           if (allUsers.length > 0) {
             // Si nous avons déjà des utilisateurs, pas besoin de continuer
@@ -772,7 +828,10 @@ export default {
               }
               return response.json();
             })
-            .then(data => data.data?.users || [])
+            .then(data => {
+              console.log(`Résultat pour le terme '${term}':`, data);
+              return data.data?.users || data.data || [];
+            })
             .catch(error => {
               console.error(`Erreur lors de la recherche avec le terme '${term}':`, error);
               return [];
@@ -804,6 +863,12 @@ export default {
         
         console.log('Total des utilisateurs récupérés:', allUsers.length);
         
+        // Vérifier que tous les utilisateurs ont les propriétés nécessaires
+        allUsers = allUsers.filter(user => user && user._id && user.username);
+        
+        console.log('Utilisateurs valides après vérification:', allUsers.length);
+        console.log('Exemple d\'utilisateur:', allUsers.length > 0 ? JSON.stringify(allUsers[0]) : 'Aucun');
+        
         // Filtrer les utilisateurs pour exclure les participants actuels
         if (!participants.value || participants.value.length === 0) {
           console.warn('Aucun participant trouvé, impossible de filtrer les utilisateurs disponibles');
@@ -818,6 +883,14 @@ export default {
           availableUsers.value = allUsers.filter(user => 
             !participantIds.includes(user._id) && user._id !== currentUser.value?._id
           );
+        }
+        
+        // Forcer la mise à jour du composant
+        if (availableUsers.value.length > 0) {
+          console.log('Utilisateurs disponibles après filtrage:', availableUsers.value.length);
+          console.log('Premier utilisateur disponible:', JSON.stringify(availableUsers.value[0]));
+        } else {
+          console.warn('Aucun utilisateur disponible après filtrage');
         }
         
         console.log('Utilisateurs disponibles après filtrage:', availableUsers.value.length);
@@ -965,7 +1038,8 @@ export default {
       loadAvailableUsers,
       addUsersToConversation,
       confirmLeaveConversation,
-      leaveConversation
+      leaveConversation,
+      customFilter
     };
   }
 };

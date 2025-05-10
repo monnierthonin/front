@@ -1,11 +1,6 @@
 const mongoose = require('mongoose');
 
 const conversationPriveeSchema = new mongoose.Schema({
-    nom: {
-        type: String,
-        trim: true,
-        default: '' // Le nom peut être vide pour les conversations 1:1
-    },
     participants: [{
         utilisateur: {
             type: mongoose.Schema.ObjectId,

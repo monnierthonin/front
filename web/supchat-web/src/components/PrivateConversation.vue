@@ -617,51 +617,87 @@ export default {
     const loadAvailableUsers = async () => {
       loadingUsers.value = true;
       addUserError.value = '';
+      let allUsers = [];
       
       try {
-        // Utiliser plusieurs termes de recherche pour récupérer un maximum d'utilisateurs
-        // Nous allons faire plusieurs requêtes avec des termes différents et fusionner les résultats
-        const searchTerms = ['a', 'e', 'i', 'o', 'u', 'user'];
-        let allUsers = [];
+        console.log('Chargement des utilisateurs...');
         
-        // Effectuer les requêtes en parallèle pour plus d'efficacité
-        const promises = searchTerms.map(term => 
-          fetch(`${API_URL}/api/v1/users/search?query=${term}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          })
-          .then(response => {
-            if (!response.ok) {
-              console.warn(`Erreur lors de la recherche avec le terme '${term}'`);
-              return { success: false, data: [] };
-            }
-            return response.json();
-          })
-          .then(data => {
-            if (data.success && Array.isArray(data.data)) {
-              return data.data;
-            }
-            return [];
-          })
-          .catch(error => {
-            console.warn(`Erreur lors de la recherche avec le terme '${term}':`, error);
-            return [];
-          })
-        );
-        
-        // Attendre que toutes les requêtes soient terminées
-        const results = await Promise.all(promises);
-        
-        // Fusionner les résultats et éliminer les doublons par ID
-        const userMap = new Map();
-        results.flat().forEach(user => {
-          if (user && user._id) {
-            userMap.set(user._id, user);
+        // Essayer d'abord de récupérer tous les utilisateurs avec le paramètre all=true
+        const initialResponse = await fetch(`${API_URL}/api/v1/users/search?all=true`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
         });
         
-        allUsers = Array.from(userMap.values());
+        if (!initialResponse.ok) {
+          console.warn(`Erreur HTTP ${initialResponse.status} pour la recherche avec all=true`);
+        } else {
+          const initialData = await initialResponse.json();
+          console.log('Réponse initiale:', initialData);
+          // Vérifier si les données sont dans data.users ou directement dans data
+          allUsers = initialData.data?.users || initialData.data || [];
+          
+          if (allUsers.length > 0) {
+            // Si nous avons déjà des utilisateurs, pas besoin de continuer
+            console.log('Utilisateurs récupérés avec all=true:', allUsers.length);
+          }
+        }
+        
+        // Si nous n'avons pas assez d'utilisateurs, essayer avec des termes de recherche
+        if (allUsers.length < 5) {
+          console.log('Utilisation de termes de recherche spécifiques...');
+          const searchTerms = ['a', 'e', 'i', 'o', 'u'];
+          
+          // Créer un tableau de promesses pour toutes les requêtes
+          const promises = searchTerms.map(term => 
+            fetch(`${API_URL}/api/v1/users/search?q=${term}`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            })
+            .then(response => {
+              if (!response.ok) {
+                console.warn(`Erreur HTTP ${response.status} pour le terme '${term}'`);
+                return { data: { users: [] } };
+              }
+              return response.json();
+            })
+            .then(data => {
+              console.log(`Résultat pour le terme '${term}':`, data);
+              return data.data?.users || data.data || [];
+            })
+            .catch(error => {
+              console.error(`Erreur lors de la recherche avec le terme '${term}':`, error);
+              return [];
+            })
+          );
+          
+          // Attendre que toutes les requêtes soient terminées
+          const results = await Promise.all(promises);
+          
+          // Fusionner les résultats et éliminer les doublons par ID
+          const userMap = new Map();
+          
+          // D'abord ajouter les utilisateurs déjà récupérés
+          allUsers.forEach(user => {
+            if (user && user._id) {
+              userMap.set(user._id, user);
+            }
+          });
+          
+          // Puis ajouter les résultats de la recherche
+          results.flat().forEach(user => {
+            if (user && user._id) {
+              userMap.set(user._id, user);
+            }
+          });
+          
+          allUsers = Array.from(userMap.values());
+        }
+        
+        // Vérifier que tous les utilisateurs ont les propriétés nécessaires
+        allUsers = allUsers.filter(user => user && user._id && user.username);
+        console.log('Utilisateurs valides après vérification:', allUsers.length);
         console.log('Utilisateurs récupérés:', allUsers.length);
         
         // Filtrer les utilisateurs pour exclure l'utilisateur courant et l'autre utilisateur de la conversation

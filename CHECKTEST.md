@@ -203,69 +203,69 @@
 ## Tests des Messages Privés
 
 ### Messages Privés 1:1
-- [ ] Envoi de message privé
+- [x] Envoi de message privé
   - Scénario : Utilisateur A envoie "Bonjour" à l'utilisateur B
-  - Vérifier : Message visible dans la conversation pour les deux utilisateurs
-  - Vérifier : Notification reçue par l'utilisateur B
-  - Vérifier : Indication de lecture lorsque l'utilisateur B ouvre la conversation
+  - Vérifier : Message visible dans la conversation pour les deux utilisateurs ✓
+  - Vérifier : Notification reçue par l'utilisateur B ✓
+  - Vérifier : Indication de lecture lorsque l'utilisateur B ouvre la conversation ✓
 
-- [ ] Réponse à un message
+- [x] Réponse à un message
   - Scénario : Utilisateur B répond à un message spécifique de l'utilisateur A
-  - Vérifier : Le message original est affiché au-dessus de la réponse
-  - Vérifier : La réponse est correctement liée au message original
+  - Vérifier : Le message original est affiché au-dessus de la réponse ✓
+  - Vérifier : La réponse est correctement liée au message original ✓
 
-- [ ] Modification de message privé
+- [x] Modification de message privé
   - Scénario : Utilisateur A modifie son message "Bonjour" en "Salut"
-  - Vérifier : Message mis à jour visible pour les deux utilisateurs
-  - Vérifier : Indication "modifié" affichée
+  - Vérifier : Message mis à jour visible pour les deux utilisateurs ✓
+  - Vérifier : Indication "modifié" affichée ✓
 
-- [ ] Suppression de message privé
+- [x] Suppression de message privé
   - Scénario : Utilisateur A supprime un de ses messages
-  - Vérifier : Message supprimé pour les deux utilisateurs
-  - Vérifier : Aucune trace du message dans la base de données
+  - Vérifier : Message supprimé pour les deux utilisateurs ✓
+  - Vérifier : Aucune trace du message dans la base de données ✓
 
 ### Conversations de Groupe
-- [ ] Création d'une conversation de groupe
+- [x] Création d'une conversation de groupe
   - Scénario : Utilisateur A transforme une conversation 1:1 en ajoutant l'utilisateur C
-  - Vérifier : Conversation mise à jour avec trois participants
-  - Vérifier : Historique des messages préservé
-  - Vérifier : Notification envoyée à l'utilisateur C
+  - Vérifier : Conversation mise à jour avec trois participants ✓
+  - Vérifier : Historique des messages préservé ✓
+  - Vérifier : Notification envoyée à l'utilisateur C ✓
 
-- [ ] Envoi de message dans un groupe
+- [x] Envoi de message dans un groupe
   - Scénario : Utilisateur A envoie un message dans la conversation de groupe
-  - Vérifier : Message visible pour tous les participants
-  - Vérifier : Notifications envoyées aux utilisateurs B et C
+  - Vérifier : Message visible pour tous les participants ✓
+  - Vérifier : Notifications envoyées aux utilisateurs B et C ✓
 
-- [ ] Ajout d'un participant
+- [x] Ajout d'un participant
   - Scénario : Utilisateur A ajoute l'utilisateur D à la conversation
-  - Vérifier : Utilisateur D peut voir l'historique des messages
-  - Vérifier : Notification envoyée à tous les participants
+  - Vérifier : Utilisateur D peut voir l'historique des messages ✓
+  - Vérifier : Notification envoyée à tous les participants ✓
 
-- [ ] Suppression d'un participant
+- [x] Suppression d'un participant
   - Scénario : Utilisateur A supprime l'utilisateur C de la conversation
-  - Vérifier : Utilisateur C n'a plus accès à la conversation
-  - Vérifier : Les autres participants peuvent toujours voir les messages de l'utilisateur C
+  - Vérifier : Utilisateur C n'a plus accès à la conversation ✓
+  - Vérifier : Les autres participants peuvent toujours voir les messages de l'utilisateur C ✓
 
-- [ ] Quitter une conversation
+- [x] Quitter une conversation
   - Scénario : Utilisateur B quitte la conversation
-  - Vérifier : Utilisateur B n'a plus accès à la conversation
-  - Vérifier : Les autres participants sont notifiés du départ
+  - Vérifier : Utilisateur B n'a plus accès à la conversation ✓
+  - Vérifier : Les autres participants sont notifiés du départ ✓
 
-- [ ] Suppression d'une conversation
+- [x] Suppression d'une conversation
   - Scénario : Tous les participants sauf un quittent la conversation
-  - Vérifier : La conversation est automatiquement supprimée
-  - Vérifier : Tous les messages associés sont supprimés (suppression en cascade)
+  - Vérifier : La conversation est automatiquement supprimée ✓
+  - Vérifier : Tous les messages associés sont supprimés (suppression en cascade) ✓
 
 ### Fonctionnalités avancées
-- [ ] Statut de lecture
+- [x] Statut de lecture
   - Scénario : Utilisateur A envoie un message, utilisateur B l'ouvre
-  - Vérifier : Indicateur "lu" affiché pour l'utilisateur A
-  - Vérifier : Horodatage de lecture correct
+  - Vérifier : Indicateur "lu" affiché pour l'utilisateur A ✓
+  - Vérifier : Horodatage de lecture correct ✓
 
-- [ ] Statut de lecture dans les groupes
+- [x] Statut de lecture dans les groupes
   - Scénario : Utilisateur A envoie un message dans un groupe
-  - Vérifier : Indicateurs "lu" mis à jour au fur et à mesure que chaque participant lit le message
-  - Vérifier : Possibilité de voir qui a lu le message et quand
+  - Vérifier : Indicateurs "lu" mis à jour au fur et à mesure que chaque participant lit le message ✓
+  - Vérifier : Possibilité de voir qui a lu le message et quand ✓
   - Note : Testé via Swagger en raison de problèmes d'implémentation dans le composant Vue de Canal
 
 ### Suppression
