@@ -458,6 +458,95 @@ const userController = {
         error: error.message
       });
     }
+  },
+
+  /**
+   * Mettre à jour le statut de l'utilisateur
+   */
+  updateStatus: async (req, res) => {
+    try {
+      const { status } = req.body;
+      
+      // Vérifier que le statut est valide
+      if (!['en ligne', 'absent', 'ne pas déranger'].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Le statut doit être 'en ligne', 'absent' ou 'ne pas déranger'"
+        });
+      }
+      
+      // Mettre à jour le statut de l'utilisateur
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Utilisateur non trouvé'
+        });
+      }
+      
+      user.status = status;
+      user.dernierActivite = Date.now();
+      await user.save();
+      
+      res.json({
+        success: true,
+        message: 'Statut mis à jour avec succès',
+        data: {
+          status: user.status
+        }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur lors de la mise à jour du statut',
+        error: error.message
+      });
+    }
+  },
+
+  /**
+   * Mettre à jour le thème de l'utilisateur
+   */
+  updateTheme: async (req, res) => {
+    try {
+      const { theme } = req.body;
+      
+      // Vérifier que le thème est valide
+      if (!['clair', 'sombre'].includes(theme)) {
+        return res.status(400).json({
+          success: false,
+          message: "Le thème doit être 'clair' ou 'sombre'"
+        });
+      }
+      
+      // Mettre à jour le thème de l'utilisateur
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Utilisateur non trouvé'
+        });
+      }
+      
+      user.theme = theme;
+      await user.save();
+      
+      res.json({
+        success: true,
+        message: 'Thème mis à jour avec succès',
+        data: {
+          theme: user.theme
+        }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du thème:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur lors de la mise à jour du thème',
+        error: error.message
+      });
+    }
   }
 };
 

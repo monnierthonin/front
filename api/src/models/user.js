@@ -116,10 +116,18 @@ const userSchema = new mongoose.Schema({
     }
   }],
   lastLogin: Date,
+  estConnecte: {
+    type: Boolean,
+    default: false
+  },
   status: {
     type: String,
-    enum: ['online', 'offline', 'away'],
-    default: 'offline'
+    enum: ['en ligne', 'absent', 'ne pas déranger'],
+    default: 'en ligne'
+  },
+  dernierActivite: {
+    type: Date,
+    default: Date.now
   },
   theme: {
     type: String,
