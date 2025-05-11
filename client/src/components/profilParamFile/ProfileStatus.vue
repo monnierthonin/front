@@ -7,24 +7,21 @@
       </button>
     
       <ul v-if="showStatusMenu" class="status-menu">
-        <li @click="setStatus('active')">
+        <li @click="setStatus('online')">
           <span class="status-indicator green"></span> En ligne
         </li>
-        <li @click="setStatus('noInteract')">
-          <span class="status-indicator orange"></span> Ne pas déranger
+        <li @click="setStatus('away')">
+          <span class="status-indicator orange"></span> Absent
         </li>
-        <li @click="setStatus('invisible')">
-          <span class="status-indicator red"></span> Invisible
-        </li>
-        <li @click="setStatus('inactive')">
+        <li @click="setStatus('offline')">
           <span class="status-indicator red"></span> Hors ligne
         </li>
       </ul>
     </div>
     <div class="modeClaireSombre">
-      <p>Mode sombre</p>
+      <p>{{ darkMode ? 'Mode clair' : 'Mode sombre' }}</p>
       <label class="switch">
-        <input type="checkbox" v-model="darkMode">
+        <input type="checkbox" v-model="darkMode" @change="updateThemePreference">
         <span class="slider"></span>
       </label>
     </div>
@@ -32,40 +29,103 @@
 </template>
 
 <script>
+import userService from '../../services/userService.js';
+
 export default {
   name: 'ProfileStatus',
   data() {
     return {
-      status: "active",
+      status: "online",
       showStatusMenu: false,
-      darkMode: false
+      darkMode: false,
+      loading: false,
+      error: null
+    }
+  },
+  async created() {
+    try {
+      // Récupérer le profil de l'utilisateur pour obtenir son statut et son thème actuels
+      const response = await userService.getProfile();
+      if (response && response.data) {
+        this.status = response.data.status || 'online';
+        this.darkMode = response.data.theme === 'dark';
+        
+        // Appliquer le thème à l'application
+        if (this.darkMode) {
+          document.documentElement.classList.remove('light-theme');
+          document.documentElement.classList.add('dark-theme');
+        } else {
+          document.documentElement.classList.remove('dark-theme');
+          document.documentElement.classList.add('light-theme');
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération du profil:', error);
+      this.error = 'Impossible de charger vos préférences';
     }
   },
   computed: {
     statusLabel() {
       return {
-        active: "En ligne",
-        noInteract: "Ne pas déranger",
-        invisible: "Invisible",
-        inactive: "Hors ligne",
-      }[this.status];
+        online: "En ligne",
+        away: "Absent",
+        offline: "Hors ligne",
+      }[this.status] || "En ligne";
     },
     statusColor() {
       return {
-        active: "green",
-        noInteract: "orange",
-        invisible: "red",
-        inactive: "red",
-      }[this.status];
+        online: "green",
+        away: "orange",
+        offline: "red",
+      }[this.status] || "green";
     }
   },
   methods: {
     toggleStatusMenu() {
       this.showStatusMenu = !this.showStatusMenu;
     },
-    setStatus(newStatus) {
-      this.status = newStatus;
-      this.showStatusMenu = false;
+    async setStatus(newStatus) {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        await userService.updateStatus(newStatus);
+        this.status = newStatus;
+        this.showStatusMenu = false;
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour du statut:', error);
+        this.error = 'Impossible de mettre à jour votre statut';
+      } finally {
+        this.loading = false;
+      }
+    },
+    async updateThemePreference() {
+      const theme = this.darkMode ? 'dark' : 'light';
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        await userService.updateTheme(theme);
+        
+        // Sauvegarder le thème dans le localStorage pour qu'il persiste entre les sessions
+        localStorage.setItem('theme', theme);
+        
+        // Appliquer le thème à l'application
+        if (this.darkMode) {
+          document.documentElement.classList.remove('light-theme');
+          document.documentElement.classList.add('dark-theme');
+        } else {
+          document.documentElement.classList.remove('dark-theme');
+          document.documentElement.classList.add('light-theme');
+        }
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour du thème:', error);
+        this.error = 'Impossible de mettre à jour votre thème';
+        // Revenir à l'état précédent en cas d'erreur
+        this.darkMode = !this.darkMode;
+      } finally {
+        this.loading = false;
+      }
     }
   }
 }

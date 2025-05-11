@@ -158,6 +158,83 @@ const userService = {
       console.error('Erreur lors du changement de mot de passe:', error);
       throw error;
     }
+  },
+  /**
+   * Mettre à jour le statut de l'utilisateur
+   * @param {String} status - Le nouveau statut ('online', 'offline', 'away')
+   * @returns {Promise} Promesse avec le résultat de la mise à jour du statut
+   */
+  async updateStatus(status) {
+    console.log('Tentative de mise à jour du statut:', status);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Non authentifié');
+    }
+
+    try {
+      // Utiliser l'endpoint spécifique pour la mise à jour du statut
+      const response = await fetch(`${API_URL}/users/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        console.log('Erreur détaillée:', data);
+        throw new Error(data.message || 'Erreur lors de la mise à jour du statut');
+      }
+
+      const data = await response.json();
+      console.log('Statut mis à jour avec succès:', data);
+      return data;
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Mettre à jour le thème de l'utilisateur
+   * @param {String} theme - Le nouveau thème ('light', 'dark')
+   * @returns {Promise} Promesse avec le résultat de la mise à jour du thème
+   */
+  async updateTheme(theme) {
+    console.log('Tentative de mise à jour du thème:', theme);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Non authentifié');
+    }
+
+    try {
+      // Utiliser l'endpoint spécifique pour la mise à jour du thème
+      const response = await fetch(`${API_URL}/users/theme`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ theme }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        console.log('Erreur détaillée:', data);
+        throw new Error(data.message || 'Erreur lors de la mise à jour du thème');
+      }
+
+      const data = await response.json();
+      console.log('Thème mis à jour avec succès:', data);
+      return data;
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du thème:', error);
+      throw error;
+    }
   }
 };
 
