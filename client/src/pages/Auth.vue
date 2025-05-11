@@ -39,6 +39,7 @@ import AuthForm from '../components/AuthFile/AuthForm.vue'
 import SocialLogin from '../components/AuthFile/SocialLogin.vue'
 import AuthToggle from '../components/AuthFile/AuthToggle.vue'
 import authService from '../services/authService'
+import userService from '../services/userService.js'
 
 export default {
   name: 'Auth',
@@ -72,6 +73,9 @@ export default {
           
           this.successMessage = 'Connexion réussie!'
           console.log('Connexion réussie:', response)
+          
+          // Charger et appliquer le thème de l'utilisateur avant la redirection
+          await this.loadUserTheme()
           
           // Rediriger vers la page d'accueil après 1 seconde
           setTimeout(() => {
@@ -118,6 +122,45 @@ export default {
     loginWithFacebook() {
       // Rediriger vers la route d'authentification Facebook
       window.location.href = 'http://localhost:3000/api/v1/auth/facebook'
+    },
+    
+    /**
+     * Charge et applique le thème de l'utilisateur depuis l'API après connexion
+     */
+    async loadUserTheme() {
+      try {
+        // Récupérer le profil de l'utilisateur depuis l'API
+        const response = await userService.getProfile();
+        
+        if (response && response.data) {
+          // Convertir le thème du français vers l'anglais
+          let theme = 'dark'; // Par défaut sombre
+          
+          // Si le thème existe dans le profil, le convertir
+          if (response.data.theme) {
+            theme = response.data.theme === 'sombre' ? 'dark' : 'light';
+            console.log('Thème récupéré après connexion:', response.data.theme, '->', theme);
+          }
+          
+          // Sauvegarder dans localStorage pour les futurs chargements
+          localStorage.setItem('theme', theme);
+          
+          // Appliquer le thème directement
+          if (theme === 'dark') {
+            document.documentElement.classList.remove('light-theme');
+            document.documentElement.classList.add('dark-theme');
+          } else {
+            document.documentElement.classList.remove('dark-theme');
+            document.documentElement.classList.add('light-theme');
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement du thème après connexion:', error);
+        // En cas d'erreur, appliquer le thème par défaut (sombre)
+        localStorage.setItem('theme', 'dark');
+        document.documentElement.classList.remove('light-theme');
+        document.documentElement.classList.add('dark-theme');
+      }
     }
   }
 }

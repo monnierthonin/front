@@ -47,17 +47,14 @@ export default {
       // Récupérer le profil de l'utilisateur pour obtenir son statut et son thème actuels
       const response = await userService.getProfile();
       if (response && response.data) {
+        // Définir le statut correctement
         this.status = response.data.status || 'online';
-        this.darkMode = response.data.theme === 'dark';
         
-        // Appliquer le thème à l'application
-        if (this.darkMode) {
-          document.documentElement.classList.remove('light-theme');
-          document.documentElement.classList.add('dark-theme');
-        } else {
-          document.documentElement.classList.remove('dark-theme');
-          document.documentElement.classList.add('light-theme');
-        }
+        // Récupérer le thème correctement (en français dans l'API)
+        this.darkMode = response.data.theme === 'sombre';
+        
+        // NE PAS redéfinir les classes CSS ici pour éviter de surcharger App.vue
+        // Le thème est déjà appliqué par App.vue lors du chargement initial
       }
     } catch (error) {
       console.error('Erreur lors de la récupération du profil:', error);
@@ -100,15 +97,17 @@ export default {
       }
     },
     async updateThemePreference() {
-      const theme = this.darkMode ? 'dark' : 'light';
+      // Le service userService s'attend à des valeurs en français
+      const theme = this.darkMode ? 'sombre' : 'clair';
       this.loading = true;
       this.error = null;
       
       try {
         await userService.updateTheme(theme);
         
-        // Sauvegarder le thème dans le localStorage pour qu'il persiste entre les sessions
-        localStorage.setItem('theme', theme);
+        // Sauvegarder le thème en anglais dans le localStorage pour la cohérence avec App.vue
+        const localTheme = this.darkMode ? 'dark' : 'light';
+        localStorage.setItem('theme', localTheme);
         
         // Appliquer le thème à l'application
         if (this.darkMode) {

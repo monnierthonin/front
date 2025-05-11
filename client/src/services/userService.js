@@ -170,6 +170,22 @@ const userService = {
     if (!token) {
       throw new Error('Non authentifié');
     }
+    
+    // Convertir les valeurs anglaises en françaises pour l'API
+    let statusFr;
+    switch(status) {
+      case 'online':
+        statusFr = 'en ligne';
+        break;
+      case 'away':
+        statusFr = 'absent';
+        break;
+      case 'offline':
+        statusFr = 'ne pas déranger';
+        break;
+      default:
+        statusFr = 'en ligne';
+    }
 
     try {
       // Utiliser l'endpoint spécifique pour la mise à jour du statut
@@ -179,7 +195,7 @@ const userService = {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: statusFr }),
         credentials: 'include'
       });
 
@@ -209,6 +225,18 @@ const userService = {
     if (!token) {
       throw new Error('Non authentifié');
     }
+    
+    // Vérifier si le thème est déjà en français ou s'il est en anglais
+    let themeFr;
+    if (theme === 'sombre' || theme === 'clair') {
+      // Déjà en français, pas besoin de conversion
+      themeFr = theme;
+      console.log('Thème déjà en français:', themeFr);
+    } else {
+      // Convertir les valeurs anglaises en françaises pour l'API
+      themeFr = theme === 'dark' ? 'sombre' : 'clair';
+      console.log('Thème converti de l\'anglais au français:', theme, '->', themeFr);
+    }
 
     try {
       // Utiliser l'endpoint spécifique pour la mise à jour du thème
@@ -218,7 +246,7 @@ const userService = {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ theme }),
+        body: JSON.stringify({ theme: themeFr }),
         credentials: 'include'
       });
 

@@ -106,11 +106,18 @@ const authService = {
   },
 
   /**
-   * Déconnexion de l'utilisateur
+   * Déconnexion de l'utilisateur et application du thème sombre par défaut
    */
   logout() {
+    // Avant de supprimer le token, appliquer le thème sombre par défaut
+    localStorage.setItem('theme', 'dark');
+    document.documentElement.classList.remove('light-theme');
+    document.documentElement.classList.add('dark-theme');
+    
+    // Supprimer le token d'authentification
     localStorage.removeItem('token');
-    // Optionnel: Appeler l'API pour invalider le token côté serveur
+    
+    // Appeler l'API pour invalider le token côté serveur
     return fetch(`${API_URL}/auth/deconnexion`, {
       method: 'POST',
       credentials: 'include',

@@ -134,8 +134,11 @@ exports.connexion = async (req, res) => {
             });
         }
 
-        // Mettre à jour la dernière connexion
+        // Mettre à jour la dernière connexion et le statut
         utilisateur.lastLogin = Date.now();
+        utilisateur.estConnecte = true;
+        utilisateur.dernierActivite = Date.now();
+        utilisateur.status = 'en ligne';
         await utilisateur.save({ validateBeforeSave: false });
 
         console.log('Connexion réussie pour:', email);
@@ -159,7 +162,7 @@ exports.deconnexion = async (req, res) => {
             // Mettre à jour le statut de l'utilisateur
             const utilisateur = await User.findById(req.user.id);
             if (utilisateur) {
-                utilisateur.status = 'offline';
+                utilisateur.estConnecte = false;
                 await utilisateur.save();
             }
         }

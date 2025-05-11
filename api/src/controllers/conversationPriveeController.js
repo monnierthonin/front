@@ -59,7 +59,13 @@ exports.getConversation = async (req, res, next) => {
         }
 
         // Vérifier si l'utilisateur est participant à la conversation
-        if (!conversation.estParticipant(req.user._id)) {
+        console.log('Utilisateur qui tente d\'accéder:', req.user._id);
+        console.log('Participants de la conversation:', conversation.participants.map(p => ({ id: p.utilisateur.toString(), date: p.dateAjout })));
+        
+        const estParticipant = conversation.estParticipant(req.user._id);
+        console.log('Résultat de la vérification estParticipant:', estParticipant);
+        
+        if (!estParticipant) {
             return next(new AppError('Vous n\'êtes pas autorisé à accéder à cette conversation', 403));
         }
 

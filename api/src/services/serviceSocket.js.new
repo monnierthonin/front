@@ -1,6 +1,8 @@
 const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
 const configJWT = require('../config/jwt');
+const Canal = require('../models/canal');
+const Workspace = require('../models/workspace');
 const MessagePrivate = require('../models/messagePrivate');
 
 class ServiceSocket {

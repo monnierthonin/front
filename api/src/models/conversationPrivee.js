@@ -1,11 +1,6 @@
 const mongoose = require('mongoose');
 
 const conversationPriveeSchema = new mongoose.Schema({
-    nom: {
-        type: String,
-        trim: true,
-        default: '' // Le nom peut être vide pour les conversations 1:1
-    },
     participants: [{
         utilisateur: {
             type: mongoose.Schema.ObjectId,
@@ -70,7 +65,32 @@ conversationPriveeSchema.pre('deleteOne', async function(next) {
 
 // Méthode pour vérifier si un utilisateur est participant à la conversation
 conversationPriveeSchema.methods.estParticipant = function(userId) {
-    return this.participants.some(p => p.utilisateur.toString() === userId.toString());
+    console.log('Vérification si utilisateur est participant:', userId);
+    
+    if (!userId) {
+        console.error('ID utilisateur manquant dans estParticipant');
+        return false;
+    }
+    
+    // Conversion explicite en chaîne pour éviter les problèmes de comparaison d'objets
+    const userIdStr = userId.toString();
+    
+    // Vérification détaillée de chaque participant
+    const result = this.participants.some(p => {
+        // Vérifier si l'utilisateur est un objet ou un ID
+        if (p.utilisateur) {
+            // Si c'est un objet avec _id
+            if (p.utilisateur._id) {
+                return p.utilisateur._id.toString() === userIdStr;
+            }
+            // Si c'est un ObjectId
+            return p.utilisateur.toString() === userIdStr;
+        }
+        return false;
+    });
+    
+    console.log('Résultat final estParticipant pour', userIdStr, ':', result);
+    return result;
 };
 
 // Méthode pour ajouter un participant à la conversation

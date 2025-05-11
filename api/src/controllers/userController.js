@@ -417,44 +417,141 @@ const userController = {
 
   /**
    * Rechercher des utilisateurs par nom d'utilisateur, prénom ou nom
+   * ou récupérer tous les utilisateurs
    */
   searchUsers: async (req, res) => {
     try {
-      const { query } = req.query;
+      // Support pour les paramètres 'q' et 'query' pour la rétro-compatibilité
+      const searchTerm = req.query.q || req.query.query;
+      const all = req.query.all === 'true';
       
-      if (!query) {
+      let query = {};
+      
+      // Si le paramètre all est fourni, on ne vérifie pas la présence d'un terme de recherche
+      if (!all && !searchTerm) {
         return res.status(400).json({
           success: false,
-          message: 'Un terme de recherche est requis'
+          message: 'Un terme de recherche est requis ou le paramètre all=true'
         });
       }
 
-      // Limiter la recherche aux utilisateurs actifs
       // Exclure l'utilisateur actuel des résultats
-      const users = await User.find({
-        $and: [
-          { _id: { $ne: req.user._id } }, // Exclure l'utilisateur actuel
-          {
-            $or: [
-              { username: { $regex: query, $options: 'i' } },
-              { firstName: { $regex: query, $options: 'i' } },
-              { lastName: { $regex: query, $options: 'i' } }
-            ]
-          }
-        ]
-      })
-      .select('_id username firstName lastName profilePicture status') // Sélectionner uniquement les champs nécessaires
-      .limit(10); // Limiter à 10 résultats pour des raisons de performance
+      query._id = { $ne: req.user._id };
+      
+      // Ajouter les critères de recherche si all n'est pas spécifié
+      if (!all && searchTerm) {
+        query.$or = [
+          { username: { $regex: searchTerm, $options: 'i' } },
+          { firstName: { $regex: searchTerm, $options: 'i' } },
+          { lastName: { $regex: searchTerm, $options: 'i' } }
+        ];
+      }
+      
+      // Récupérer les utilisateurs
+      const users = await User.find(query)
+        .select('_id username firstName lastName profilePicture status') // Sélectionner uniquement les champs nécessaires
+        .limit(all ? 50 : 10); // Limiter à 50 résultats si all=true, sinon 10
 
       res.json({
         success: true,
-        data: users
+        data: {
+          users: users
+        }
       });
     } catch (error) {
       console.error('Erreur lors de la recherche d\'utilisateurs:', error);
       res.status(500).json({
         success: false,
         message: 'Erreur interne du serveur',
+        error: error.message
+      });
+    }
+  },
+
+  /**
+   * Mettre à jour le statut de l'utilisateur
+   */
+  updateStatus: async (req, res) => {
+    try {
+      const { status } = req.body;
+      
+      // Vérifier que le statut est valide
+      if (!['en ligne', 'absent', 'ne pas déranger'].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Le statut doit être 'en ligne', 'absent' ou 'ne pas déranger'"
+        });
+      }
+      
+      // Mettre à jour le statut de l'utilisateur
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Utilisateur non trouvé'
+        });
+      }
+      
+      user.status = status;
+      user.dernierActivite = Date.now();
+      await user.save();
+      
+      res.json({
+        success: true,
+        message: 'Statut mis à jour avec succès',
+        data: {
+          status: user.status
+        }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur lors de la mise à jour du statut',
+        error: error.message
+      });
+    }
+  },
+
+  /**
+   * Mettre à jour le thème de l'utilisateur
+   */
+  updateTheme: async (req, res) => {
+    try {
+      const { theme } = req.body;
+      
+      // Vérifier que le thème est valide
+      if (!['clair', 'sombre'].includes(theme)) {
+        return res.status(400).json({
+          success: false,
+          message: "Le thème doit être 'clair' ou 'sombre'"
+        });
+      }
+      
+      // Mettre à jour le thème de l'utilisateur
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Utilisateur non trouvé'
+        });
+      }
+      
+      user.theme = theme;
+      await user.save();
+      
+      res.json({
+        success: true,
+        message: 'Thème mis à jour avec succès',
+        data: {
+          theme: user.theme
+        }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du thème:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur lors de la mise à jour du thème',
         error: error.message
       });
     }

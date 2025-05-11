@@ -518,6 +518,58 @@ exports.supprimerFichier = catchAsync(async (req, res, next) => {
     });
 });
 
+// Rechercher des canaux publics (pour les mentions)
+exports.rechercherCanauxPublics = catchAsync(async (req, res, next) => {
+    const { q, all } = req.query;
+    
+    // Si ni q ni all ne sont fournis, renvoyer une erreur
+    if (!q && all !== 'true') {
+        return res.status(400).json({
+            status: 'fail',
+            message: 'Un terme de recherche (q) ou le paramètre all=true est requis'
+        });
+    }
+    
+    let query = { visibilite: 'public' };
+    
+    // Si un terme de recherche est fourni, ajouter la condition de recherche
+    if (q) {
+        query.$or = [
+            { nom: { $regex: q, $options: 'i' } },
+            { description: { $regex: q, $options: 'i' } }
+        ];
+    }
+    
+    // Récupérer les canaux publics qui correspondent à la recherche
+    const canaux = await Canal.find(query)
+        .select('_id nom description workspace visibilite')
+        .populate('workspace', 'nom')
+        .limit(all === 'true' ? 50 : 10);
+    
+    // Transformer les résultats pour inclure le nom du workspace
+    const canauxAvecWorkspace = canaux.map(canal => {
+        const workspaceNom = canal.workspace ? canal.workspace.nom : 'Workspace inconnu';
+        return {
+            _id: canal._id,
+            nom: canal.nom,
+            description: canal.description,
+            workspaceId: canal.workspace._id,
+            workspaceNom: workspaceNom,
+            visibilite: canal.visibilite,
+            // Créer un identifiant unique pour le canal (pour les mentions)
+            mentionId: `${canal._id}:${canal.workspace._id}`
+        };
+    });
+    
+    res.status(200).json({
+        status: 'success',
+        results: canauxAvecWorkspace.length,
+        data: {
+            canaux: canauxAvecWorkspace
+        }
+    });
+});
+
 // Obtenir la liste des fichiers
 exports.obtenirFichiers = catchAsync(async (req, res, next) => {
     // Vérifier d'abord si l'utilisateur a accès au workspace

@@ -14,9 +14,6 @@ router.use(authenticate);
 // Obtenir le profil de l'utilisateur connecté
 router.get('/profile', userController.getProfile);
 
-// Rechercher des utilisateurs par nom d'utilisateur, prénom ou nom
-router.get('/search', userController.searchUsers);
-
 // Obtenir le profil d'un utilisateur spécifique par ID ou nom d'utilisateur
 router.get('/profile/:identifier', userController.getUserProfile);
 
@@ -28,6 +25,12 @@ router.put('/profile/password', userController.updatePassword);
 
 // Mise à jour de la photo de profil
 router.put('/profile/picture', upload.single('profilePicture'), userController.updateProfilePicture);
+
+// Mise à jour du statut
+router.put('/status', userController.updateStatus);
+
+// Mise à jour du thème
+router.put('/theme', userController.updateTheme);
 
 // Suppression du compte
 router.delete('/profile', userController.deleteAccount);
