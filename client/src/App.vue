@@ -15,11 +15,11 @@ export default {
     Header
   },
   async created() {
-    // Initialiser le thème au chargement de l'application
-    await this.loadUserTheme();
+    // Initialiser le thème et le statut au chargement de l'application
+    await this.loadUserProfile();
   },
   methods: {
-    async loadUserTheme() {
+    async loadUserProfile() {
       const token = localStorage.getItem('token');
       
       if (token) {
@@ -27,7 +27,7 @@ export default {
         try {
           const response = await userService.getProfile();
           if (response && response.data) {
-            // Convertir le thème du français vers l'anglais
+            // Récupérer et gérer le thème
             let theme = 'dark'; // Par défaut sombre
             
             // Si le thème existe dans le profil, le convertir
@@ -40,6 +40,28 @@ export default {
             
             // Appliquer le thème
             this.applyTheme(theme);
+            
+            // Récupérer et stocker le statut de l'utilisateur
+            if (response.data.status) {
+              // Convertir le statut du français vers l'anglais
+              let status;
+              switch(response.data.status) {
+                case 'en ligne':
+                  status = 'online';
+                  break;
+                case 'absent':
+                  status = 'away';
+                  break;
+                case 'ne pas déranger':
+                  status = 'offline';
+                  break;
+                default:
+                  status = 'online';
+              }
+              // Stocker le statut pour une utilisation par d'autres composants
+              localStorage.setItem('userStatus', status);
+              console.log('Statut utilisateur chargé:', status);
+            }
           }
         } catch (error) {
           console.error('Erreur lors de la récupération du thème depuis l\'API:', error);

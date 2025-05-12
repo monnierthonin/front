@@ -1,0 +1,1941 @@
+From d6db43c7a9280872ddc29b3e50c238f7a4ecb9e0 Mon Sep 17 00:00:00 2001
+From: monnierthonin <128584249+monnierthonin@users.noreply.github.com>
+Date: Sun, 11 May 2025 19:04:09 +0200
+Subject: [PATCH] Add user theme management with dark/light mode persistence
+
+---
+ api/src/app.js                                |  18 +-
+ api/src/controllers/authController.js         |   7 +-
+ api/src/controllers/canalController.js        |  52 +++
+ .../conversationPriveeController.js           |   8 +-
+ api/src/controllers/userController.js         | 135 +++++-
+ api/src/docs/messagePrivate.swagger.js        |  47 --
+ api/src/docs/search.swagger.js                | 149 +++++++
+ api/src/docs/user_status_theme.swagger.js     | 105 +++++
+ api/src/middleware/activityMiddleware.js      |  80 ++++
+ api/src/models/conversationPrivee.js          |  32 +-
+ api/src/models/user.js                        |  17 +-
+ api/src/routes/searchRoutes.js                |  17 +
+ api/src/routes/user.js                        |  26 --
+ api/src/routes/userRoutes.js                  |   9 +-
+ api/src/services/serviceSocket.js             | 232 +++++-----
+ api/src/services/serviceSocket.js.new         | 414 ++++++++++++++++++
+ client/src/App.vue                            |  55 ++-
+ .../profilParamFile/ProfileStatus.vue         |  23 +-
+ client/src/pages/Auth.vue                     |  43 ++
+ client/src/services/authService.js            |  11 +-
+ client/src/services/userService.js            |  32 +-
+ 21 files changed, 1263 insertions(+), 249 deletions(-)
+ create mode 100644 api/src/docs/search.swagger.js
+ create mode 100644 api/src/docs/user_status_theme.swagger.js
+ create mode 100644 api/src/middleware/activityMiddleware.js
+ create mode 100644 api/src/routes/searchRoutes.js
+ delete mode 100644 api/src/routes/user.js
+ create mode 100644 api/src/services/serviceSocket.js.new
+
+diff --git a/api/src/app.js b/api/src/app.js
+index a2bffa6..457d7e7 100644
+--- a/api/src/app.js
++++ b/api/src/app.js
+@@ -18,11 +18,13 @@ const userRouter = require('./routes/userRoutes');
+ const workspaceRouter = require('./routes/workspaceRoutes');
+ const messagePrivateRouter = require('./routes/messagePrivateRoutes');
+ const conversationPriveeRouter = require('./routes/conversationPriveeRoutes');
++const searchRoutes = require('./routes/searchRoutes');
+ const http = require('http');
+ const serviceSocket = require('./services/serviceSocket');
+ const swaggerUi = require('swagger-ui-express');
+ const swaggerSpec = require('./docs/swagger');
+ const AppError = require('./utils/appError');
++const { updateActivity, setupInactivityChecker } = require('./middleware/activityMiddleware');
+ 
+ // Initialisation de l'application Express
+ const app = express();
+@@ -78,10 +80,12 @@ app.use(passport.initialize());
+ configurerSwagger(app);
+ require('./docs/auth.swagger');
+ require('./docs/user.swagger');
++require('./docs/user_status_theme.swagger');
+ require('./docs/userProfile.swagger');
+ require('./docs/workspace.swagger');
+ require('./docs/messagePrivate.swagger');
+ require('./docs/conversationPrivee.swagger');
++require('./docs/search.swagger');
+ 
+ // Documentation Swagger
+ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+@@ -90,13 +94,19 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+ serviceSocket.initialiser(serveur);
+ app.set('socketService', serviceSocket);
+ 
++// Configurer le vérificateur d'inactivité
++setupInactivityChecker();
++
+ // Routes
+ app.use('/', indexRouter);
+ app.use('/api/v1/auth', authRouter);
+-app.use('/api/v1/users', userRouter);
+-app.use('/api/v1/workspaces', workspaceRouter);
+-app.use('/api/v1/messages/private', messagePrivateRouter);
+-app.use('/api/v1/conversations', conversationPriveeRouter);
++
++// Appliquer le middleware d'activité à toutes les routes API qui nécessitent une authentification
++app.use('/api/v1/users', updateActivity, userRouter);
++app.use('/api/v1/workspaces', updateActivity, workspaceRouter);
++app.use('/api/v1/messages/private', updateActivity, messagePrivateRouter);
++app.use('/api/v1/conversations', updateActivity, conversationPriveeRouter);
++app.use('/api/v1/search', updateActivity, searchRoutes);
+ 
+ // Gestion des erreurs 404
+ app.use((req, res, next) => {
+diff --git a/api/src/controllers/authController.js b/api/src/controllers/authController.js
+index 699aad9..b065a5d 100644
+--- a/api/src/controllers/authController.js
++++ b/api/src/controllers/authController.js
+@@ -134,8 +134,11 @@ exports.connexion = async (req, res) => {
+             });
+         }
+ 
+-        // Mettre à jour la dernière connexion
++        // Mettre à jour la dernière connexion et le statut
+         utilisateur.lastLogin = Date.now();
++        utilisateur.estConnecte = true;
++        utilisateur.dernierActivite = Date.now();
++        utilisateur.status = 'en ligne';
+         await utilisateur.save({ validateBeforeSave: false });
+ 
+         console.log('Connexion réussie pour:', email);
+@@ -159,7 +162,7 @@ exports.deconnexion = async (req, res) => {
+             // Mettre à jour le statut de l'utilisateur
+             const utilisateur = await User.findById(req.user.id);
+             if (utilisateur) {
+-                utilisateur.status = 'offline';
++                utilisateur.estConnecte = false;
+                 await utilisateur.save();
+             }
+         }
+diff --git a/api/src/controllers/canalController.js b/api/src/controllers/canalController.js
+index e43fd14..8fff5e1 100644
+--- a/api/src/controllers/canalController.js
++++ b/api/src/controllers/canalController.js
+@@ -518,6 +518,58 @@ exports.supprimerFichier = catchAsync(async (req, res, next) => {
+     });
+ });
+ 
++// Rechercher des canaux publics (pour les mentions)
++exports.rechercherCanauxPublics = catchAsync(async (req, res, next) => {
++    const { q, all } = req.query;
++    
++    // Si ni q ni all ne sont fournis, renvoyer une erreur
++    if (!q && all !== 'true') {
++        return res.status(400).json({
++            status: 'fail',
++            message: 'Un terme de recherche (q) ou le paramètre all=true est requis'
++        });
++    }
++    
++    let query = { visibilite: 'public' };
++    
++    // Si un terme de recherche est fourni, ajouter la condition de recherche
++    if (q) {
++        query.$or = [
++            { nom: { $regex: q, $options: 'i' } },
++            { description: { $regex: q, $options: 'i' } }
++        ];
++    }
++    
++    // Récupérer les canaux publics qui correspondent à la recherche
++    const canaux = await Canal.find(query)
++        .select('_id nom description workspace visibilite')
++        .populate('workspace', 'nom')
++        .limit(all === 'true' ? 50 : 10);
++    
++    // Transformer les résultats pour inclure le nom du workspace
++    const canauxAvecWorkspace = canaux.map(canal => {
++        const workspaceNom = canal.workspace ? canal.workspace.nom : 'Workspace inconnu';
++        return {
++            _id: canal._id,
++            nom: canal.nom,
++            description: canal.description,
++            workspaceId: canal.workspace._id,
++            workspaceNom: workspaceNom,
++            visibilite: canal.visibilite,
++            // Créer un identifiant unique pour le canal (pour les mentions)
++            mentionId: `${canal._id}:${canal.workspace._id}`
++        };
++    });
++    
++    res.status(200).json({
++        status: 'success',
++        results: canauxAvecWorkspace.length,
++        data: {
++            canaux: canauxAvecWorkspace
++        }
++    });
++});
++
+ // Obtenir la liste des fichiers
+ exports.obtenirFichiers = catchAsync(async (req, res, next) => {
+     // Vérifier d'abord si l'utilisateur a accès au workspace
+diff --git a/api/src/controllers/conversationPriveeController.js b/api/src/controllers/conversationPriveeController.js
+index 139c760..2b8f66e 100644
+--- a/api/src/controllers/conversationPriveeController.js
++++ b/api/src/controllers/conversationPriveeController.js
+@@ -59,7 +59,13 @@ exports.getConversation = async (req, res, next) => {
+         }
+ 
+         // Vérifier si l'utilisateur est participant à la conversation
+-        if (!conversation.estParticipant(req.user._id)) {
++        console.log('Utilisateur qui tente d\'accéder:', req.user._id);
++        console.log('Participants de la conversation:', conversation.participants.map(p => ({ id: p.utilisateur.toString(), date: p.dateAjout })));
++        
++        const estParticipant = conversation.estParticipant(req.user._id);
++        console.log('Résultat de la vérification estParticipant:', estParticipant);
++        
++        if (!estParticipant) {
+             return next(new AppError('Vous n\'êtes pas autorisé à accéder à cette conversation', 403));
+         }
+ 
+diff --git a/api/src/controllers/userController.js b/api/src/controllers/userController.js
+index c87e1cc..1fb89c9 100644
+--- a/api/src/controllers/userController.js
++++ b/api/src/controllers/userController.js
+@@ -417,38 +417,46 @@ const userController = {
+ 
+   /**
+    * Rechercher des utilisateurs par nom d'utilisateur, prénom ou nom
++   * ou récupérer tous les utilisateurs
+    */
+   searchUsers: async (req, res) => {
+     try {
+-      const { query } = req.query;
++      // Support pour les paramètres 'q' et 'query' pour la rétro-compatibilité
++      const searchTerm = req.query.q || req.query.query;
++      const all = req.query.all === 'true';
+       
+-      if (!query) {
++      let query = {};
++      
++      // Si le paramètre all est fourni, on ne vérifie pas la présence d'un terme de recherche
++      if (!all && !searchTerm) {
+         return res.status(400).json({
+           success: false,
+-          message: 'Un terme de recherche est requis'
++          message: 'Un terme de recherche est requis ou le paramètre all=true'
+         });
+       }
+ 
+-      // Limiter la recherche aux utilisateurs actifs
+       // Exclure l'utilisateur actuel des résultats
+-      const users = await User.find({
+-        $and: [
+-          { _id: { $ne: req.user._id } }, // Exclure l'utilisateur actuel
+-          {
+-            $or: [
+-              { username: { $regex: query, $options: 'i' } },
+-              { firstName: { $regex: query, $options: 'i' } },
+-              { lastName: { $regex: query, $options: 'i' } }
+-            ]
+-          }
+-        ]
+-      })
+-      .select('_id username firstName lastName profilePicture status') // Sélectionner uniquement les champs nécessaires
+-      .limit(10); // Limiter à 10 résultats pour des raisons de performance
++      query._id = { $ne: req.user._id };
++      
++      // Ajouter les critères de recherche si all n'est pas spécifié
++      if (!all && searchTerm) {
++        query.$or = [
++          { username: { $regex: searchTerm, $options: 'i' } },
++          { firstName: { $regex: searchTerm, $options: 'i' } },
++          { lastName: { $regex: searchTerm, $options: 'i' } }
++        ];
++      }
++      
++      // Récupérer les utilisateurs
++      const users = await User.find(query)
++        .select('_id username firstName lastName profilePicture status') // Sélectionner uniquement les champs nécessaires
++        .limit(all ? 50 : 10); // Limiter à 50 résultats si all=true, sinon 10
+ 
+       res.json({
+         success: true,
+-        data: users
++        data: {
++          users: users
++        }
+       });
+     } catch (error) {
+       console.error('Erreur lors de la recherche d\'utilisateurs:', error);
+@@ -458,6 +466,95 @@ const userController = {
+         error: error.message
+       });
+     }
++  },
++
++  /**
++   * Mettre à jour le statut de l'utilisateur
++   */
++  updateStatus: async (req, res) => {
++    try {
++      const { status } = req.body;
++      
++      // Vérifier que le statut est valide
++      if (!['en ligne', 'absent', 'ne pas déranger'].includes(status)) {
++        return res.status(400).json({
++          success: false,
++          message: "Le statut doit être 'en ligne', 'absent' ou 'ne pas déranger'"
++        });
++      }
++      
++      // Mettre à jour le statut de l'utilisateur
++      const user = await User.findById(req.user.id);
++      if (!user) {
++        return res.status(404).json({
++          success: false,
++          message: 'Utilisateur non trouvé'
++        });
++      }
++      
++      user.status = status;
++      user.dernierActivite = Date.now();
++      await user.save();
++      
++      res.json({
++        success: true,
++        message: 'Statut mis à jour avec succès',
++        data: {
++          status: user.status
++        }
++      });
++    } catch (error) {
++      console.error('Erreur lors de la mise à jour du statut:', error);
++      res.status(500).json({
++        success: false,
++        message: 'Erreur lors de la mise à jour du statut',
++        error: error.message
++      });
++    }
++  },
++
++  /**
++   * Mettre à jour le thème de l'utilisateur
++   */
++  updateTheme: async (req, res) => {
++    try {
++      const { theme } = req.body;
++      
++      // Vérifier que le thème est valide
++      if (!['clair', 'sombre'].includes(theme)) {
++        return res.status(400).json({
++          success: false,
++          message: "Le thème doit être 'clair' ou 'sombre'"
++        });
++      }
++      
++      // Mettre à jour le thème de l'utilisateur
++      const user = await User.findById(req.user.id);
++      if (!user) {
++        return res.status(404).json({
++          success: false,
++          message: 'Utilisateur non trouvé'
++        });
++      }
++      
++      user.theme = theme;
++      await user.save();
++      
++      res.json({
++        success: true,
++        message: 'Thème mis à jour avec succès',
++        data: {
++          theme: user.theme
++        }
++      });
++    } catch (error) {
++      console.error('Erreur lors de la mise à jour du thème:', error);
++      res.status(500).json({
++        success: false,
++        message: 'Erreur lors de la mise à jour du thème',
++        error: error.message
++      });
++    }
+   }
+ };
+ 
+diff --git a/api/src/docs/messagePrivate.swagger.js b/api/src/docs/messagePrivate.swagger.js
+index a985bd9..e96d591 100644
+--- a/api/src/docs/messagePrivate.swagger.js
++++ b/api/src/docs/messagePrivate.swagger.js
+@@ -311,50 +311,3 @@
+  *       403:
+  *         description: Non autorisé à supprimer ce message
+  */
+-
+-/**
+- * @swagger
+- * /api/v1/users/search:
+- *   get:
+- *     tags: [Utilisateurs]
+- *     summary: Rechercher des utilisateurs par username, prénom ou nom
+- *     security:
+- *       - BearerAuth: []
+- *     parameters:
+- *       - in: query
+- *         name: query
+- *         required: true
+- *         schema:
+- *           type: string
+- *         description: Terme de recherche
+- *     responses:
+- *       200:
+- *         description: Utilisateurs trouvés avec succès
+- *         content:
+- *           application/json:
+- *             schema:
+- *               type: object
+- *               properties:
+- *                 success:
+- *                   type: boolean
+- *                   example: true
+- *                 data:
+- *                   type: array
+- *                   items:
+- *                     type: object
+- *                     properties:
+- *                       _id:
+- *                         type: string
+- *                       username:
+- *                         type: string
+- *                       prenom:
+- *                         type: string
+- *                       nom:
+- *                         type: string
+- *                       profilePicture:
+- *                         type: string
+- *                       status:
+- *                         type: string
+- *       400:
+- *         description: Un terme de recherche est requis
+- */
+diff --git a/api/src/docs/search.swagger.js b/api/src/docs/search.swagger.js
+new file mode 100644
+index 0000000..2a12c0c
+--- /dev/null
++++ b/api/src/docs/search.swagger.js
+@@ -0,0 +1,149 @@
++/**
++ * @swagger
++ * tags:
++ *   - name: Recherche
++ *     description: Fonctionnalités de recherche globale (utilisateurs, canaux)
++ */
++
++/**
++ * @swagger
++ * /api/v1/search/users:
++ *   get:
++ *     tags: [Recherche]
++ *     summary: Rechercher des utilisateurs
++ *     description: Recherche des utilisateurs par nom d'utilisateur ou nom complet. Utilisé notamment pour les mentions avec @.
++ *     security:
++ *       - bearerAuth: []
++ *     parameters:
++ *       - in: query
++ *         name: q
++ *         schema:
++ *           type: string
++ *         description: Terme de recherche (optionnel si all=true)
++ *         example: "john"
++ *       - in: query
++ *         name: all
++ *         schema:
++ *           type: boolean
++ *         description: Si true, retourne tous les utilisateurs (limité à 50)
++ *         example: false
++ *     responses:
++ *       200:
++ *         description: Liste des utilisateurs correspondant à la recherche
++ *         content:
++ *           application/json:
++ *             schema:
++ *               type: object
++ *               properties:
++ *                 status:
++ *                   type: string
++ *                   example: "success"
++ *                 results:
++ *                   type: integer
++ *                   example: 2
++ *                 data:
++ *                   type: object
++ *                   properties:
++ *                     users:
++ *                       type: array
++ *                       items:
++ *                         type: object
++ *                         properties:
++ *                           _id:
++ *                             type: string
++ *                             example: "5f8d0f3e1c9d440000a1b2c3"
++ *                           username:
++ *                             type: string
++ *                             example: "johndoe"
++ *                           firstName:
++ *                             type: string
++ *                             example: "John"
++ *                           lastName:
++ *                             type: string
++ *                             example: "Doe"
++ *                           profilePicture:
++ *                             type: string
++ *                             example: "https://example.com/profile.jpg"
++ *                           status:
++ *                             type: string
++ *                             example: "en ligne"
++ *       400:
++ *         description: Requête invalide (terme de recherche manquant)
++ *       401:
++ *         description: Non authentifié
++ *       500:
++ *         description: Erreur serveur
++ */
++
++/**
++ * @swagger
++ * /api/v1/search/canaux:
++ *   get:
++ *     tags: [Recherche]
++ *     summary: Rechercher des canaux publics
++ *     description: Recherche des canaux publics par nom ou description. Utilisé notamment pour les mentions avec #.
++ *     security:
++ *       - bearerAuth: []
++ *     parameters:
++ *       - in: query
++ *         name: q
++ *         schema:
++ *           type: string
++ *         description: Terme de recherche (optionnel si all=true)
++ *         example: "général"
++ *       - in: query
++ *         name: all
++ *         schema:
++ *           type: boolean
++ *         description: Si true, retourne tous les canaux publics (limité à 50)
++ *         example: false
++ *     responses:
++ *       200:
++ *         description: Liste des canaux publics correspondant à la recherche
++ *         content:
++ *           application/json:
++ *             schema:
++ *               type: object
++ *               properties:
++ *                 status:
++ *                   type: string
++ *                   example: "success"
++ *                 results:
++ *                   type: integer
++ *                   example: 2
++ *                 data:
++ *                   type: object
++ *                   properties:
++ *                     canaux:
++ *                       type: array
++ *                       items:
++ *                         type: object
++ *                         properties:
++ *                           _id:
++ *                             type: string
++ *                             example: "5f8d0f3e1c9d440000a1b2c3"
++ *                           nom:
++ *                             type: string
++ *                             example: "général"
++ *                           description:
++ *                             type: string
++ *                             example: "Canal de discussion général"
++ *                           visibilite:
++ *                             type: string
++ *                             example: "public"
++ *                           workspace:
++ *                             type: object
++ *                             properties:
++ *                               _id:
++ *                                 type: string
++ *                                 example: "5f8d0f3e1c9d440000a1b2c4"
++ *                               nom:
++ *                                 type: string
++ *                                 example: "Mon Workspace"
++ *       400:
++ *         description: Requête invalide (terme de recherche manquant)
++ *       401:
++ *         description: Non authentifié
++ *       500:
++ *         description: Erreur serveur
++ */
+diff --git a/api/src/docs/user_status_theme.swagger.js b/api/src/docs/user_status_theme.swagger.js
+new file mode 100644
+index 0000000..3a98912
+--- /dev/null
++++ b/api/src/docs/user_status_theme.swagger.js
+@@ -0,0 +1,105 @@
++/**
++ * @swagger
++ * /api/v1/users/status:
++ *   put:
++ *     tags: [Profil]
++ *     summary: Mettre à jour le statut de l'utilisateur
++ *     description: Permet à l'utilisateur de définir manuellement son statut de disponibilité
++ *     security:
++ *       - bearerAuth: []
++ *     requestBody:
++ *       required: true
++ *       content:
++ *         application/json:
++ *           schema:
++ *             type: object
++ *             required:
++ *               - status
++ *             properties:
++ *               status:
++ *                 type: string
++ *                 enum: [en ligne, absent, ne pas déranger]
++ *                 example: "en ligne"
++ *                 description: Le statut de disponibilité de l'utilisateur
++ *     responses:
++ *       200:
++ *         description: Statut mis à jour avec succès
++ *         content:
++ *           application/json:
++ *             schema:
++ *               type: object
++ *               properties:
++ *                 success:
++ *                   type: boolean
++ *                   example: true
++ *                 message:
++ *                   type: string
++ *                   example: "Statut mis à jour avec succès"
++ *                 data:
++ *                   type: object
++ *                   properties:
++ *                     status:
++ *                       type: string
++ *                       example: "en ligne"
++ *       400:
++ *         description: Statut invalide
++ *       401:
++ *         description: Non authentifié
++ *       404:
++ *         description: Utilisateur non trouvé
++ *       500:
++ *         description: Erreur serveur
++ */
++
++/**
++ * @swagger
++ * /api/v1/users/theme:
++ *   put:
++ *     tags: [Profil]
++ *     summary: Mettre à jour le thème de l'utilisateur
++ *     description: Permet à l'utilisateur de définir sa préférence de thème (clair ou sombre)
++ *     security:
++ *       - bearerAuth: []
++ *     requestBody:
++ *       required: true
++ *       content:
++ *         application/json:
++ *           schema:
++ *             type: object
++ *             required:
++ *               - theme
++ *             properties:
++ *               theme:
++ *                 type: string
++ *                 enum: [clair, sombre]
++ *                 example: "sombre"
++ *                 description: Le thème préféré de l'utilisateur
++ *     responses:
++ *       200:
++ *         description: Thème mis à jour avec succès
++ *         content:
++ *           application/json:
++ *             schema:
++ *               type: object
++ *               properties:
++ *                 success:
++ *                   type: boolean
++ *                   example: true
++ *                 message:
++ *                   type: string
++ *                   example: "Thème mis à jour avec succès"
++ *                 data:
++ *                   type: object
++ *                   properties:
++ *                     theme:
++ *                       type: string
++ *                       example: "sombre"
++ *       400:
++ *         description: Thème invalide
++ *       401:
++ *         description: Non authentifié
++ *       404:
++ *         description: Utilisateur non trouvé
++ *       500:
++ *         description: Erreur serveur
++ */
+diff --git a/api/src/middleware/activityMiddleware.js b/api/src/middleware/activityMiddleware.js
+new file mode 100644
+index 0000000..cde7f9a
+--- /dev/null
++++ b/api/src/middleware/activityMiddleware.js
+@@ -0,0 +1,80 @@
++const User = require('../models/user');
++
++/**
++ * Middleware pour mettre à jour la date de dernière activité de l'utilisateur
++ * et gérer le changement automatique de statut
++ */
++const updateActivity = async (req, res, next) => {
++  try {
++    // Vérifier si l'utilisateur est authentifié
++    if (req.user && req.user.id) {
++      const now = Date.now();
++      
++      // Récupérer l'utilisateur
++      const user = await User.findById(req.user.id);
++      
++      if (user) {
++        // Mettre à jour la date de dernière activité
++        user.dernierActivite = now;
++        
++        // Si l'utilisateur est connecté et que son statut est "en ligne",
++        // vérifier s'il a été inactif pendant plus de 5 minutes
++        if (user.estConnecte && user.status === 'en ligne') {
++          const inactivityTime = now - new Date(user.dernierActivite).getTime();
++          const fiveMinutesInMs = 5 * 60 * 1000;
++          
++          if (inactivityTime > fiveMinutesInMs) {
++            user.status = 'absent';
++          } else {
++            // Si l'utilisateur était absent et qu'il interagit à nouveau, le remettre en ligne
++            user.status = 'en ligne';
++          }
++        }
++        
++        // Sauvegarder les modifications
++        await user.save({ validateBeforeSave: false });
++      }
++    }
++    
++    next();
++  } catch (error) {
++    console.error('Erreur lors de la mise à jour de l\'activité:', error);
++    next();
++  }
++};
++
++/**
++ * Middleware pour vérifier périodiquement l'inactivité des utilisateurs
++ * et mettre à jour leur statut en conséquence
++ */
++const setupInactivityChecker = (app) => {
++  // Vérifier toutes les minutes
++  setInterval(async () => {
++    try {
++      const now = Date.now();
++      const fiveMinutesAgo = new Date(now - 5 * 60 * 1000);
++      
++      // Trouver tous les utilisateurs connectés avec le statut "en ligne"
++      // et inactifs depuis plus de 5 minutes
++      const inactiveUsers = await User.find({
++        estConnecte: true,
++        status: 'en ligne',
++        dernierActivite: { $lt: fiveMinutesAgo }
++      });
++      
++      // Mettre à jour leur statut
++      for (const user of inactiveUsers) {
++        user.status = 'absent';
++        await user.save({ validateBeforeSave: false });
++        console.log(`Utilisateur ${user.username} marqué comme absent pour inactivité`);
++      }
++    } catch (error) {
++      console.error('Erreur lors de la vérification d\'inactivité:', error);
++    }
++  }, 60000); // Vérifier toutes les minutes
++};
++
++module.exports = {
++  updateActivity,
++  setupInactivityChecker
++};
+diff --git a/api/src/models/conversationPrivee.js b/api/src/models/conversationPrivee.js
+index 6bc0637..9c9a0b9 100644
+--- a/api/src/models/conversationPrivee.js
++++ b/api/src/models/conversationPrivee.js
+@@ -1,11 +1,6 @@
+ const mongoose = require('mongoose');
+ 
+ const conversationPriveeSchema = new mongoose.Schema({
+-    nom: {
+-        type: String,
+-        trim: true,
+-        default: '' // Le nom peut être vide pour les conversations 1:1
+-    },
+     participants: [{
+         utilisateur: {
+             type: mongoose.Schema.ObjectId,
+@@ -70,7 +65,32 @@ conversationPriveeSchema.pre('deleteOne', async function(next) {
+ 
+ // Méthode pour vérifier si un utilisateur est participant à la conversation
+ conversationPriveeSchema.methods.estParticipant = function(userId) {
+-    return this.participants.some(p => p.utilisateur.toString() === userId.toString());
++    console.log('Vérification si utilisateur est participant:', userId);
++    
++    if (!userId) {
++        console.error('ID utilisateur manquant dans estParticipant');
++        return false;
++    }
++    
++    // Conversion explicite en chaîne pour éviter les problèmes de comparaison d'objets
++    const userIdStr = userId.toString();
++    
++    // Vérification détaillée de chaque participant
++    const result = this.participants.some(p => {
++        // Vérifier si l'utilisateur est un objet ou un ID
++        if (p.utilisateur) {
++            // Si c'est un objet avec _id
++            if (p.utilisateur._id) {
++                return p.utilisateur._id.toString() === userIdStr;
++            }
++            // Si c'est un ObjectId
++            return p.utilisateur.toString() === userIdStr;
++        }
++        return false;
++    });
++    
++    console.log('Résultat final estParticipant pour', userIdStr, ':', result);
++    return result;
+ };
+ 
+ // Méthode pour ajouter un participant à la conversation
+diff --git a/api/src/models/user.js b/api/src/models/user.js
+index 81681dc..add694b 100644
+--- a/api/src/models/user.js
++++ b/api/src/models/user.js
+@@ -116,10 +116,23 @@ const userSchema = new mongoose.Schema({
+     }
+   }],
+   lastLogin: Date,
++  estConnecte: {
++    type: Boolean,
++    default: false
++  },
+   status: {
+     type: String,
+-    enum: ['online', 'offline', 'away'],
+-    default: 'offline'
++    enum: ['en ligne', 'absent', 'ne pas déranger'],
++    default: 'en ligne'
++  },
++  dernierActivite: {
++    type: Date,
++    default: Date.now
++  },
++  theme: {
++    type: String,
++    enum: ['clair', 'sombre'],
++    default: 'sombre'
+   }
+ }, {
+   timestamps: true
+diff --git a/api/src/routes/searchRoutes.js b/api/src/routes/searchRoutes.js
+new file mode 100644
+index 0000000..4124b90
+--- /dev/null
++++ b/api/src/routes/searchRoutes.js
+@@ -0,0 +1,17 @@
++const express = require('express');
++const router = express.Router();
++const { authenticate } = require('../middleware/auth');
++const canalController = require('../controllers/canalController');
++const userController = require('../controllers/userController');
++
++/**
++ * Routes pour les fonctionnalités de recherche globale
++ */
++
++// Recherche d'utilisateurs (pour les mentions @)
++router.get('/users', authenticate, userController.searchUsers);
++
++// Recherche de canaux publics (pour les mentions #)
++router.get('/canaux', authenticate, canalController.rechercherCanauxPublics);
++
++module.exports = router;
+diff --git a/api/src/routes/user.js b/api/src/routes/user.js
+deleted file mode 100644
+index 03350ec..0000000
+--- a/api/src/routes/user.js
++++ /dev/null
+@@ -1,26 +0,0 @@
+-const express = require('express');
+-const router = express.Router();
+-const userController = require('../controllers/userController');
+-const { authenticate } = require('../middleware/auth');
+-const upload = require('../config/multer');
+-
+-/**
+- * Routes pour la gestion du profil utilisateur
+- */
+-
+-// Obtenir le profil de l'utilisateur connecté
+-router.get('/profile', authenticate, userController.getProfile);
+-
+-// Mettre à jour le profil de l'utilisateur
+-router.put('/profile', authenticate, userController.updateProfile);
+-
+-// Changer la photo de profil
+-router.put('/profile/picture', authenticate, upload.single('profilePicture'), userController.updateProfilePicture);
+-
+-// Changer le mot de passe
+-router.put('/profile/password', authenticate, userController.updatePassword);
+-
+-// Supprimer le compte
+-router.delete('/profile', authenticate, userController.deleteAccount);
+-
+-module.exports = router;
+diff --git a/api/src/routes/userRoutes.js b/api/src/routes/userRoutes.js
+index 80af8a4..895a14f 100644
+--- a/api/src/routes/userRoutes.js
++++ b/api/src/routes/userRoutes.js
+@@ -14,9 +14,6 @@ router.use(authenticate);
+ // Obtenir le profil de l'utilisateur connecté
+ router.get('/profile', userController.getProfile);
+ 
+-// Rechercher des utilisateurs par nom d'utilisateur, prénom ou nom
+-router.get('/search', userController.searchUsers);
+-
+ // Obtenir le profil d'un utilisateur spécifique par ID ou nom d'utilisateur
+ router.get('/profile/:identifier', userController.getUserProfile);
+ 
+@@ -29,6 +26,12 @@ router.put('/profile/password', userController.updatePassword);
+ // Mise à jour de la photo de profil
+ router.put('/profile/picture', upload.single('profilePicture'), userController.updateProfilePicture);
+ 
++// Mise à jour du statut
++router.put('/status', userController.updateStatus);
++
++// Mise à jour du thème
++router.put('/theme', userController.updateTheme);
++
+ // Suppression du compte
+ router.delete('/profile', userController.deleteAccount);
+ 
+diff --git a/api/src/services/serviceSocket.js b/api/src/services/serviceSocket.js
+index 23f6ff1..9bd87fa 100644
+--- a/api/src/services/serviceSocket.js
++++ b/api/src/services/serviceSocket.js
+@@ -1,8 +1,6 @@
+ const socketIO = require('socket.io');
+ const jwt = require('jsonwebtoken');
+ const configJWT = require('../config/jwt');
+-const Canal = require('../models/canal');
+-const Workspace = require('../models/workspace');
+ const MessagePrivate = require('../models/messagePrivate');
+ 
+ class ServiceSocket {
+@@ -49,71 +47,27 @@ class ServiceSocket {
+         this.io.on('connection', (socket) => {
+             console.log(`Utilisateur connecté: ${socket.idUtilisateur}`);
+             this.utilisateursConnectes.set(socket.idUtilisateur, socket.id);
+-
+-            // Gérer la connexion à un canal
+-            socket.on('rejoindre-canal', async ({ canalId }) => {
+-                try {
+-                    console.log(`Tentative de rejoindre le canal ${canalId} par l'utilisateur ${socket.idUtilisateur}`);
+-                    
+-                    // Vérifier l'accès au canal
+-                    const canal = await Canal.findById(canalId);
+-                    if (!canal) {
+-                        console.error(`Canal ${canalId} non trouvé`);
+-                        return;
+-                    }
+-
+-                    const estMembre = canal.membres.some(membre => 
+-                        membre.utilisateur.toString() === socket.idUtilisateur
+-                    );
+-
+-                    if (!estMembre) {
+-                        console.error(`Utilisateur ${socket.idUtilisateur} non autorisé pour le canal ${canalId}`);
+-                        return;
+-                    }
+-
+-                    // Rejoindre la room du canal
+-                    socket.join(`canal:${canalId}`);
+-                    console.log(`Utilisateur ${socket.idUtilisateur} a rejoint le canal ${canalId}`);
+-                } catch (error) {
+-                    console.error('Erreur lors de la connexion au canal:', error);
+-                }
+-            });
+-
+-            // Test d'écho
+-            socket.on('tester-echo', (message) => {
+-                console.log('Message écho reçu:', message);
+-                this.io.emit('echo-reponse', {
+-                    message: message,
+-                    timestamp: new Date(),
+-                    from: socket.idUtilisateur
+-                });
+-            });
+-
+-            // Rejoindre les canaux d'un workspace
+-            socket.on('rejoindre-workspace', async (idWorkspace) => {
+-                try {
+-                    const workspace = await Workspace.findById(idWorkspace);
+-                    if (!workspace) return;
+-
+-                    const canaux = await Canal.find({ workspace: idWorkspace });
+-                    canaux.forEach(canal => {
+-                        socket.join(`canal:${canal._id}`);
+-                    });
+-                } catch (erreur) {
+-                    console.error('Erreur lors de la connexion au workspace:', erreur);
+-                }
+-            });
+-
++            
+             // Rejoindre la room personnelle pour les messages privés
+             socket.join(`user:${socket.idUtilisateur}`);
+             console.log(`Utilisateur ${socket.idUtilisateur} a rejoint sa room personnelle`);
+             
++            // Rejoindre les rooms des conversations dont l'utilisateur est membre
++            this.rejoindreConversations(socket);
++            
+             // Gérer les messages privés
+             socket.on('envoyer-message-prive', async ({ destinataireId, contenu, reponseA }) => {
+                 try {
+                     console.log(`Tentative d'envoi de message privé à ${destinataireId} par ${socket.idUtilisateur}`);
+                     
+-                    // Créer le message privé
++                    if (!contenu || contenu.trim() === '') {
++                        socket.emit('erreur-message-prive', {
++                            message: 'Le contenu du message ne peut pas être vide'
++                        });
++                        return;
++                    }
++                    
++                    // Créer le nouveau message
+                     const nouveauMessage = await MessagePrivate.create({
+                         contenu,
+                         expediteur: socket.idUtilisateur,
+@@ -154,6 +108,69 @@ class ServiceSocket {
+                 }
+             });
+             
++            // Gérer les messages de conversation de groupe
++            socket.on('envoyer-message-conversation', async ({ conversationId, contenu, reponseA }) => {
++                try {
++                    console.log(`Tentative d'envoi de message dans la conversation ${conversationId} par ${socket.idUtilisateur}`);
++                    
++                    if (!contenu || contenu.trim() === '') {
++                        socket.emit('erreur-message-conversation', {
++                            message: 'Le contenu du message ne peut pas être vide'
++                        });
++                        return;
++                    }
++                    
++                    const ConversationPrivee = require('../models/conversationPrivee');
++                    const MessageConversation = require('../models/messageConversation');
++                    
++                    // Vérifier si la conversation existe et si l'utilisateur est participant
++                    const conversation = await ConversationPrivee.findById(conversationId);
++                    if (!conversation) {
++                        socket.emit('erreur-message-conversation', {
++                            message: 'Conversation non trouvée'
++                        });
++                        return;
++                    }
++                    
++                    if (!conversation.estParticipant(socket.idUtilisateur)) {
++                        socket.emit('erreur-message-conversation', {
++                            message: 'Vous n\'êtes pas participant à cette conversation'
++                        });
++                        return;
++                    }
++                    
++                    // Créer le nouveau message
++                    const nouveauMessage = await MessageConversation.create({
++                        contenu,
++                        expediteur: socket.idUtilisateur,
++                        conversation: conversationId,
++                        reponseA: reponseA || null
++                    });
++                    
++                    // Peupler les références pour la réponse
++                    const messagePopule = await MessageConversation.findById(nouveauMessage._id)
++                        .populate('expediteur', 'username firstName lastName profilePicture')
++                        .populate({
++                            path: 'reponseA',
++                            populate: {
++                                path: 'expediteur',
++                                select: 'username firstName lastName profilePicture'
++                            }
++                        });
++                    
++                    // Émettre l'événement à tous les participants de la conversation
++                    this.io.to(`conversation:${conversationId}`).emit('nouveau-message-conversation', messagePopule);
++                    
++                    console.log(`Message envoyé avec succès dans la conversation ${conversationId}`);
++                } catch (error) {
++                    console.error('Erreur lors de l\'envoi du message dans la conversation:', error);
++                    socket.emit('erreur-message-conversation', {
++                        message: 'Erreur lors de l\'envoi du message',
++                        error: error.message
++                    });
++                }
++            });
++            
+             // Marquer un message privé comme lu
+             socket.on('marquer-message-lu', async ({ messageId }) => {
+                 try {
+@@ -216,7 +233,7 @@ class ServiceSocket {
+                     if (message.expediteur.toString() !== socket.idUtilisateur) {
+                         console.error(`Utilisateur ${socket.idUtilisateur} non autorisé à modifier ce message`);
+                         socket.emit('erreur-message-prive', {
+-                            message: 'Vous n\'\u00eates pas autorisé à modifier ce message',
++                            message: 'Vous n\'êtes pas autorisé à modifier ce message',
+                             messageId
+                         });
+                         return;
+@@ -277,7 +294,7 @@ class ServiceSocket {
+                     if (message.expediteur.toString() !== socket.idUtilisateur) {
+                         console.error(`Utilisateur ${socket.idUtilisateur} non autorisé à supprimer ce message`);
+                         socket.emit('erreur-message-prive', {
+-                            message: 'Vous n\'\u00eates pas autorisé à supprimer ce message',
++                            message: 'Vous n\'êtes pas autorisé à supprimer ce message',
+                             messageId
+                         });
+                         return;
+@@ -310,40 +327,6 @@ class ServiceSocket {
+                 }
+             });
+             
+-            // Marquer un message privé comme lu
+-            socket.on('marquer-message-lu', async ({ messageId }) => {
+-                try {
+-                    console.log(`Tentative de marquer le message ${messageId} comme lu par ${socket.idUtilisateur}`);
+-                    
+-                    // Vérifier si le message existe
+-                    const message = await MessagePrivate.findById(messageId);
+-                    if (!message) {
+-                        console.error(`Message ${messageId} non trouvé`);
+-                        return;
+-                    }
+-                    
+-                    // Vérifier que l'utilisateur est bien le destinataire du message
+-                    if (message.destinataire.toString() !== socket.idUtilisateur) {
+-                        console.error(`Utilisateur ${socket.idUtilisateur} non autorisé à marquer ce message comme lu`);
+-                        return;
+-                    }
+-                    
+-                    // Marquer le message comme lu
+-                    message.lu = true;
+-                    await message.save();
+-                    
+-                    // Notifier l'expéditeur
+-                    this.io.to(`user:${message.expediteur.toString()}`).emit('message-prive-lu', {
+-                        messageId: message._id,
+-                        lu: true
+-                    });
+-                    
+-                    console.log(`Message ${messageId} marqué comme lu avec succès`);
+-                } catch (error) {
+-                    console.error('Erreur lors du marquage du message comme lu:', error);
+-                }
+-            });
+-            
+             // Gérer la déconnexion
+             socket.on('disconnect', () => {
+                 console.log(`Utilisateur déconnecté: ${socket.idUtilisateur}`);
+@@ -352,33 +335,52 @@ class ServiceSocket {
+         });
+     }
+ 
+-    // Méthode pour émettre un message à un canal spécifique
+-    emitToCanal(idCanal, evenement, donnees) {
+-        if (!this.io) {
++    // Fonction pour que l'utilisateur rejoigne les rooms de ses conversations
++    async rejoindreConversations(socket) {
++        try {
++            const ConversationPrivee = require('../models/conversationPrivee');
++            
++            // Trouver toutes les conversations dont l'utilisateur est membre
++            const conversations = await ConversationPrivee.find({
++                'participants.utilisateur': socket.idUtilisateur
++            });
++            
++            // Rejoindre chaque conversation
++            conversations.forEach(conversation => {
++                socket.join(`conversation:${conversation._id}`);
++                console.log(`Utilisateur ${socket.idUtilisateur} a rejoint la conversation ${conversation._id}`);
++            });
++            
++            console.log(`Utilisateur ${socket.idUtilisateur} a rejoint ${conversations.length} conversations`);
++        } catch (error) {
++            console.error('Erreur lors de la connexion aux conversations:', error);
++        }
++    }
++
++    // Fonction pour émettre un message à un canal
++    emitToCanal(canalId, evenement, donnees) {
++        if (this.io) {
++            this.io.to(`canal:${canalId}`).emit(evenement, donnees);
++        } else {
+             console.error('Socket.IO n\'est pas initialisé');
+-            return;
+         }
+-        const room = `canal:${idCanal}`;
+-        console.log(`Émission de l'événement ${evenement} au canal ${idCanal}:`, donnees);
+-        
+-        // Vérifier si la room existe et a des clients
+-        const sockets = this.io.sockets.adapter.rooms.get(room);
+-        console.log(`Nombre de clients dans le canal ${idCanal}:`, sockets ? sockets.size : 0);
+-        
+-        this.io.to(room).emit(evenement, donnees);
+-        console.log(`Événement ${evenement} émis au canal ${idCanal}`);
+     }
+ 
+-    // Méthode pour émettre un message à un utilisateur spécifique
+-    emitToUser(idUtilisateur, evenement, donnees) {
+-        if (!this.io) {
++    // Fonction pour émettre un message à un utilisateur
++    emitToUser(userId, evenement, donnees) {
++        if (this.io) {
++            this.io.to(`user:${userId}`).emit(evenement, donnees);
++        } else {
+             console.error('Socket.IO n\'est pas initialisé');
+-            return;
+         }
+-        const socketId = this.utilisateursConnectes.get(idUtilisateur);
+-        if (socketId) {
+-            console.log(`Émission de l'événement ${evenement} à l'utilisateur ${idUtilisateur}:`, donnees);
+-            this.io.to(socketId).emit(evenement, donnees);
++    }
++    
++    // Fonction pour émettre un message à tous les participants d'une conversation
++    emitToConversation(conversationId, evenement, donnees) {
++        if (this.io) {
++            this.io.to(`conversation:${conversationId}`).emit(evenement, donnees);
++        } else {
++            console.error('Socket.IO n\'est pas initialisé');
+         }
+     }
+ 
+diff --git a/api/src/services/serviceSocket.js.new b/api/src/services/serviceSocket.js.new
+new file mode 100644
+index 0000000..946b19d
+--- /dev/null
++++ b/api/src/services/serviceSocket.js.new
+@@ -0,0 +1,414 @@
++const socketIO = require('socket.io');
++const jwt = require('jsonwebtoken');
++const configJWT = require('../config/jwt');
++const Canal = require('../models/canal');
++const Workspace = require('../models/workspace');
++const MessagePrivate = require('../models/messagePrivate');
++
++class ServiceSocket {
++    constructor() {
++        this.io = null;
++        this.utilisateursConnectes = new Map();
++    }
++
++    initialiser(serveur) {
++        console.log('Initialisation du service Socket.IO');
++        this.io = socketIO(serveur, {
++            cors: {
++                origin: process.env.NODE_ENV === 'production' 
++                    ? process.env.FRONTEND_URL 
++                    : ['http://localhost:3001', 'http://127.0.0.1:3001', 'http://localhost:3000'],
++                methods: ["GET", "POST"],
++                credentials: true,
++                allowedHeaders: ["Authorization", "Content-Type"]
++            },
++            transports: ['websocket']
++        });
++        console.log('Socket.IO initialisé avec la configuration CORS:', this.io.opts.cors);
++
++        this.io.use(async (socket, next) => {
++            try {
++                console.log('Tentative de connexion WebSocket');
++                const token = socket.handshake.auth.token;
++                if (!token) {
++                    console.log('Pas de token fourni');
++                    return next(new Error('Erreur d\'authentification: pas de token'));
++                }
++                
++                console.log('Token reçu:', token);
++                const decodage = jwt.verify(token, configJWT.secret);
++                socket.idUtilisateur = decodage.id;
++                console.log('Authentification réussie pour l\'utilisateur:', decodage.id);
++                next();
++            } catch (error) {
++                console.error('Erreur d\'authentification:', error.message);
++                next(new Error('Erreur d\'authentification: ' + error.message));
++            }
++        });
++
++        this.io.on('connection', (socket) => {
++            console.log(`Utilisateur connecté: ${socket.idUtilisateur}`);
++            this.utilisateursConnectes.set(socket.idUtilisateur, socket.id);
++            
++            // Rejoindre la room personnelle pour les messages privés
++            socket.join(`user:${socket.idUtilisateur}`);
++            console.log(`Utilisateur ${socket.idUtilisateur} a rejoint sa room personnelle`);
++            
++            // Rejoindre les rooms des conversations dont l'utilisateur est membre
++            this.rejoindreConversations(socket);
++            
++            // Gérer les messages privés
++            socket.on('envoyer-message-prive', async ({ destinataireId, contenu, reponseA }) => {
++                try {
++                    console.log(`Tentative d'envoi de message privé à ${destinataireId} par ${socket.idUtilisateur}`);
++                    
++                    if (!contenu || contenu.trim() === '') {
++                        socket.emit('erreur-message-prive', {
++                            message: 'Le contenu du message ne peut pas être vide'
++                        });
++                        return;
++                    }
++                    
++                    // Créer le nouveau message
++                    const nouveauMessage = await MessagePrivate.create({
++                        contenu,
++                        expediteur: socket.idUtilisateur,
++                        destinataire: destinataireId,
++                        reponseA: reponseA || null,
++                        envoye: true,
++                        lu: false
++                    });
++                    
++                    // Peupler les références pour la réponse
++                    const messagePopule = await MessagePrivate.findById(nouveauMessage._id)
++                        .populate('expediteur', 'username firstName lastName profilePicture')
++                        .populate('destinataire', 'username firstName lastName profilePicture')
++                        .populate({
++                            path: 'reponseA',
++                            populate: {
++                                path: 'expediteur',
++                                select: 'username firstName lastName profilePicture'
++                            }
++                        });
++                    
++                    // Émettre l'événement au destinataire
++                    this.io.to(`user:${destinataireId}`).emit('nouveau-message-prive', messagePopule);
++                    
++                    // Confirmer l'envoi à l'expéditeur
++                    socket.emit('message-prive-envoye', {
++                        messageId: nouveauMessage._id,
++                        envoye: true
++                    });
++                    
++                    console.log(`Message privé envoyé avec succès à ${destinataireId}`);
++                } catch (error) {
++                    console.error('Erreur lors de l\'envoi du message privé:', error);
++                    socket.emit('erreur-message-prive', {
++                        message: 'Erreur lors de l\'envoi du message privé',
++                        error: error.message
++                    });
++                }
++            });
++            
++            // Gérer les messages de conversation de groupe
++            socket.on('envoyer-message-conversation', async ({ conversationId, contenu, reponseA }) => {
++                try {
++                    console.log(`Tentative d'envoi de message dans la conversation ${conversationId} par ${socket.idUtilisateur}`);
++                    
++                    if (!contenu || contenu.trim() === '') {
++                        socket.emit('erreur-message-conversation', {
++                            message: 'Le contenu du message ne peut pas être vide'
++                        });
++                        return;
++                    }
++                    
++                    const ConversationPrivee = require('../models/conversationPrivee');
++                    const MessageConversation = require('../models/messageConversation');
++                    
++                    // Vérifier si la conversation existe et si l'utilisateur est participant
++                    const conversation = await ConversationPrivee.findById(conversationId);
++                    if (!conversation) {
++                        socket.emit('erreur-message-conversation', {
++                            message: 'Conversation non trouvée'
++                        });
++                        return;
++                    }
++                    
++                    if (!conversation.estParticipant(socket.idUtilisateur)) {
++                        socket.emit('erreur-message-conversation', {
++                            message: 'Vous n\'êtes pas participant à cette conversation'
++                        });
++                        return;
++                    }
++                    
++                    // Créer le nouveau message
++                    const nouveauMessage = await MessageConversation.create({
++                        contenu,
++                        expediteur: socket.idUtilisateur,
++                        conversation: conversationId,
++                        reponseA: reponseA || null
++                    });
++                    
++                    // Peupler les références pour la réponse
++                    const messagePopule = await MessageConversation.findById(nouveauMessage._id)
++                        .populate('expediteur', 'username firstName lastName profilePicture')
++                        .populate({
++                            path: 'reponseA',
++                            populate: {
++                                path: 'expediteur',
++                                select: 'username firstName lastName profilePicture'
++                            }
++                        });
++                    
++                    // Émettre l'événement à tous les participants de la conversation
++                    this.io.to(`conversation:${conversationId}`).emit('nouveau-message-conversation', messagePopule);
++                    
++                    console.log(`Message envoyé avec succès dans la conversation ${conversationId}`);
++                } catch (error) {
++                    console.error('Erreur lors de l\'envoi du message dans la conversation:', error);
++                    socket.emit('erreur-message-conversation', {
++                        message: 'Erreur lors de l\'envoi du message',
++                        error: error.message
++                    });
++                }
++            });
++            
++            // Marquer un message privé comme lu
++            socket.on('marquer-message-lu', async ({ messageId }) => {
++                try {
++                    console.log(`Tentative de marquer le message ${messageId} comme lu par ${socket.idUtilisateur}`);
++                    
++                    // Vérifier si le message existe
++                    const message = await MessagePrivate.findById(messageId);
++                    if (!message) {
++                        console.error(`Message ${messageId} non trouvé`);
++                        return;
++                    }
++                    
++                    // Vérifier que l'utilisateur est bien le destinataire du message
++                    if (message.destinataire.toString() !== socket.idUtilisateur) {
++                        console.error(`Utilisateur ${socket.idUtilisateur} non autorisé à marquer ce message comme lu`);
++                        return;
++                    }
++                    
++                    // Marquer le message comme lu
++                    message.lu = true;
++                    await message.save();
++                    
++                    // Notifier l'expéditeur
++                    this.io.to(`user:${message.expediteur.toString()}`).emit('message-prive-lu', {
++                        messageId: message._id,
++                        lu: true
++                    });
++                    
++                    console.log(`Message ${messageId} marqué comme lu avec succès`);
++                } catch (error) {
++                    console.error('Erreur lors du marquage du message comme lu:', error);
++                }
++            });
++            
++            // Modifier un message privé
++            socket.on('modifier-message-prive', async ({ messageId, contenu }) => {
++                try {
++                    console.log(`Tentative de modification du message ${messageId} par ${socket.idUtilisateur}`);
++                    
++                    if (!contenu || contenu.trim() === '') {
++                        socket.emit('erreur-message-prive', {
++                            message: 'Le contenu du message ne peut pas être vide',
++                            messageId
++                        });
++                        return;
++                    }
++                    
++                    // Vérifier si le message existe
++                    const message = await MessagePrivate.findById(messageId);
++                    if (!message) {
++                        console.error(`Message ${messageId} non trouvé`);
++                        socket.emit('erreur-message-prive', {
++                            message: 'Message non trouvé',
++                            messageId
++                        });
++                        return;
++                    }
++                    
++                    // Vérifier que l'utilisateur est bien l'expéditeur du message
++                    if (message.expediteur.toString() !== socket.idUtilisateur) {
++                        console.error(`Utilisateur ${socket.idUtilisateur} non autorisé à modifier ce message`);
++                        socket.emit('erreur-message-prive', {
++                            message: 'Vous n\'êtes pas autorisé à modifier ce message',
++                            messageId
++                        });
++                        return;
++                    }
++                    
++                    // Mettre à jour le message
++                    message.contenu = contenu;
++                    message.modifie = true;
++                    message.dateModification = Date.now();
++                    await message.save();
++                    
++                    // Peupler les références pour la réponse
++                    const messagePopule = await MessagePrivate.findById(message._id)
++                        .populate('expediteur', 'username firstName lastName profilePicture')
++                        .populate('destinataire', 'username firstName lastName profilePicture')
++                        .populate({
++                            path: 'reponseA',
++                            populate: {
++                                path: 'expediteur',
++                                select: 'username firstName lastName profilePicture'
++                            }
++                        });
++                    
++                    // Notifier le destinataire
++                    this.io.to(`user:${message.destinataire.toString()}`).emit('message-prive-modifie', messagePopule);
++                    
++                    // Confirmer la modification à l'expéditeur
++                    socket.emit('message-prive-modifie', messagePopule);
++                    
++                    console.log(`Message ${messageId} modifié avec succès`);
++                } catch (error) {
++                    console.error('Erreur lors de la modification du message:', error);
++                    socket.emit('erreur-message-prive', {
++                        message: 'Erreur lors de la modification du message',
++                        error: error.message,
++                        messageId
++                    });
++                }
++            });
++            
++            // Supprimer un message privé
++            socket.on('supprimer-message-prive', async ({ messageId }) => {
++                try {
++                    console.log(`Tentative de suppression du message ${messageId} par ${socket.idUtilisateur}`);
++                    
++                    // Vérifier si le message existe
++                    const message = await MessagePrivate.findById(messageId);
++                    if (!message) {
++                        console.error(`Message ${messageId} non trouvé`);
++                        socket.emit('erreur-message-prive', {
++                            message: 'Message non trouvé',
++                            messageId
++                        });
++                        return;
++                    }
++                    
++                    // Vérifier que l'utilisateur est bien l'expéditeur du message
++                    if (message.expediteur.toString() !== socket.idUtilisateur) {
++                        console.error(`Utilisateur ${socket.idUtilisateur} non autorisé à supprimer ce message`);
++                        socket.emit('erreur-message-prive', {
++                            message: 'Vous n\'êtes pas autorisé à supprimer ce message',
++                            messageId
++                        });
++                        return;
++                    }
++                    
++                    // Sauvegarder l'ID du destinataire avant de supprimer le message
++                    const destinataireId = message.destinataire.toString();
++                    
++                    // Supprimer le message
++                    await MessagePrivate.findByIdAndDelete(messageId);
++                    
++                    // Notifier le destinataire
++                    this.io.to(`user:${destinataireId}`).emit('message-prive-supprime', {
++                        messageId
++                    });
++                    
++                    // Confirmer la suppression à l'expéditeur
++                    socket.emit('message-prive-supprime', {
++                        messageId
++                    });
++                    
++                    console.log(`Message ${messageId} supprimé avec succès`);
++                } catch (error) {
++                    console.error('Erreur lors de la suppression du message:', error);
++                    socket.emit('erreur-message-prive', {
++                        message: 'Erreur lors de la suppression du message',
++                        error: error.message,
++                        messageId
++                    });
++                }
++            });
++            
++            // Gérer la déconnexion
++            socket.on('disconnect', () => {
++                console.log(`Utilisateur déconnecté: ${socket.idUtilisateur}`);
++                this.utilisateursConnectes.delete(socket.idUtilisateur);
++            });
++        });
++    }
++
++    // Fonction pour que l'utilisateur rejoigne les rooms de ses conversations
++    async rejoindreConversations(socket) {
++        try {
++            const ConversationPrivee = require('../models/conversationPrivee');
++            
++            // Trouver toutes les conversations dont l'utilisateur est membre
++            const conversations = await ConversationPrivee.find({
++                'participants.utilisateur': socket.idUtilisateur
++            });
++            
++            // Rejoindre chaque conversation
++            conversations.forEach(conversation => {
++                socket.join(`conversation:${conversation._id}`);
++                console.log(`Utilisateur ${socket.idUtilisateur} a rejoint la conversation ${conversation._id}`);
++            });
++            
++            console.log(`Utilisateur ${socket.idUtilisateur} a rejoint ${conversations.length} conversations`);
++        } catch (error) {
++            console.error('Erreur lors de la connexion aux conversations:', error);
++        }
++    }
++
++    // Fonction pour émettre un message à un canal
++    emitToCanal(canalId, evenement, donnees) {
++        if (this.io) {
++            this.io.to(`canal:${canalId}`).emit(evenement, donnees);
++        } else {
++            console.error('Socket.IO n\'est pas initialisé');
++        }
++    }
++
++    // Fonction pour émettre un message à un utilisateur
++    emitToUser(userId, evenement, donnees) {
++        if (this.io) {
++            this.io.to(`user:${userId}`).emit(evenement, donnees);
++        } else {
++            console.error('Socket.IO n\'est pas initialisé');
++        }
++    }
++    
++    // Fonction pour émettre un message à tous les participants d'une conversation
++    emitToConversation(conversationId, evenement, donnees) {
++        if (this.io) {
++            this.io.to(`conversation:${conversationId}`).emit(evenement, donnees);
++        } else {
++            console.error('Socket.IO n\'est pas initialisé');
++        }
++    }
++
++    // Méthode pour faire rejoindre un canal à un utilisateur
++    joinCanal(idUtilisateur, idCanal) {
++        const socketId = this.utilisateursConnectes.get(idUtilisateur);
++        if (socketId) {
++            const socket = this.io.sockets.sockets.get(socketId);
++            if (socket) {
++                socket.join(`canal:${idCanal}`);
++                console.log(`Utilisateur ${idUtilisateur} a rejoint le canal ${idCanal}`);
++            }
++        }
++    }
++
++    // Méthode pour faire quitter un canal à un utilisateur
++    leaveCanal(idUtilisateur, idCanal) {
++        const socketId = this.utilisateursConnectes.get(idUtilisateur);
++        if (socketId) {
++            const socket = this.io.sockets.sockets.get(socketId);
++            if (socket) {
++                socket.leave(`canal:${idCanal}`);
++                console.log(`Utilisateur ${idUtilisateur} a quitté le canal ${idCanal}`);
++            }
++        }
++    }
++}
++
++module.exports = new ServiceSocket();
+diff --git a/client/src/App.vue b/client/src/App.vue
+index e16178e..17fd2ef 100644
+--- a/client/src/App.vue
++++ b/client/src/App.vue
+@@ -7,27 +7,66 @@
+ 
+ <script>
+ import Header from './components/headerFile/Header.vue'
++import userService from './services/userService.js'
+ 
+ export default {
+   name: 'App',
+   components: {
+     Header
+   },
+-  created() {
++  async created() {
+     // Initialiser le thème au chargement de l'application
+-    // D'abord on vérifie si un thème est déjà stocké dans le localStorage
+-    const savedTheme = localStorage.getItem('theme');
+-    if (savedTheme) {
+-      // Appliquer le thème sauvegarrdé
+-      if (savedTheme === 'dark') {
++    await this.loadUserTheme();
++  },
++  methods: {
++    async loadUserTheme() {
++      const token = localStorage.getItem('token');
++      
++      if (token) {
++        // Si un utilisateur est connecté, récupérer son profil pour obtenir le thème
++        try {
++          const response = await userService.getProfile();
++          if (response && response.data) {
++            // Convertir le thème du français vers l'anglais
++            let theme = 'dark'; // Par défaut sombre
++            
++            // Si le thème existe dans le profil, le convertir
++            if (response.data.theme) {
++              theme = response.data.theme === 'sombre' ? 'dark' : 'light';
++            }
++            
++            // Sauvegarder dans localStorage pour les futurs chargements
++            localStorage.setItem('theme', theme);
++            
++            // Appliquer le thème
++            this.applyTheme(theme);
++          }
++        } catch (error) {
++          console.error('Erreur lors de la récupération du thème depuis l\'API:', error);
++          this.applyDefaultTheme();
++        }
++      } else {
++        // Si personne n'est connecté, appliquer le thème par défaut (sombre)
++        this.applyDefaultTheme();
++      }
++    },
++    
++    
++    applyTheme(theme) {
++      if (theme === 'dark') {
+         document.documentElement.classList.remove('light-theme');
+         document.documentElement.classList.add('dark-theme');
+       } else {
+         document.documentElement.classList.remove('dark-theme');
+         document.documentElement.classList.add('light-theme');
+       }
+-    } else {
+-      // Par défaut, appliquer le thème sombre (correspond au CSS de base)
++    },
++    
++    
++    applyDefaultTheme() {
++      // Thème par défaut : sombre
++      localStorage.setItem('theme', 'dark');
++      document.documentElement.classList.remove('light-theme');
+       document.documentElement.classList.add('dark-theme');
+     }
+   },
+diff --git a/client/src/components/profilParamFile/ProfileStatus.vue b/client/src/components/profilParamFile/ProfileStatus.vue
+index 1248b8a..02dc7a2 100644
+--- a/client/src/components/profilParamFile/ProfileStatus.vue
++++ b/client/src/components/profilParamFile/ProfileStatus.vue
+@@ -47,17 +47,14 @@ export default {
+       // Récupérer le profil de l'utilisateur pour obtenir son statut et son thème actuels
+       const response = await userService.getProfile();
+       if (response && response.data) {
++        // Définir le statut correctement
+         this.status = response.data.status || 'online';
+-        this.darkMode = response.data.theme === 'dark';
+         
+-        // Appliquer le thème à l'application
+-        if (this.darkMode) {
+-          document.documentElement.classList.remove('light-theme');
+-          document.documentElement.classList.add('dark-theme');
+-        } else {
+-          document.documentElement.classList.remove('dark-theme');
+-          document.documentElement.classList.add('light-theme');
+-        }
++        // Récupérer le thème correctement (en français dans l'API)
++        this.darkMode = response.data.theme === 'sombre';
++        
++        // NE PAS redéfinir les classes CSS ici pour éviter de surcharger App.vue
++        // Le thème est déjà appliqué par App.vue lors du chargement initial
+       }
+     } catch (error) {
+       console.error('Erreur lors de la récupération du profil:', error);
+@@ -100,15 +97,17 @@ export default {
+       }
+     },
+     async updateThemePreference() {
+-      const theme = this.darkMode ? 'dark' : 'light';
++      // Le service userService s'attend à des valeurs en français
++      const theme = this.darkMode ? 'sombre' : 'clair';
+       this.loading = true;
+       this.error = null;
+       
+       try {
+         await userService.updateTheme(theme);
+         
+-        // Sauvegarder le thème dans le localStorage pour qu'il persiste entre les sessions
+-        localStorage.setItem('theme', theme);
++        // Sauvegarder le thème en anglais dans le localStorage pour la cohérence avec App.vue
++        const localTheme = this.darkMode ? 'dark' : 'light';
++        localStorage.setItem('theme', localTheme);
+         
+         // Appliquer le thème à l'application
+         if (this.darkMode) {
+diff --git a/client/src/pages/Auth.vue b/client/src/pages/Auth.vue
+index f66e913..46c12c2 100644
+--- a/client/src/pages/Auth.vue
++++ b/client/src/pages/Auth.vue
+@@ -39,6 +39,7 @@ import AuthForm from '../components/AuthFile/AuthForm.vue'
+ import SocialLogin from '../components/AuthFile/SocialLogin.vue'
+ import AuthToggle from '../components/AuthFile/AuthToggle.vue'
+ import authService from '../services/authService'
++import userService from '../services/userService.js'
+ 
+ export default {
+   name: 'Auth',
+@@ -73,6 +74,9 @@ export default {
+           this.successMessage = 'Connexion réussie!'
+           console.log('Connexion réussie:', response)
+           
++          // Charger et appliquer le thème de l'utilisateur avant la redirection
++          await this.loadUserTheme()
++          
+           // Rediriger vers la page d'accueil après 1 seconde
+           setTimeout(() => {
+             this.$router.push('/')
+@@ -118,6 +122,45 @@ export default {
+     loginWithFacebook() {
+       // Rediriger vers la route d'authentification Facebook
+       window.location.href = 'http://localhost:3000/api/v1/auth/facebook'
++    },
++    
++    /**
++     * Charge et applique le thème de l'utilisateur depuis l'API après connexion
++     */
++    async loadUserTheme() {
++      try {
++        // Récupérer le profil de l'utilisateur depuis l'API
++        const response = await userService.getProfile();
++        
++        if (response && response.data) {
++          // Convertir le thème du français vers l'anglais
++          let theme = 'dark'; // Par défaut sombre
++          
++          // Si le thème existe dans le profil, le convertir
++          if (response.data.theme) {
++            theme = response.data.theme === 'sombre' ? 'dark' : 'light';
++            console.log('Thème récupéré après connexion:', response.data.theme, '->', theme);
++          }
++          
++          // Sauvegarder dans localStorage pour les futurs chargements
++          localStorage.setItem('theme', theme);
++          
++          // Appliquer le thème directement
++          if (theme === 'dark') {
++            document.documentElement.classList.remove('light-theme');
++            document.documentElement.classList.add('dark-theme');
++          } else {
++            document.documentElement.classList.remove('dark-theme');
++            document.documentElement.classList.add('light-theme');
++          }
++        }
++      } catch (error) {
++        console.error('Erreur lors du chargement du thème après connexion:', error);
++        // En cas d'erreur, appliquer le thème par défaut (sombre)
++        localStorage.setItem('theme', 'dark');
++        document.documentElement.classList.remove('light-theme');
++        document.documentElement.classList.add('dark-theme');
++      }
+     }
+   }
+ }
+diff --git a/client/src/services/authService.js b/client/src/services/authService.js
+index f5cda89..6c6c78c 100644
+--- a/client/src/services/authService.js
++++ b/client/src/services/authService.js
+@@ -106,11 +106,18 @@ const authService = {
+   },
+ 
+   /**
+-   * Déconnexion de l'utilisateur
++   * Déconnexion de l'utilisateur et application du thème sombre par défaut
+    */
+   logout() {
++    // Avant de supprimer le token, appliquer le thème sombre par défaut
++    localStorage.setItem('theme', 'dark');
++    document.documentElement.classList.remove('light-theme');
++    document.documentElement.classList.add('dark-theme');
++    
++    // Supprimer le token d'authentification
+     localStorage.removeItem('token');
+-    // Optionnel: Appeler l'API pour invalider le token côté serveur
++    
++    // Appeler l'API pour invalider le token côté serveur
+     return fetch(`${API_URL}/auth/deconnexion`, {
+       method: 'POST',
+       credentials: 'include',
+diff --git a/client/src/services/userService.js b/client/src/services/userService.js
+index 428c743..8c556f0 100644
+--- a/client/src/services/userService.js
++++ b/client/src/services/userService.js
+@@ -170,6 +170,22 @@ const userService = {
+     if (!token) {
+       throw new Error('Non authentifié');
+     }
++    
++    // Convertir les valeurs anglaises en françaises pour l'API
++    let statusFr;
++    switch(status) {
++      case 'online':
++        statusFr = 'en ligne';
++        break;
++      case 'away':
++        statusFr = 'absent';
++        break;
++      case 'offline':
++        statusFr = 'ne pas déranger';
++        break;
++      default:
++        statusFr = 'en ligne';
++    }
+ 
+     try {
+       // Utiliser l'endpoint spécifique pour la mise à jour du statut
+@@ -179,7 +195,7 @@ const userService = {
+           'Authorization': `Bearer ${token}`,
+           'Content-Type': 'application/json'
+         },
+-        body: JSON.stringify({ status }),
++        body: JSON.stringify({ status: statusFr }),
+         credentials: 'include'
+       });
+ 
+@@ -209,6 +225,18 @@ const userService = {
+     if (!token) {
+       throw new Error('Non authentifié');
+     }
++    
++    // Vérifier si le thème est déjà en français ou s'il est en anglais
++    let themeFr;
++    if (theme === 'sombre' || theme === 'clair') {
++      // Déjà en français, pas besoin de conversion
++      themeFr = theme;
++      console.log('Thème déjà en français:', themeFr);
++    } else {
++      // Convertir les valeurs anglaises en françaises pour l'API
++      themeFr = theme === 'dark' ? 'sombre' : 'clair';
++      console.log('Thème converti de l\'anglais au français:', theme, '->', themeFr);
++    }
+ 
+     try {
+       // Utiliser l'endpoint spécifique pour la mise à jour du thème
+@@ -218,7 +246,7 @@ const userService = {
+           'Authorization': `Bearer ${token}`,
+           'Content-Type': 'application/json'
+         },
+-        body: JSON.stringify({ theme }),
++        body: JSON.stringify({ theme: themeFr }),
+         credentials: 'include'
+       });
+ 
+-- 
+2.45.2.windows.1
+
