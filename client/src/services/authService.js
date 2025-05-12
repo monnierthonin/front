@@ -5,6 +5,11 @@
 // URL de base de l'API avec le préfixe correct v1
 const API_URL = 'http://localhost:3000/api/v1';
 
+// Import du système d'événements
+import { eventBus, APP_EVENTS } from '../utils/eventBus.js';
+// Import du service utilisateur pour charger le profil
+import userService from './userService.js';
+
 /**
  * Service d'authentification
  */
@@ -96,6 +101,49 @@ const authService = {
       if (data.token) {
         localStorage.setItem('token', data.token);
         console.log('Token stocké après connexion:', data.token);
+        
+        // Charger directement le profil utilisateur
+        try {
+          const profileResponse = await userService.getProfile();
+          
+          if (profileResponse && profileResponse.data) {
+            // Enregistrer le thème
+            if (profileResponse.data.theme) {
+              const theme = profileResponse.data.theme === 'sombre' ? 'dark' : 'light';
+              localStorage.setItem('theme', theme);
+            }
+            
+            // Enregistrer le statut
+            if (profileResponse.data.status) {
+              let status;
+              switch(profileResponse.data.status) {
+                case 'en ligne': status = 'online'; break;
+                case 'absent': status = 'away'; break;
+                case 'ne pas déranger': status = 'offline'; break;
+                default: status = 'online';
+              }
+              localStorage.setItem('userStatus', status);
+            }
+            
+            // Enregistrer la photo de profil
+            if (profileResponse.data.profilePicture) {
+              localStorage.setItem('profilePicture', profileResponse.data.profilePicture);
+              console.log('Photo de profil chargée depuis le serveur:', profileResponse.data.profilePicture);
+              
+              // Notifier les composants immédiatement
+              eventBus.emit(APP_EVENTS.PROFILE_PICTURE_UPDATED, profileResponse.data.profilePicture);
+            } else {
+              localStorage.setItem('profilePicture', 'default.jpg');
+            }
+          }
+          
+          // Émettre l'événement de connexion réussie
+          eventBus.emit(APP_EVENTS.USER_LOGGED_IN);
+        } catch (profileError) {
+          console.error('Erreur lors du chargement du profil après connexion:', profileError);
+          // En cas d'erreur, émettre quand même l'événement de connexion
+          eventBus.emit(APP_EVENTS.USER_LOGGED_IN);
+        }
       }
       
       return data;
@@ -109,13 +157,21 @@ const authService = {
    * Déconnexion de l'utilisateur et application du thème sombre par défaut
    */
   logout() {
-    // Avant de supprimer le token, appliquer le thème sombre par défaut
+    // Avant de supprimer les données, appliquer le thème sombre par défaut
     localStorage.setItem('theme', 'dark');
     document.documentElement.classList.remove('light-theme');
     document.documentElement.classList.add('dark-theme');
     
-    // Supprimer le token d'authentification
+    // Supprimer toutes les données utilisateur du localStorage
     localStorage.removeItem('token');
+    localStorage.removeItem('profilePicture');
+    localStorage.removeItem('status');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    localStorage.removeItem('email');
+    
+    // Émettre l'événement de déconnexion
+    eventBus.emit(APP_EVENTS.USER_LOGGED_OUT);
     
     // Appeler l'API pour invalider le token côté serveur
     return fetch(`${API_URL}/auth/deconnexion`, {

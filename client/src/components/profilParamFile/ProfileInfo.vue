@@ -1,6 +1,18 @@
 <template>
   <div class="containerSetting">
-    <img src="../../assets/styles/image/profilDelault.png" class="profile-image-param" alt="profil">
+    <div class="profile-image-container">
+      <img :src="profileImageUrl" class="profile-image-param" alt="profil">
+      <div class="profile-image-overlay" @click="openFileSelector">
+        <span>Modifier la photo</span>
+      </div>
+      <input 
+        type="file" 
+        ref="fileInput" 
+        class="file-input" 
+        @change="handleFileChange" 
+        accept="image/jpeg,image/png,image/webp,image/svg+xml"
+      >
+    </div>
     <div class="settings">
       <h2 class="username">{{ currentUsername }}</h2>
       <h2 class="email">{{ currentEmail }}</h2>
@@ -27,11 +39,15 @@
 
 <script>
 import userService from '../../services/userService.js';
+import defaultProfileImg from '../../assets/styles/image/profilDelault.png';
+import { eventBus, APP_EVENTS } from '../../utils/eventBus.js';
 
 export default {
   name: 'ProfileInfo',
   data() {
     return {
+      selectedFile: null,
+      currentProfilePicture: localStorage.getItem('profilePicture') || 'default.jpg',
       currentUsername: '',
       currentEmail: '',
       username: '',
@@ -44,7 +60,42 @@ export default {
       successMessage: ''
     }
   },
+  computed: {
+    profileImageUrl() {
+      if (this.currentProfilePicture && this.currentProfilePicture !== 'default.jpg') {
+        return `http://localhost:3000/uploads/profiles/${this.currentProfilePicture}`;
+      }
+      // Utilisation de l'image importée
+      return defaultProfileImg;
+    }
+  },
   created() {
+    // S'abonner à l'événement de mise à jour de la photo de profil
+    eventBus.on(APP_EVENTS.PROFILE_PICTURE_UPDATED, (newProfilePicture) => {
+      console.log('ProfileInfo a reçu l\'\u00e9vénement de mise à jour de la photo de profil:', newProfilePicture);
+      this.currentProfilePicture = newProfilePicture;
+    });
+    
+    // S'abonner à l'événement de connexion
+    eventBus.on(APP_EVENTS.USER_LOGGED_IN, () => {
+      console.log('ProfileInfo a reçu l\'\u00e9vénement de connexion');
+      // Recharger les données du profil après connexion
+      this.fetchUserProfile();
+      // Récupérer la nouvelle photo de profil du localStorage
+      this.currentProfilePicture = localStorage.getItem('profilePicture') || 'default.jpg';
+    });
+    
+    // S'abonner à l'événement de déconnexion
+    eventBus.on(APP_EVENTS.USER_LOGGED_OUT, () => {
+      console.log('ProfileInfo a reçu l\'\u00e9vénement de déconnexion');
+      // Réinitialiser les données du profil sauf la photo
+      // La photo sera correctement actualisée lors de la prochaine connexion
+      this.currentUsername = '';
+      this.currentEmail = '';
+      this.username = '';
+      this.email = '';
+    });
+    
     console.log('Component created, fetching profile...');
     // Utilisation de then/catch au lieu de async/await pour s'assurer que le cycle de vie est complet
     this.fetchUserProfile()
@@ -58,6 +109,8 @@ export default {
         console.error('Erreur lors du chargement du profil:', error);
       });
   },
+
+
   
   // S'assurer que les données sont bien mises à jour après le montage du composant
   mounted() {
@@ -72,6 +125,79 @@ export default {
     }
   },
   methods: {
+    openFileSelector() {
+      this.$refs.fileInput.click();
+    },
+
+    async handleFileChange(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // Vérifier le type de fichier (comme dans multer.js)
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+      if (!allowedTypes.includes(file.type)) {
+        this.errorMessage = 'Seules les images JPG, JPEG, PNG, WEBP et SVG sont acceptées.';
+        return;
+      }
+
+      // Vérifier la taille du fichier (max 5MB comme dans multer.js)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        this.errorMessage = 'L\'image ne doit pas dépasser 5MB.';
+        return;
+      }
+
+      this.selectedFile = file;
+      this.errorMessage = '';
+      this.successMessage = 'Image sélectionnée. Cliquez sur Enregistrer pour valider.';
+    },
+
+    async uploadProfileImage() {
+      if (!this.selectedFile) return false;
+
+      try {
+        // Créer un nouveau FormData pour l'envoi
+        const formData = new FormData();
+        formData.append('profilePicture', this.selectedFile);
+
+        // Appel à l'API
+        const response = await fetch('http://localhost:3000/api/v1/users/profile/picture', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: formData
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Erreur lors de la mise à jour de la photo de profil');
+        }
+
+        const data = await response.json();
+        console.log('Photo de profil mise à jour:', data);
+        
+        // Mettre à jour le localStorage avec le nouveau nom de fichier
+        if (data.success && data.data && data.data.profilePicture) {
+          const newProfilePicture = data.data.profilePicture;
+          localStorage.setItem('profilePicture', newProfilePicture);
+          console.log('localStorage mis à jour avec la nouvelle photo:', newProfilePicture);
+          
+          // Mettre à jour notre propre composant en même temps
+          this.currentProfilePicture = newProfilePicture;
+          
+          // Émettre un événement pour informer les autres composants
+          eventBus.emit(APP_EVENTS.PROFILE_PICTURE_UPDATED, newProfilePicture);
+        }
+        
+        this.selectedFile = null;
+        return true;
+      } catch (error) {
+        console.error('Erreur lors de l\'upload de l\'image:', error);
+        this.errorMessage = error.message || 'Erreur lors de la mise à jour de la photo de profil';
+        return false;
+      }
+    },
     async fetchUserProfile() {
       try {
         console.log('Exécution de fetchUserProfile...');
@@ -124,6 +250,14 @@ export default {
       this.successMessage = '';
       
       try {
+        // Si une image a été sélectionnée, la télécharger d'abord
+        if (this.selectedFile) {
+          const success = await this.uploadProfileImage();
+          if (success) {
+            this.successMessage = 'Photo de profil mise à jour avec succès';
+          }
+        }
+
         // Gestion de la mise à jour du profil (email et/ou username)
         if (this.username || this.email) {
           const profileData = {};
@@ -193,9 +327,48 @@ export default {
   gap: 20%;
 }
 
-.profile-image-param {
+.profile-image-container {
+  position: relative;
   width: 200px;
   height: 200px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.profile-image-param {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.profile-image-container:hover .profile-image-overlay {
+  opacity: 1;
+}
+
+.profile-image-overlay span {
+  color: white;
+  font-weight: bold;
+  text-align: center;
+  padding: 0 10px;
+}
+
+.file-input {
+  display: none;
 }
 
 .settings {

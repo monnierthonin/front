@@ -8,6 +8,7 @@
 <script>
 import Header from './components/headerFile/Header.vue'
 import userService from './services/userService.js'
+import { eventBus, APP_EVENTS } from './utils/eventBus.js'
 
 export default {
   name: 'App',
@@ -15,7 +16,7 @@ export default {
     Header
   },
   async created() {
-    // Initialiser le thème et le statut au chargement de l'application
+    // Initialiser le thème, le statut et la photo de profil au chargement de l'application
     await this.loadUserProfile();
   },
   methods: {
@@ -62,6 +63,30 @@ export default {
               localStorage.setItem('userStatus', status);
               console.log('Statut utilisateur chargé:', status);
             }
+            
+            // Récupérer et stocker la photo de profil
+            if (response.data.profilePicture) {
+              localStorage.setItem('profilePicture', response.data.profilePicture);
+              console.log('Photo de profil chargée depuis le serveur:', response.data.profilePicture);
+            } else {
+              // Si aucune photo de profil n'est définie, utiliser l'image par défaut
+              localStorage.setItem('profilePicture', 'default.jpg');
+              console.log('Aucune photo de profil trouvée, utilisation de l\'image par défaut');
+            }
+            
+            // Vérifier si c'est une connexion récente en regardant le localStorage
+            const justLoggedIn = localStorage.getItem('justLoggedIn');
+            if (justLoggedIn === 'true') {
+              // Réinitialiser le flag
+              localStorage.removeItem('justLoggedIn');
+              
+              // Émettre l'événement de connexion réussie - maintenant que nous avons les données de profil
+              console.log('Lancement de l\'\u00e9vénement USER_LOGGED_IN');
+              eventBus.emit(APP_EVENTS.USER_LOGGED_IN);
+            }
+            
+            // Dans tous les cas, informer les composants du changement de photo de profil
+            eventBus.emit(APP_EVENTS.PROFILE_PICTURE_UPDATED, response.data.profilePicture || 'default.jpg');
           }
         } catch (error) {
           console.error('Erreur lors de la récupération du thème depuis l\'API:', error);

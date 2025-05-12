@@ -37,7 +37,7 @@
         </div>
         <div class="boutonProfil">
           <router-link to="/profile">
-            <button class="profilButton"><img src="../../assets/styles/image/profilDelault.png" alt="profil" class="profilDefault"></button>
+            <button class="profilButton"><img :src="profileImageUrl" alt="profil" class="profilDefault"></button>
           </router-link>
         </div>
       </div>
@@ -47,10 +47,13 @@
 
 <script>
 import workspaceService from '../../services/workspaceService';
+import defaultProfileImg from '../../assets/styles/image/profilDelault.png';
+import { eventBus, APP_EVENTS } from '../../utils/eventBus.js';
 
 export default {
   data() {
     return {
+      currentProfilePicture: localStorage.getItem('profilePicture') || 'default.jpg',
       isAdmin: false, // A remplacer par la vraie valeur (en fonction de l'utilisateur)
       workspaces: [],
       loading: true,
@@ -58,6 +61,38 @@ export default {
       isAuthenticated: false
     }
   },
+  computed: {
+    profileImageUrl() {
+      if (this.currentProfilePicture && this.currentProfilePicture !== 'default.jpg') {
+        return `http://localhost:3000/uploads/profiles/${this.currentProfilePicture}`;
+      }
+      // Utilisation de l'image importée
+      return defaultProfileImg;
+    }
+  },
+
+  created() {
+    // S'abonner à l'événement de mise à jour de la photo de profil
+    eventBus.on(APP_EVENTS.PROFILE_PICTURE_UPDATED, (newProfilePicture) => {
+      console.log('Header a reçu l\'événement de mise à jour de la photo de profil:', newProfilePicture);
+      this.currentProfilePicture = newProfilePicture;
+    });
+    
+    // S'abonner à l'événement de connexion
+    eventBus.on(APP_EVENTS.USER_LOGGED_IN, () => {
+      console.log('Header a reçu l\'événement de connexion');
+      // Récupérer la nouvelle photo de profil du localStorage
+      this.currentProfilePicture = localStorage.getItem('profilePicture') || 'default.jpg';
+    });
+    
+    // S'abonner à l'événement de déconnexion
+    eventBus.on(APP_EVENTS.USER_LOGGED_OUT, () => {
+      console.log('Header a reçu l\'événement de déconnexion');
+      // Ne pas réinitialiser la photo de profil, laissons la fonction loadUserProfile le faire correctement
+      // quand l'utilisateur se connectera à nouveau
+    });
+  },
+  
   async mounted() {
     // Vérifier si l'utilisateur est authentifié
     this.isAuthenticated = localStorage.getItem('token') !== null;
@@ -227,6 +262,8 @@ export default {
 .profilDefault {
   width: 50px;
   height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .AjoutWorkspace {
