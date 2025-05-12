@@ -26,12 +26,6 @@ router.put('/profile/password', userController.updatePassword);
 // Mise à jour de la photo de profil
 router.put('/profile/picture', upload.single('profilePicture'), userController.updateProfilePicture);
 
-// Mise à jour du statut
-router.put('/status', userController.updateStatus);
-
-// Mise à jour du thème
-router.put('/theme', userController.updateTheme);
-
 // Suppression du compte
 router.delete('/profile', userController.deleteAccount);
 

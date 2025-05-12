@@ -291,13 +291,14 @@
  * @swagger
  * /api/v1/auth/me:
  *   get:
- *     summary: Récupérer l'utilisateur actuellement authentifié
+ *     summary: Obtenir les informations de l'utilisateur connecté
+ *     description: Retourne les informations de l'utilisateur actuellement authentifié
  *     tags: [Authentification]
  *     security:
  *       - BearerAuth: []
  *     responses:
  *       200:
- *         description: Utilisateur récupéré avec succès
+ *         description: Informations de l'utilisateur récupérées avec succès
  *         content:
  *           application/json:
  *             schema:
@@ -306,36 +307,6 @@
  *                 success:
  *                   type: boolean
  *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     user:
- *                       $ref: '#/components/schemas/User'
- *       401:
- *         description: Non authentifié
- * 
- * @swagger
- * /api/v1/auth/token:
- *   get:
- *     summary: Récupérer un token JWT valide pour l'utilisateur authentifié
- *     description: Cette route permet de récupérer un token JWT valide pour l'utilisateur authentifié via un cookie. Utile pour les authentifications OAuth.
- *     tags: [Authentification]
- *     security:
- *       - CookieAuth: []
- *     responses:
- *       200:
- *         description: Token JWT récupéré avec succès
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 token:
- *                   type: string
- *                   description: Token JWT valide
  *                 data:
  *                   type: object
  *                   properties:

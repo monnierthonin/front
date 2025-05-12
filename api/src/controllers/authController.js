@@ -134,11 +134,8 @@ exports.connexion = async (req, res) => {
             });
         }
 
-        // Mettre à jour la dernière connexion et le statut
+        // Mettre à jour la dernière connexion
         utilisateur.lastLogin = Date.now();
-        utilisateur.estConnecte = true;
-        utilisateur.dernierActivite = Date.now();
-        utilisateur.status = 'en ligne';
         await utilisateur.save({ validateBeforeSave: false });
 
         console.log('Connexion réussie pour:', email);
@@ -162,7 +159,7 @@ exports.deconnexion = async (req, res) => {
             // Mettre à jour le statut de l'utilisateur
             const utilisateur = await User.findById(req.user.id);
             if (utilisateur) {
-                utilisateur.estConnecte = false;
+                utilisateur.status = 'offline';
                 await utilisateur.save();
             }
         }
@@ -521,45 +518,6 @@ exports.getCurrentUser = async (req, res) => {
     }
 };
 
-// Récupérer le token JWT du cookie
-exports.getToken = async (req, res) => {
-    try {
-        // Vérifier si l'utilisateur est authentifié
-        if (!req.user) {
-            return res.status(401).json({
-                success: false,
-                message: 'Non authentifié'
-            });
-        }
-
-        // Récupérer l'utilisateur complet
-        const user = await User.findById(req.user.id).select('-password');
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'Utilisateur non trouvé'
-            });
-        }
-
-        // Générer un nouveau token
-        const token = genererToken(user);
-
-        res.status(200).json({
-            success: true,
-            token,
-            data: {
-                user
-            }
-        });
-    } catch (error) {
-        console.error('Erreur lors de la récupération du token:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Erreur interne du serveur'
-        });
-    }
-};
-
 // Callback Google OAuth2
 exports.googleCallback = async (req, res) => {
     try {
@@ -612,6 +570,5 @@ module.exports = {
     googleCallback: exports.googleCallback,
     microsoftCallback: exports.microsoftCallback,
     facebookCallback: exports.facebookCallback,
-    getCurrentUser: exports.getCurrentUser,
-    getToken: exports.getToken
+    getCurrentUser: exports.getCurrentUser
 };

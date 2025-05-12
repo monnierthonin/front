@@ -95,8 +95,7 @@ exports.obtenirCanal = catchAsync(async (req, res, next) => {
         return next(new AppError('Vous n\'avez pas accès à ce workspace', 403));
     }
 
-    // Utiliser let au lieu de const pour permettre la réassignation plus tard
-    let canal = await Canal.findOne({
+    const canal = await Canal.findOne({
         _id: req.params.id,
         workspace: req.params.workspaceId,
         $or: [
@@ -163,26 +162,25 @@ exports.mettreAJourCanal = catchAsync(async (req, res, next) => {
     const canal = await Canal.findOne({
         _id: req.params.id,
         workspace: req.params.workspaceId
-    });
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
     }
 
     // Vérifier les permissions
-    if (!canal.peutModifier(req.user.id)) {
+    if (!canal.peutModifierCanal(req.user.id)) {
         return next(new AppError('Vous n\'avez pas la permission de modifier ce canal', 403));
     }
 
-    // Filtrer les champs autorisés
-    const filteredBody = {};
-    if (req.body.nom) filteredBody.nom = req.body.nom;
-    if (req.body.description) filteredBody.description = req.body.description;
-    if (req.body.visibilite) filteredBody.visibilite = req.body.visibilite;
-
     const updatedCanal = await Canal.findByIdAndUpdate(
         req.params.id,
-        filteredBody,
+        {
+            nom: req.body.nom,
+            description: req.body.description,
+            visibilite: req.body.visibilite,
+            parametres: req.body.parametres
+        },
         {
             new: true,
             runValidators: true
@@ -213,7 +211,7 @@ exports.supprimerCanal = catchAsync(async (req, res, next) => {
     const canal = await Canal.findOne({
         _id: req.params.id,
         workspace: req.params.workspaceId
-    });
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
@@ -224,13 +222,8 @@ exports.supprimerCanal = catchAsync(async (req, res, next) => {
         return next(new AppError('Vous n\'avez pas la permission de supprimer ce canal', 403));
     }
 
-    // Supprimer d'abord les messages associés
-    console.log(`Suppression des messages du canal: ${canal._id}`);
-    const messagesSupprimes = await Message.deleteMany({ canal: canal._id });
-    console.log(`${messagesSupprimes.deletedCount} messages supprimés`);
-    
-    // Supprimer également les réactions et les fichiers associés aux messages
-    // Note: Cela pourrait être géré par des hooks dans le modèle Message si nécessaire
+    // Supprimer d'abord tous les messages du canal
+    await Message.deleteMany({ canal: req.params.id });
 
     // Puis supprimer le canal
     await canal.deleteOne();
@@ -254,19 +247,22 @@ exports.ajouterMembre = catchAsync(async (req, res, next) => {
         return next(new AppError('Vous n\'avez pas accès à ce workspace', 403));
     }
 
+    // Trouver le canal
     const canal = await Canal.findOne({
         _id: req.params.id,
         workspace: req.params.workspaceId
-    });
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
     }
 
-    // Vérifier si l'utilisateur courant est membre du canal
-    const membreCourant = canal.membres.find(m => 
-        m.utilisateur.toString() === req.user.id.toString()
-    );
+    // Vérifier les permissions directement sur le rôle de l'utilisateur
+    const membreCourant = canal.membres.find(m => {
+        return m.utilisateur && 
+               (m.utilisateur._id ? m.utilisateur._id.toString() === req.user.id.toString() : 
+                m.utilisateur.toString() === req.user.id.toString());
+    });
 
     if (!membreCourant) {
         return next(new AppError('Vous n\'êtes pas membre de ce canal', 403));
@@ -283,30 +279,22 @@ exports.ajouterMembre = catchAsync(async (req, res, next) => {
         return next(new AppError('ID utilisateur requis', 400));
     }
     
-    // Vérifier si l'utilisateur est membre du workspace
-    const membreWorkspace = workspace.membres.find(m => 
-        m.utilisateur.toString() === utilisateurId.toString()
-    );
-
-    if (!membreWorkspace) {
-        return next(new AppError('L\'utilisateur n\'est pas membre du workspace', 400));
+    if (!workspace.estMembre(utilisateurId)) {
+        return next(new AppError('L\'utilisateur doit d\'abord être membre du workspace', 400));
     }
 
-    // Vérifier si l'utilisateur est déjà membre du canal
-    const dejaMembreCanal = canal.membres.find(m => 
-        m.utilisateur.toString() === utilisateurId.toString()
-    );
-
-    if (dejaMembreCanal) {
-        return next(new AppError('L\'utilisateur est déjà membre du canal', 400));
+    // Vérifier si l'utilisateur n'est pas déjà membre du canal
+    if (canal.estMembre(utilisateurId)) {
+        return next(new AppError('L\'utilisateur est déjà membre de ce canal', 400));
     }
 
-    // Définir le rôle (par défaut 'membre')
-    const role = req.body.role && ['admin', 'moderateur', 'membre'].includes(req.body.role) 
-        ? req.body.role 
-        : 'membre';
+    // Vérifier que le rôle est valide
+    const role = req.body.role || 'membre';
+    if (!['membre', 'moderateur', 'admin'].includes(role)) {
+        return next(new AppError('Rôle invalide. Doit être "membre", "moderateur" ou "admin"', 400));
+    }
 
-    // Ajouter l'utilisateur comme membre
+    // Ajouter le membre
     canal.membres.push({
         utilisateur: utilisateurId,
         role: role
@@ -345,20 +333,19 @@ exports.modifierRoleMembre = catchAsync(async (req, res, next) => {
         return next(new AppError('Canal non trouvé', 404));
     }
 
-    // Vérifier si l'utilisateur courant est membre du canal avec des droits d'admin
-    if (!canal.peutGererMembres(req.user.id)) {
-        return next(new AppError('Vous n\'avez pas la permission de modifier les rôles', 403));
+    // Vérifier les permissions
+    if (!canal.peutGererRoles(req.user.id)) {
+        return next(new AppError('Vous n\'avez pas la permission de gérer les rôles', 403));
     }
 
-    // Vérifier si le membre à modifier existe
     const membre = canal.membres.id(req.params.membreId);
     if (!membre) {
         return next(new AppError('Membre non trouvé', 404));
     }
 
-    // Vérifier le rôle demandé
-    if (!['admin', 'moderateur', 'membre'].includes(req.body.role)) {
-        return next(new AppError('Rôle invalide. Doit être "admin", "moderateur" ou "membre"', 400));
+    // Vérifier que le rôle est valide
+    if (!['membre', 'moderateur', 'admin'].includes(req.body.role)) {
+        return next(new AppError('Rôle invalide. Doit être "membre", "moderateur" ou "admin"', 400));
     }
 
     // Empêcher un non-admin de promouvoir quelqu'un admin
@@ -380,6 +367,10 @@ exports.modifierRoleMembre = catchAsync(async (req, res, next) => {
 
 // Upload de fichiers
 exports.uploadFichier = catchAsync(async (req, res, next) => {
+    if (!req.files || req.files.length === 0) {
+        return next(new AppError('Aucun fichier n\'a été uploadé', 400));
+    }
+
     // Vérifier d'abord si l'utilisateur a accès au workspace
     const workspace = await Workspace.findById(req.params.workspaceId);
     if (!workspace) {
@@ -394,36 +385,50 @@ exports.uploadFichier = catchAsync(async (req, res, next) => {
     const canal = await Canal.findOne({
         _id: req.params.id,
         workspace: req.params.workspaceId
-    });
+    }).populate('membres.utilisateur', 'username email profilePicture');
 
     if (!canal) {
         return next(new AppError('Canal non trouvé', 404));
     }
 
-    // Vérifier si l'utilisateur est membre du canal
-    if (!canal.peutEcrire(req.user.id)) {
-        return next(new AppError('Vous n\'avez pas la permission d\'uploader des fichiers', 403));
+    // Vérifier les permissions
+    if (!canal.peutGererFichiers(req.user.id)) {
+        return next(new AppError('Vous n\'avez pas la permission de gérer les fichiers', 403));
     }
 
-    if (!req.file) {
-        return next(new AppError('Aucun fichier fourni', 400));
+    // Vérifier les extensions des fichiers
+    for (const file of req.files) {
+        if (!canal.verifierExtensionFichier(file.originalname)) {
+            // Supprimer les fichiers déjà uploadés
+            req.files.forEach(f => fichierService.supprimerFichier(f.filename));
+            return next(new AppError(`Extension de fichier non autorisée: ${file.originalname}`, 400));
+        }
+
+        // Vérifier la taille du fichier
+        if (file.size > canal.parametres.tailleMaxFichier) {
+            // Supprimer les fichiers déjà uploadés
+            req.files.forEach(f => fichierService.supprimerFichier(f.filename));
+            return next(new AppError(`Le fichier ${file.originalname} dépasse la taille maximale autorisée`, 400));
+        }
     }
 
-    // Ajouter le fichier à la liste des fichiers du canal
-    canal.fichiers.push({
-        nom: req.file.filename,
-        type: req.file.mimetype,
-        taille: req.file.size,
-        uploadedBy: req.user.id,
-        uploadedAt: Date.now()
-    });
+    // Ajouter les fichiers au canal
+    const fichiers = req.files.map(file => ({
+        nom: file.originalname,
+        type: file.mimetype,
+        taille: file.size,
+        url: `/uploads/${file.filename}`,
+        uploadePar: req.user.id
+    }));
 
+    canal.fichiers.push(...fichiers);
     await canal.save();
 
     res.status(200).json({
         status: 'success',
+        message: `${req.files.length} fichier(s) uploadé(s) avec succès`,
         data: {
-            fichier: canal.fichiers[canal.fichiers.length - 1]
+            fichiers
         }
     });
 });
@@ -515,58 +520,6 @@ exports.supprimerFichier = catchAsync(async (req, res, next) => {
     res.status(204).json({
         status: 'success',
         data: null
-    });
-});
-
-// Rechercher des canaux publics (pour les mentions)
-exports.rechercherCanauxPublics = catchAsync(async (req, res, next) => {
-    const { q, all } = req.query;
-    
-    // Si ni q ni all ne sont fournis, renvoyer une erreur
-    if (!q && all !== 'true') {
-        return res.status(400).json({
-            status: 'fail',
-            message: 'Un terme de recherche (q) ou le paramètre all=true est requis'
-        });
-    }
-    
-    let query = { visibilite: 'public' };
-    
-    // Si un terme de recherche est fourni, ajouter la condition de recherche
-    if (q) {
-        query.$or = [
-            { nom: { $regex: q, $options: 'i' } },
-            { description: { $regex: q, $options: 'i' } }
-        ];
-    }
-    
-    // Récupérer les canaux publics qui correspondent à la recherche
-    const canaux = await Canal.find(query)
-        .select('_id nom description workspace visibilite')
-        .populate('workspace', 'nom')
-        .limit(all === 'true' ? 50 : 10);
-    
-    // Transformer les résultats pour inclure le nom du workspace
-    const canauxAvecWorkspace = canaux.map(canal => {
-        const workspaceNom = canal.workspace ? canal.workspace.nom : 'Workspace inconnu';
-        return {
-            _id: canal._id,
-            nom: canal.nom,
-            description: canal.description,
-            workspaceId: canal.workspace._id,
-            workspaceNom: workspaceNom,
-            visibilite: canal.visibilite,
-            // Créer un identifiant unique pour le canal (pour les mentions)
-            mentionId: `${canal._id}:${canal.workspace._id}`
-        };
-    });
-    
-    res.status(200).json({
-        status: 'success',
-        results: canauxAvecWorkspace.length,
-        data: {
-            canaux: canauxAvecWorkspace
-        }
     });
 });
 
