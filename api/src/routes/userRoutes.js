@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const { authenticate } = require('../middleware/auth');
-const upload = require('../config/multer');
+const { profile: uploadProfile } = require('../config/multer');
 
 /**
  * Routes pour la gestion du profil utilisateur
@@ -24,7 +24,13 @@ router.put('/profile', userController.updateProfile);
 router.put('/profile/password', userController.updatePassword);
 
 // Mise à jour de la photo de profil
-router.put('/profile/picture', upload.single('profilePicture'), userController.updateProfilePicture);
+router.put('/profile/picture', uploadProfile.single('profilePicture'), userController.updateProfilePicture);
+
+// Mise à jour du statut
+router.put('/status', userController.updateStatus);
+
+// Mise à jour du thème
+router.put('/theme', userController.updateTheme);
 
 // Suppression du compte
 router.delete('/profile', userController.deleteAccount);

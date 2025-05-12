@@ -32,13 +32,6 @@ router.post('/:id/membres', authenticate, canalController.ajouterMembre);
 router.patch('/:id/membres/:membreId/role', authenticate, canalController.modifierRoleMembre);
 router.delete('/:id/membres/:membreId', authenticate, canalController.supprimerMembre);
 
-// Routes de gestion des fichiers
-router.post('/:id/fichiers', 
-    authenticate, 
-    upload.array('fichiers', 10), // Maximum 10 fichiers à la fois
-    canalController.uploadFichier
-);
-router.get('/:id/fichiers', authenticate, canalController.obtenirFichiers);
-router.delete('/:id/fichiers/:fichierId', authenticate, canalController.supprimerFichier);
+// Note: Les routes de gestion des fichiers ont été déplacées vers fichierRoutes.js
 
 module.exports = router;

@@ -95,6 +95,62 @@
  *                 message:
  *                   type: string
  *                   example: Token d'authentification manquant
+ *
+ * @swagger
+ * /api/v1/workspaces/mes-workspaces:
+ *   get:
+ *     summary: Récupère tous les workspaces dont l'utilisateur connecté est membre
+ *     description: Renvoie uniquement les workspaces où l'utilisateur connecté est listé comme membre, triés par ordre alphabétique
+ *     tags: [Workspaces]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Liste des workspaces dont l'utilisateur est membre
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 resultats:
+ *                   type: integer
+ *                   example: 2
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     workspaces:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Workspace'
+ *       401:
+ *         description: Non autorisé - Authentification requise
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Token d'authentification manquant
+ *       500:
+ *         description: Erreur serveur
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Erreur lors de la récupération des workspaces
  *   post:
  *     summary: Créer un nouveau workspace
  *     description: Crée un nouveau workspace avec l'utilisateur connecté comme propriétaire

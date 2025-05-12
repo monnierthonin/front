@@ -77,9 +77,9 @@ const userSchema = new mongoose.Schema({
         // Accepter les URLs pour les photos de profil OAuth
         if (value.startsWith('http://') || value.startsWith('https://')) return true;
         // Pour les fichiers uploadés, vérifier l'extension
-        return /\.(jpg|jpeg|png)$/i.test(value);
+        return /\.(jpg|jpeg|png|webp|svg)$/i.test(value);
       },
-      message: "Le format de l'image n'est pas valide (jpg, jpeg, png uniquement)"
+      message: "Le format de l'image n'est pas valide (jpg, jpeg, png, webp, svg uniquement)"
     }
   },
   role: {
@@ -116,10 +116,23 @@ const userSchema = new mongoose.Schema({
     }
   }],
   lastLogin: Date,
+  estConnecte: {
+    type: Boolean,
+    default: false
+  },
   status: {
     type: String,
-    enum: ['online', 'offline', 'away'],
-    default: 'offline'
+    enum: ['en ligne', 'absent', 'ne pas déranger'],
+    default: 'en ligne'
+  },
+  dernierActivite: {
+    type: Date,
+    default: Date.now
+  },
+  theme: {
+    type: String,
+    enum: ['clair', 'sombre'],
+    default: 'sombre'
   }
 }, {
   timestamps: true

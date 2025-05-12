@@ -9,6 +9,57 @@ const Workspace = require('../models/workspace');
 
 const userController = {
   /**
+   * Rechercher des utilisateurs par nom d'utilisateur, prénom ou nom
+   * ou récupérer tous les utilisateurs
+   */
+  searchUsers: async (req, res) => {
+    try {
+      // Option pour récupérer tous les utilisateurs, prioritaire sur les autres paramètres
+      const all = req.query.all === 'true';
+      
+      // Récupérer le paramètre de recherche, défaut à chaîne vide si non fourni
+      const q = req.query.q || '';
+      let query = {};
+      
+      // Si le paramètre all est fourni, on retourne tous les utilisateurs
+      if (!all) {
+        // Sinon, on filtre par le terme de recherche si fourni
+        if (q && q.trim() !== '') {
+          query = {
+            $or: [
+              { username: { $regex: q, $options: 'i' } },
+              { firstName: { $regex: q, $options: 'i' } },
+              { lastName: { $regex: q, $options: 'i' } }
+            ]
+          };
+        }
+      }
+      
+      // Exclure l'utilisateur connecté des résultats
+      query._id = { $ne: req.user._id };
+      
+      // Récupérer les utilisateurs
+      const users = await User.find(query)
+        .select('username firstName lastName profilePicture status')
+        .limit(20);
+      
+      res.json({
+        status: 'success',
+        data: {
+          users
+        }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la recherche d\'utilisateurs:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Erreur lors de la recherche d\'utilisateurs',
+        error: error.message
+      });
+    }
+  },
+  
+  /**
    * Obtenir le profil de l'utilisateur connecté
    */
   getProfile: async (req, res) => {
@@ -151,28 +202,61 @@ const userController = {
           message: 'Aucune image fournie'
         });
       }
+      
+      // Vérifier que le type de fichier est autorisé
+      const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+      if (!allowedMimeTypes.includes(req.file.mimetype)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Format d\'image non autorisé. Utilisez JPG, JPEG, PNG, WEBP ou SVG.'
+        });
+      }
 
       const user = await User.findById(req.user.id);
 
+      // Générer un nom de fichier unique
+      const timestamp = Date.now();
+      const uniqueSuffix = require('crypto').randomBytes(8).toString('hex');
+      const fileExtension = path.extname(req.file.originalname);
+      const filename = `${timestamp}-${uniqueSuffix}${fileExtension}`;
+      
+      // Chemin de sauvegarde
+      const uploadDir = path.join(__dirname, '../../uploads/profiles');
+      const filePath = path.join(uploadDir, filename);
+      
+      // S'assurer que le répertoire existe
+      try {
+        await fs.mkdir(uploadDir, { recursive: true });
+      } catch (err) {
+        if (err.code !== 'EEXIST') throw err;
+      }
+      
       // Supprimer l'ancienne photo si elle existe et n'est pas la photo par défaut
       if (user.profilePicture !== 'default.jpg' && !user.profilePicture.startsWith('http')) {
-        const oldPicturePath = path.join('/uploads/profiles', user.profilePicture);
         try {
+          const oldPicturePath = path.join(__dirname, '../../uploads/profiles', user.profilePicture);
           await fs.unlink(oldPicturePath);
+          console.log('Ancienne photo supprimée:', oldPicturePath);
         } catch (error) {
           console.error('Erreur lors de la suppression de l\'ancienne photo:', error);
+          // Continuer même si la suppression échoue
         }
       }
 
+      // Écrire le fichier sur le disque
+      await fs.writeFile(filePath, req.file.buffer);
+      console.log('Nouvelle photo enregistrée:', filePath);
+      
       // Mettre à jour avec la nouvelle photo
-      user.profilePicture = req.file.filename;
+      user.profilePicture = filename;
       await user.save();
 
       res.json({
         success: true,
         message: 'Photo de profil mise à jour avec succès',
         data: {
-          profilePicture: user.profilePicture
+          profilePicture: filename,
+          profilePictureUrl: `/uploads/profiles/${filename}`
         }
       });
     } catch (error) {
@@ -359,6 +443,148 @@ const userController = {
       res.status(500).json({
         success: false,
         message: 'Erreur lors de la suppression du compte',
+        error: error.message
+      });
+    }
+  },
+
+  /**
+   * Rechercher des utilisateurs par nom d'utilisateur, prénom ou nom
+   * ou récupérer tous les utilisateurs
+   */
+  searchUsers: async (req, res) => {
+    try {
+      // Support pour les paramètres 'q' et 'query' pour la rétro-compatibilité
+      const searchTerm = req.query.q || req.query.query;
+      const all = req.query.all === 'true';
+      
+      let query = {};
+      
+      // Si le paramètre all est fourni, on ne vérifie pas la présence d'un terme de recherche
+      if (!all && !searchTerm) {
+        return res.status(400).json({
+          success: false,
+          message: 'Un terme de recherche est requis ou le paramètre all=true'
+        });
+      }
+
+      // Exclure l'utilisateur actuel des résultats
+      query._id = { $ne: req.user._id };
+      
+      // Ajouter les critères de recherche si all n'est pas spécifié
+      if (!all && searchTerm) {
+        query.$or = [
+          { username: { $regex: searchTerm, $options: 'i' } },
+          { firstName: { $regex: searchTerm, $options: 'i' } },
+          { lastName: { $regex: searchTerm, $options: 'i' } }
+        ];
+      }
+      
+      // Récupérer les utilisateurs
+      const users = await User.find(query)
+        .select('_id username firstName lastName profilePicture status') // Sélectionner uniquement les champs nécessaires
+        .limit(all ? 50 : 10); // Limiter à 50 résultats si all=true, sinon 10
+
+      res.json({
+        success: true,
+        data: {
+          users: users
+        }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la recherche d\'utilisateurs:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur interne du serveur',
+        error: error.message
+      });
+    }
+  },
+
+  /**
+   * Mettre à jour le statut de l'utilisateur
+   */
+  updateStatus: async (req, res) => {
+    try {
+      const { status } = req.body;
+      
+      // Vérifier que le statut est valide
+      if (!['en ligne', 'absent', 'ne pas déranger'].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Le statut doit être 'en ligne', 'absent' ou 'ne pas déranger'"
+        });
+      }
+      
+      // Mettre à jour le statut de l'utilisateur
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Utilisateur non trouvé'
+        });
+      }
+      
+      user.status = status;
+      user.dernierActivite = Date.now();
+      await user.save();
+      
+      res.json({
+        success: true,
+        message: 'Statut mis à jour avec succès',
+        data: {
+          status: user.status
+        }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur lors de la mise à jour du statut',
+        error: error.message
+      });
+    }
+  },
+
+  /**
+   * Mettre à jour le thème de l'utilisateur
+   */
+  updateTheme: async (req, res) => {
+    try {
+      const { theme } = req.body;
+      
+      // Vérifier que le thème est valide
+      if (!['clair', 'sombre'].includes(theme)) {
+        return res.status(400).json({
+          success: false,
+          message: "Le thème doit être 'clair' ou 'sombre'"
+        });
+      }
+      
+      // Mettre à jour le thème de l'utilisateur
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Utilisateur non trouvé'
+        });
+      }
+      
+      user.theme = theme;
+      await user.save();
+      
+      res.json({
+        success: true,
+        message: 'Thème mis à jour avec succès',
+        data: {
+          theme: user.theme
+        }
+      });
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du thème:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erreur lors de la mise à jour du thème',
         error: error.message
       });
     }

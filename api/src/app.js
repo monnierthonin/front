@@ -3,6 +3,7 @@ const dotenvExpand = require('dotenv-expand');
 const env = dotenv.config();
 dotenvExpand.expand(env);
 const path = require('path'); // Importer le module path
+const createUploadDirectories = require('./scripts/createUploadDirs'); // Importer le script de création des dossiers
 
 const mongoose = require('mongoose');
 const express = require('express');
@@ -16,11 +17,16 @@ const indexRouter = require('./routes/index');
 const authRouter = require('./routes/auth');
 const userRouter = require('./routes/userRoutes');
 const workspaceRouter = require('./routes/workspaceRoutes');
+const messagePrivateRouter = require('./routes/messagePrivateRoutes');
+const conversationPriveeRouter = require('./routes/conversationPriveeRoutes');
+const searchRoutes = require('./routes/searchRoutes');
+const fichierRoutes = require('./routes/fichierRoutes');
 const http = require('http');
 const serviceSocket = require('./services/serviceSocket');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./docs/swagger');
 const AppError = require('./utils/appError');
+const { updateActivity, setupInactivityChecker } = require('./middleware/activityMiddleware');
 
 // Initialisation de l'application Express
 const app = express();
@@ -76,8 +82,13 @@ app.use(passport.initialize());
 configurerSwagger(app);
 require('./docs/auth.swagger');
 require('./docs/user.swagger');
+require('./docs/user_status_theme.swagger');
 require('./docs/userProfile.swagger');
 require('./docs/workspace.swagger');
+require('./docs/messagePrivate.swagger');
+require('./docs/conversationPrivee.swagger');
+require('./docs/search.swagger');
+require('./docs/fichier.swagger');
 
 // Documentation Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -86,11 +97,20 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 serviceSocket.initialiser(serveur);
 app.set('socketService', serviceSocket);
 
+// Configurer le vérificateur d'inactivité
+setupInactivityChecker();
+
 // Routes
 app.use('/', indexRouter);
 app.use('/api/v1/auth', authRouter);
-app.use('/api/v1/users', userRouter);
-app.use('/api/v1/workspaces', workspaceRouter);
+
+// Appliquer le middleware d'activité à toutes les routes API qui nécessitent une authentification
+app.use('/api/v1/users', updateActivity, userRouter);
+app.use('/api/v1/workspaces', updateActivity, workspaceRouter);
+app.use('/api/v1/messages/private', updateActivity, messagePrivateRouter);
+app.use('/api/v1/conversations', updateActivity, conversationPriveeRouter);
+app.use('/api/v1/search', updateActivity, searchRoutes);
+app.use('/api/v1/fichiers', updateActivity, fichierRoutes);
 
 // Gestion des erreurs 404
 app.use((req, res, next) => {

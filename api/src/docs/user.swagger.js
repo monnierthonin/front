@@ -164,7 +164,7 @@
  *         schema:
  *           type: string
  *         description: ID MongoDB ou nom d'utilisateur
- *         example: "5f8d0f3e1c9d440000a1b2c3" ou "username123"
+ *         example: "5f8d0f3e1c9d440000a1b2c3"
  *     responses:
  *       200:
  *         description: Profil utilisateur récupéré avec succès
