@@ -166,7 +166,8 @@ export default {
     
     // Naviguer vers un workspace
     goToWorkspace(id) {
-      this.$router.push(`/workspace/${id}`);
+      // Naviguer vers la page dédiée au workspace avec l'ID spécifié
+      this.$router.push({ name: 'Workspace', params: { id } });
     }
   }
 }

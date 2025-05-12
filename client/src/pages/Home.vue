@@ -1,6 +1,5 @@
 <template>
-  <chanelWorkspace />
-  <UserList />
+  <FriendsList />
   <div class="home">
     <Message />
     <textBox />
@@ -8,26 +7,23 @@
 </template>
 
 <script>
+import FriendsList from '../components/headerFile/FriendsList.vue'
 import Message from '../components/messageComponentFile/Message.vue'
 import textBox from '../components/messageComponentFile/textBox.vue'
-import UserList from '../components/headerFile/UserChanelList.vue'
-import chanelWorkspace from '../components/headerFile/chanelWorkspace.vue'
 
 export default {
   name: 'Home',
   components: {
+    FriendsList,
     Message,
-    textBox,
-    UserList,
-    chanelWorkspace
+    textBox
   }
 };
 </script>
 
 <style scoped>
 .home {
-  margin-left: calc(var(--whidth-header) + var(--whidth-chanelWorkspace));
-  margin-right: var(--whidth-userChanel);
+  margin-left: calc(var(--whidth-header) + var(--whidth-friendsList));
   height: 100vh;
   display: flex;
   flex-direction: column-reverse;
