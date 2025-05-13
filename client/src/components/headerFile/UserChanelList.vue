@@ -1,13 +1,22 @@
 <template>
     <div class="User-sidebar">
       <div class="User-list">
-        <!-- Liste des amis -->
-        <div class="user-item" v-for="(user, index) in User" :key="index">
-          <div class="user-avatar">
-            <img src="../../assets/styles/image/profilDelault.png" :alt="user.name">
-            <div class="status-indicator" :class="user.status"></div>
+        <div v-if="isLoading" class="loading-message">Chargement des membres...</div>
+        <div v-else-if="membresAffichage.length === 0" class="empty-message">Aucun membre dans ce workspace</div>
+        <div v-else>
+          <!-- Liste des membres du workspace -->
+          <div class="user-item" v-for="membre in membresAffichage" :key="membre._id || membre.utilisateur._id">
+            <div class="user-avatar">
+              <img 
+                :src="membre.utilisateur.profilePicture || '../../assets/styles/image/profilDelault.png'" 
+                :alt="getUserName(membre.utilisateur)">
+              <div class="status-indicator" :class="membre.statut || 'online'"></div>
+            </div>
+            <div class="user-info">
+              <div class="user-name">{{ getUserName(membre.utilisateur) }}</div>
+              <div class="user-role">{{ membre.role || 'membre' }}</div>
+            </div>
           </div>
-          <div class="user-name">{{ user.name }}</div>
         </div>
       </div>
     </div>
@@ -16,29 +25,36 @@
   <script>
   export default {
     name: 'UserList',
+    props: {
+      membres: {
+        type: Array,
+        default: () => []
+      }
+    },
     data() {
       return {
-        User: [
-          { name: "Alice", status: "online" },
-          { name: "Bob", status: "offline" },
-          { name: "Charlie", status: "idle" },
-          { name: "David", status: "dnd" },
-          { name: "Eve", status: "online" },
-          { name: "Frank", status: "offline" },
-          { name: "Grace", status: "online" },
-          { name: "Henry", status: "idle" },
-          { name: "Ivy", status: "dnd" },
-          { name: "Alice", status: "online" },
-          { name: "Bob", status: "offline" },
-          { name: "Charlie", status: "idle" },
-          { name: "David", status: "dnd" },
-          { name: "Eve", status: "online" },
-          { name: "Frank", status: "offline" },
-          { name: "Grace", status: "online" },
-          { name: "Henry", status: "idle" },
-          { name: "Ivy", status: "dnd" },
-          { name: "Jack", status: "online" }
-        ]
+        isLoading: true
+      }
+    },
+    computed: {
+      membresAffichage() {
+        return this.membres || []
+      }
+    },
+    methods: {
+      getUserName(user) {
+        if (!user) return 'Utilisateur inconnu'
+        return user.username || user.firstName || user.email || 'Utilisateur sans nom'
+      }
+    },
+    watch: {
+      membres: {
+        handler(newVal) {
+          if (newVal) {
+            this.isLoading = false
+          }
+        },
+        immediate: true
       }
     }
   }
@@ -127,6 +143,23 @@
   .user-name {
     color: var(--text-color);
     font-size: 14px;
+  }
+  
+  .user-role {
+    color: var(--text-secondary-color, #a3a3a3);
+    font-size: 12px;
+  }
+  
+  .user-info {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .loading-message, .empty-message {
+    color: var(--text-secondary-color, #a3a3a3);
+    font-size: 14px;
+    text-align: center;
+    padding: 20px 0;
   }
   
   .add-user {

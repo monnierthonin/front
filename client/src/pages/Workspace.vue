@@ -1,9 +1,21 @@
 <template>
-  <chanelWorkspace />
-  <UserList />
+  <chanelWorkspace 
+    :canaux="canaux" 
+    :canalActifId="canalActif ? canalActif._id : ''" 
+    @canal-selectionne="changerCanalActif" 
+  />
+  <UserList :membres="membres" />
   <div class="workspace-content">
-    <Message />
-    <textBox />
+    <Message 
+      :messages="messages" 
+      :isLoading="isLoadingMessages" 
+      :currentUserId="userId" 
+    />
+    <textBox 
+      :workspaceId="workspaceId" 
+      :canalActif="canalActif" 
+      @envoyer-message="envoyerMessage"
+    />
   </div>
 </template>
 
@@ -12,6 +24,10 @@ import Message from '../components/messageComponentFile/Message.vue'
 import textBox from '../components/messageComponentFile/textBox.vue'
 import UserList from '../components/headerFile/UserChanelList.vue'
 import chanelWorkspace from '../components/headerFile/chanelWorkspace.vue'
+import workspaceService from '../services/workspaceService'
+import canalService from '../services/canalService'
+import messageService from '../services/messageService'
+import websocketService from '../services/websocketService'
 
 export default {
   name: 'Workspace',
@@ -21,16 +37,287 @@ export default {
     UserList,
     chanelWorkspace
   },
-  props: {
-    id: {
-      type: String,
-      required: true
+  data() {
+    return {
+      workspaceId: '',
+      workspace: null,
+      canaux: [],
+      membres: [],
+      canalActif: null,
+      messages: [],
+      userId: null,
+      isLoading: true,
+      isLoadingMessages: false,
+      error: null,
+      // Abonnement WebSocket
+      wsConnected: false,
+      wsChannelUnsubscribe: null // Fonction pour se désabonner du canal courant
     }
   },
   created() {
-    // Charger les données du workspace en fonction de l'ID
-    console.log('Chargement du workspace avec ID:', this.$route.params.id)
-    // Ici, vous pouvez appeler un service pour récupérer les données du workspace
+    // Récupérer l'ID du workspace depuis l'URL
+    this.workspaceId = this.$route.params.id
+    console.log('Workspace ID récupéré de l\'URL:', this.workspaceId)
+    
+    // Récupérer l'ID de l'utilisateur connecté
+    this.userId = messageService.getUserIdFromToken()
+    console.log('User ID récupéré du token:', this.userId)
+    
+    if (this.workspaceId) {
+      console.log('Chargement des données du workspace...')
+      this.chargerDonnees()
+      
+      // Initialiser la connexion WebSocket
+      this.initWebSocket()
+    } else {
+      this.error = 'ID de workspace non spécifié'
+      console.error('ID de workspace non spécifié')
+    }
+  },
+  beforeUnmount() {
+    // Se désabonner du canal actuel si nécessaire
+    this.unsubscribeFromCurrentChannel();
+    
+    // Fermer la connexion WebSocket
+    if (this.wsConnected) {
+      websocketService.disconnect();
+      this.wsConnected = false;
+    }
+  },
+  
+  methods: {
+    /**
+     * Charger les données initiales du workspace (membres et canaux)
+     */
+    async chargerDonnees() {
+      try {
+        this.isLoading = true
+        this.error = null
+        
+        // Chargement du workspace (qui contient les membres)
+        const workspaceData = await workspaceService.getWorkspaceById(this.workspaceId)
+        this.workspace = workspaceData.workspace
+        this.membres = this.workspace.membres || []
+        console.log('Workspace chargé avec', this.membres.length, 'membres')
+        
+        // Chargement des canaux du workspace
+        const canauxData = await canalService.getWorkspaceCanaux(this.workspaceId)
+        this.canaux = canauxData || []
+        console.log('Canaux chargés:', this.canaux.length)
+        
+        // Sélectionner le premier canal par défaut si des canaux existent
+        if (this.canaux.length > 0) {
+          await this.changerCanalActif(this.canaux[0])
+        }
+      } catch (error) {
+        this.error = `Erreur lors du chargement des données: ${error.message}`
+        console.error('Erreur lors du chargement des données du workspace:', error)
+      } finally {
+        this.isLoading = false
+      }
+    },
+    
+    /**
+     * Changer le canal actif et charger ses messages
+     * @param {Object} canal - Le canal à activer
+     */
+    async changerCanalActif(canal) {
+      console.log('Méthode changerCanalActif appelée avec le canal:', canal)
+      
+      if (!canal) {
+        console.error('Aucun canal fourni à changerCanalActif')
+        return
+      }
+      
+      if (this.canalActif && canal._id === this.canalActif._id) {
+        console.log('Même canal déjà actif, aucune action nécessaire')
+        return
+      }
+      
+      this.canalActif = canal
+      console.log('Canal actif changé:', canal.nom, 'avec ID:', canal._id)
+      
+      // Charger les messages du canal sélectionné
+      console.log('Appel de chargerMessages() pour le canal', canal.nom)
+      await this.chargerMessages()
+      
+      // S'abonner au canal via WebSocket pour recevoir les messages en temps réel
+      if (this.wsConnected) {
+        console.log('Abonnement WebSocket au canal', canal.nom)
+        this.subscribeToChannel(canal)
+      } else {
+        console.warn('Impossible de s\'abonner au canal via WebSocket: connexion non établie')
+      }
+    },
+    
+    /**
+     * Charger les messages du canal actif
+     */
+    async chargerMessages() {
+      console.log('Début de la méthode chargerMessages()...')
+      
+      if (!this.canalActif) {
+        console.error('Aucun canal actif, impossible de charger les messages')
+        return
+      }
+      
+      try {
+        console.log(`Tentative de chargement des messages pour le canal ${this.canalActif.nom} (ID: ${this.canalActif._id}) dans le workspace ${this.workspaceId}`)
+        this.isLoadingMessages = true
+        this.messages = []  // Réinitialiser les messages précédents
+        
+        const messages = await messageService.getCanalMessages(this.workspaceId, this.canalActif._id)
+        console.log('Réponse du service messageService.getCanalMessages:', messages)
+        
+        this.messages = messages
+        console.log(`${messages ? messages.length : 0} messages chargés pour le canal ${this.canalActif.nom}`)
+        
+        // Afficher quelques détails sur les messages (pour debug)
+        if (messages && messages.length > 0) {
+          console.log('Premier message:', messages[0])
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des messages:', error)
+        this.error = `Erreur lors du chargement des messages: ${error.message}`
+      } finally {
+        this.isLoadingMessages = false
+        console.log('Fin de la méthode chargerMessages(), isLoadingMessages =', this.isLoadingMessages)
+      }
+    },
+    
+    /**
+     * Initialiser la connexion WebSocket
+     */
+    async initWebSocket() {
+      try {
+        // Récupérer le token JWT pour l'authentification
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.error('Impossible d\'initialiser WebSocket: aucun token disponible');
+          return;
+        }
+        
+        console.log('Initialisation de la connexion WebSocket...');
+        
+        // Établir la connexion WebSocket
+        await websocketService.connect(token);
+        this.wsConnected = true;
+        console.log('Connexion WebSocket établie');
+        
+        // Si un canal est déjà actif, s'y abonner
+        if (this.canalActif) {
+          this.subscribeToChannel(this.canalActif);
+        }
+      } catch (error) {
+        console.error('Erreur lors de l\'initialisation WebSocket:', error);
+        this.error = `Erreur de connexion WebSocket: ${error.message}`;
+      }
+    },
+    
+    /**
+     * S'abonner aux messages d'un canal
+     * @param {Object} canal - Le canal auquel s'abonner
+     */
+    subscribeToChannel(canal) {
+      // D'abord se désabonner du canal actuel si nécessaire
+      this.unsubscribeFromCurrentChannel();
+      
+      if (!this.wsConnected || !canal) return;
+      
+      console.log(`Abonnement aux messages du canal ${canal.nom} (ID: ${canal._id})`);
+      
+      // S'abonner aux messages du nouveau canal
+      this.wsChannelUnsubscribe = websocketService.subscribeToChannelMessages(
+        this.workspaceId,
+        canal._id,
+        this.handleRealtimeMessage
+      );
+    },
+    
+    /**
+     * Se désabonner du canal actuel
+     */
+    unsubscribeFromCurrentChannel() {
+      if (this.wsChannelUnsubscribe) {
+        console.log('Désabonnement du canal précédent');
+        this.wsChannelUnsubscribe();
+        this.wsChannelUnsubscribe = null;
+      }
+    },
+    
+    /**
+     * Gérer un nouveau message reçu en temps réel
+     * @param {Object} message - Le nouveau message reçu
+     */
+    handleRealtimeMessage(message) {
+      console.log('Message en temps réel reçu:', message);
+      
+      // Vérifier que le message appartient bien au canal actif
+      if (!this.canalActif || message.canalId !== this.canalActif._id) {
+        console.log('Message ignoré car il n\'appartient pas au canal actif');
+        return;
+      }
+      
+      // Vérifier si le message existe déjà dans la liste
+      const messageExists = this.messages.some(msg => msg._id === message._id);
+      
+      if (!messageExists) {
+        // Ajouter le nouveau message à la liste
+        this.messages.push(message);
+        console.log('Nouveau message ajouté à la liste');
+      }
+    },
+    
+    /**
+     * Envoyer un message au canal actif
+     * @param {Object} messageData - Données du message à envoyer
+     */
+    async envoyerMessage(messageData) {
+      console.log('Début de la méthode envoyerMessage() avec les données:', messageData)
+      
+      if (!this.canalActif) {
+        console.error('Aucun canal actif sélectionné, impossible d\'envoyer le message')
+        return
+      }
+      
+      if (!this.workspaceId) {
+        console.error('ID du workspace manquant, impossible d\'envoyer le message')
+        return
+      }
+      
+      try {
+        const { contenu } = messageData
+        console.log(`Tentative d'envoi du message au canal ${this.canalActif.nom} (ID: ${this.canalActif._id}):`)
+        console.log('- Contenu:', contenu)
+        console.log('- Workspace ID:', this.workspaceId)
+        
+        // Appeler le service pour envoyer le message
+        const nouveauMessage = await messageService.sendMessage(this.workspaceId, this.canalActif._id, contenu)
+        console.log('Réponse du service messageService.sendMessage:', nouveauMessage)
+        
+        if (!nouveauMessage) {
+          console.error('Aucun message retourné par le service après envoi')
+          return
+        }
+        
+        // Le message sera ajouté automatiquement via WebSocket
+        // Mais par sécurité, on l'ajoute manuellement si c'est notre propre message
+        // pour garantir une expérience fluide même en cas de problème WebSocket
+        const messageExists = this.messages.some(msg => msg._id === nouveauMessage._id);
+        if (!messageExists) {
+          this.messages.push(nouveauMessage);
+          console.log('Message ajouté localement en attendant la confirmation WebSocket');
+        }
+        
+        console.log('Message envoyé avec succès:', nouveauMessage);
+      } catch (error) {
+        console.error('Erreur lors de l\'envoi du message:', error)
+        console.error('Détails de l\'erreur:', error.message, error.stack)
+        this.error = `Erreur lors de l'envoi du message: ${error.message}`
+      }
+      
+      console.log('Fin de la méthode envoyerMessage()')
+    }
   }
 }
 </script>
@@ -41,8 +328,7 @@ export default {
   margin-right: var(--whidth-userChanel);
   height: 100vh;
   display: flex;
-  flex-direction: column-reverse;
-  justify-content: flex-end;
-  padding-bottom: 200px;
+  flex-direction: column;
+  position: relative;
 }
 </style>
