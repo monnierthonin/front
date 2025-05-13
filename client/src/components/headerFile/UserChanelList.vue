@@ -7,9 +7,10 @@
           <!-- Liste des membres du workspace -->
           <div class="user-item" v-for="membre in membresAffichage" :key="membre._id || membre.utilisateur._id">
             <div class="user-avatar">
-              <img 
-                :src="membre.utilisateur.profilePicture || '../../assets/styles/image/profilDelault.png'" 
-                :alt="getUserName(membre.utilisateur)">
+              <ProfilePicture 
+                :userId="membre.utilisateur._id" 
+                :altText="getUserName(membre.utilisateur)" 
+              />
               <div class="status-indicator" :class="membre.statut || 'online'"></div>
             </div>
             <div class="user-info">
@@ -23,7 +24,12 @@
   </template>
   
   <script>
+  import ProfilePicture from '../common/ProfilePicture.vue';
+  
   export default {
+    components: {
+      ProfilePicture
+    },
     name: 'UserList',
     props: {
       membres: {

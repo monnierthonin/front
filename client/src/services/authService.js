@@ -125,16 +125,13 @@ const authService = {
               localStorage.setItem('userStatus', status);
             }
             
-            // Enregistrer la photo de profil
-            if (profileResponse.data.profilePicture) {
-              localStorage.setItem('profilePicture', profileResponse.data.profilePicture);
-              console.log('Photo de profil chargée depuis le serveur:', profileResponse.data.profilePicture);
-              
-              // Notifier les composants immédiatement
-              eventBus.emit(APP_EVENTS.PROFILE_PICTURE_UPDATED, profileResponse.data.profilePicture);
-            } else {
-              localStorage.setItem('profilePicture', 'default.jpg');
-            }
+            // Enregistrer la photo de profil (qu'elle soit définie ou non)
+            // L'API gère déjà l'image par défaut si nécessaire
+            localStorage.setItem('profilePicture', profileResponse.data.profilePicture || 'default.jpg');
+            console.log('Photo de profil chargée depuis le serveur:', profileResponse.data.profilePicture || 'default.jpg');
+            
+            // Notifier les composants immédiatement
+            eventBus.emit(APP_EVENTS.PROFILE_PICTURE_UPDATED, profileResponse.data.profilePicture || 'default.jpg');
           }
           
           // Émettre l'événement de connexion réussie

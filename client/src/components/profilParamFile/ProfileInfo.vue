@@ -39,7 +39,6 @@
 
 <script>
 import userService from '../../services/userService.js';
-import defaultProfileImg from '../../assets/styles/image/profilDelault.png';
 import { eventBus, APP_EVENTS } from '../../utils/eventBus.js';
 
 export default {
@@ -62,11 +61,9 @@ export default {
   },
   computed: {
     profileImageUrl() {
-      if (this.currentProfilePicture && this.currentProfilePicture !== 'default.jpg') {
-        return `http://localhost:3000/uploads/profiles/${this.currentProfilePicture}`;
-      }
-      // Utilisation de l'image importée
-      return defaultProfileImg;
+      // Utiliser directement l'API qui gère déjà l'image par défaut
+      const imagePath = this.currentProfilePicture || 'default.jpg';
+      return `http://localhost:3000/uploads/profiles/${imagePath}`;
     }
   },
   created() {

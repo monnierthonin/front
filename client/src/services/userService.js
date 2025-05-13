@@ -263,6 +263,62 @@ const userService = {
       console.error('Erreur lors de la mise à jour du thème:', error);
       throw error;
     }
+  },
+
+  /**
+   * Récupérer le profil d'un utilisateur par son identifiant
+   * @param {String} id - L'identifiant de l'utilisateur
+   * @returns {Promise} Promesse avec les données du profil
+   */
+  async getUserProfileById(id) {
+    console.log('Récupération du profil pour l\'utilisateur avec ID:', id);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Non authentifié');
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/users/profile/${id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        console.log('Erreur détaillée:', data);
+        throw new Error(data.message || 'Erreur lors de la récupération du profil utilisateur');
+      }
+
+      const rawData = await response.json();
+      console.log('Données brutes du profil utilisateur:', rawData);
+      
+      // Vérifier la structure des données retournées
+      let userData;
+      if (rawData.data) {
+        // Si les données sont encapsulées dans un objet 'data'
+        userData = rawData.data;
+        console.log('Données utilisateur extraites de data:', userData);
+      } else {
+        // Si les données sont directement dans la réponse
+        userData = rawData;
+        console.log('Données utilisateur extraites directement:', userData);
+      }
+      
+      // S'assurer que profilePicture est bien présent ou définir à default.jpg
+      if (userData && !userData.profilePicture) {
+        console.log('Aucune photo de profil trouvée, utilisation de default.jpg');
+        userData.profilePicture = 'default.jpg';
+      }
+      
+      return userData;
+    } catch (error) {
+      console.error('Erreur lors de la récupération du profil utilisateur:', error);
+      throw error;
+    }
   }
 };
 

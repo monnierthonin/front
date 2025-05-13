@@ -10,7 +10,10 @@
         <div class="message-content">
           <!-- Profile picture -->
           <div class="profile-pic">
-            <img :src="getProfilePicture(message.auteur)" :alt="getUserName(message.auteur)" />
+            <ProfilePicture 
+              :userId="message.auteur._id" 
+              :altText="getUserName(message.auteur)" 
+            />
           </div>
           
           <!-- Message body -->
@@ -56,8 +59,12 @@
 
 <script>
 import messageService from '../../services/messageService.js';
+import ProfilePicture from '../common/ProfilePicture.vue';
 
 export default {
+  components: {
+    ProfilePicture
+  },
   name: 'Message',
   props: {
     messages: {
@@ -128,22 +135,7 @@ export default {
       return user.username || user.firstName || user.email || 'Sans nom';
     },
     
-    /**
-     * Obtenir l'URL de la photo de profil
-     * @param {Object} user - Données de l'utilisateur
-     * @returns {String} URL de l'image de profil
-     */
-    getProfilePicture(user) {
-      if (!user) return '../../assets/styles/image/profilDelault.png';
-      
-      // Si profilePicture est exactement "Delault.jpg" ou inexistant, afficher l'image par défaut
-      if (!user.profilePicture || user.profilePicture === 'Delault.jpg') {
-        return '../../assets/styles/image/profilDelault.png';
-      }
-      
-      // Sinon, utiliser l'image de profil de l'utilisateur
-      return user.profilePicture;
-    },
+    // La méthode getProfilePicture a été remplacée par le composant ProfilePicture
     
     /**
      * Faire défiler vers le bas pour voir les derniers messages
@@ -245,7 +237,7 @@ export default {
 
 /* Style spécifique pour les messages de l'utilisateur actuel */
 .current-user .message-content {
-  background-color: var(--accent-color-light, #404eed);
+  background-color: var(--accent-color-light, #14324F);
   color: #fff;
   flex-direction: row-reverse;
 }
