@@ -21,6 +21,7 @@ const messagePrivateRouter = require('./routes/messagePrivateRoutes');
 const conversationPriveeRouter = require('./routes/conversationPriveeRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const fichierRoutes = require('./routes/fichierRoutes');
+const superAdminRoutes = require('./routes/superAdminRoutes');
 const http = require('http');
 const serviceSocket = require('./services/serviceSocket');
 const swaggerUi = require('swagger-ui-express');
@@ -89,6 +90,7 @@ require('./docs/messagePrivate.swagger');
 require('./docs/conversationPrivee.swagger');
 require('./docs/search.swagger');
 require('./docs/fichier.swagger');
+require('./docs/superAdmin.swagger');
 
 // Documentation Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -111,6 +113,7 @@ app.use('/api/v1/messages/private', updateActivity, messagePrivateRouter);
 app.use('/api/v1/conversations', updateActivity, conversationPriveeRouter);
 app.use('/api/v1/search', updateActivity, searchRoutes);
 app.use('/api/v1/fichiers', updateActivity, fichierRoutes);
+app.use('/api/v1/super-admin', updateActivity, superAdminRoutes);
 
 // Gestion des erreurs 404
 app.use((req, res, next) => {

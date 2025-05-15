@@ -51,9 +51,14 @@ exports.authenticate = async (req, res, next) => {
   }
 };
 
-// Middleware pour restreindre l'accès aux administrateurs
+// Middleware pour restreindre l'accès aux rôles spécifiés
 exports.restreindreA = (...roles) => {
   return (req, res, next) => {
+    // Super admin a accès à tout
+    if (req.user.role === 'super_admin') {
+      return next();
+    }
+    
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
@@ -62,4 +67,15 @@ exports.restreindreA = (...roles) => {
     }
     next();
   };
+};
+
+// Middleware spécifique pour le super admin
+exports.estSuperAdmin = (req, res, next) => {
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Cette action n\'est autorisée que pour les super administrateurs'
+    });
+  }
+  next();
 };

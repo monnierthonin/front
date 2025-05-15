@@ -13,6 +13,9 @@ router.use(authenticate);
 // Récupérer toutes les conversations privées de l'utilisateur connecté
 router.get('/', messagePrivateController.getAllPrivateConversations);
 
+// Récupérer les messages avec fichiers d'une conversation
+router.get('/files/:conversationId', messagePrivateController.getMessagesWithFiles);
+
 // Récupérer les messages privés entre l'utilisateur connecté et un autre utilisateur
 router.get('/:userId', messagePrivateController.getPrivateMessages);
 

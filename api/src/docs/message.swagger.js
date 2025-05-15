@@ -43,6 +43,9 @@
  *                 type: string
  *               url:
  *                 type: string
+ *               urlPreview:
+ *                 type: string
+ *                 description: URL de l'aperçu du fichier (pour les images)
  *               taille:
  *                 type: number
  *         reactions:

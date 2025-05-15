@@ -3,6 +3,13 @@ import { createRouter, createWebHistory } from 'vue-router'
 // Définition des routes avec protection
 const routes = [
   {
+    path: '/workspace/:id',
+    name: 'Workspace',
+    component: () => import('@/pages/Home.vue'),
+    meta: { requiresAuth: true },
+    props: true
+  },
+  {
     path: '/auth',
     name: 'Auth',
     component: () => import('@/pages/Auth.vue')
@@ -11,7 +18,23 @@ const routes = [
     path: '/',
     name: 'Home',
     component: () => import('@/pages/Home.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true },
+    beforeEnter: async (to, from, next) => {
+      try {
+        const workspaceService = await import('@/services/workspaceService.js');
+        const response = await workspaceService.default.getWorkspaces();
+        if (response && response.data && response.data.length > 0) {
+          // Rediriger vers le premier workspace
+          next({ name: 'Workspace', params: { id: response.data[0]._id } });
+        } else {
+          // Si pas de workspace, continuer vers la page d'accueil
+          next();
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération des workspaces:', error);
+        next();
+      }
+    }
   },
   {
     path: '/profile',

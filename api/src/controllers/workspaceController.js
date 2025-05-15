@@ -40,16 +40,42 @@ exports.creerWorkspace = catchAsync(async (req, res) => {
     });
 });
 
-// Obtenir tous les workspaces (publics ou dont l'utilisateur est membre)
+// Obtenir tous les workspaces dont l'utilisateur est membre (peu importe la visibilité)
 exports.obtenirWorkspaces = catchAsync(async (req, res) => {
     const workspaces = await Workspace.find({
-        $or: [
-            { visibilite: 'public' },
-            { 'membres.utilisateur': req.user.id }
-        ]
+        'membres.utilisateur': req.user.id
     })
         .populate('proprietaire', 'firstName lastName username email')
-        .populate('membres.utilisateur', 'firstName lastName username email');
+        .populate('membres.utilisateur', 'firstName lastName username email')
+        .sort({ 'nom': 1 }); // Tri par nom par ordre alphabétique
+
+    res.status(200).json({
+        status: 'success',
+        resultats: workspaces.length,
+        data: {
+            workspaces
+        }
+    });
+});
+
+// Rechercher tous les workspaces publics (pour la barre de recherche)
+exports.rechercherWorkspacesPublics = catchAsync(async (req, res) => {
+    const { query } = req.query;
+    
+    // Construire la requête de recherche
+    let searchQuery = { visibilite: 'public' };
+    
+    // Si un terme de recherche est fourni, ajouter une recherche textuelle
+    if (query && query.trim() !== '') {
+        searchQuery.$or = [
+            { nom: { $regex: query, $options: 'i' } },
+            { description: { $regex: query, $options: 'i' } }
+        ];
+    }
+    
+    const workspaces = await Workspace.find(searchQuery)
+        .populate('proprietaire', 'firstName lastName username email')
+        .sort({ 'nom': 1 }); // Tri par nom par ordre alphabétique
 
     res.status(200).json({
         status: 'success',
@@ -102,16 +128,46 @@ exports.obtenirWorkspace = catchAsync(async (req, res, next) => {
         }))
     });
 
-    // Vérifier si l'utilisateur est membre ou si le workspace est public
+    // Vérifier si l'utilisateur est membre
     const estMembre = workspace.estMembre(req.user.id);
     console.log('Est membre?', estMembre);
     console.log('Est public?', workspace.visibilite === 'public');
 
+    // Si le workspace est privé et que l'utilisateur n'est pas membre, refuser l'accès
     if (workspace.visibilite === 'prive' && !estMembre) {
         console.log('Accès refusé - workspace privé et utilisateur non membre');
         return next(new AppError('Vous n\'avez pas accès à ce workspace', 403));
     }
 
+    // Si le workspace est public et que l'utilisateur n'est pas encore membre, l'ajouter automatiquement
+    if (workspace.visibilite === 'public' && !estMembre) {
+        console.log('Ajout automatique de l\'utilisateur comme membre du workspace public');
+        
+        // Ajouter l'utilisateur comme membre avec le rôle 'membre'
+        workspace.membres.push({
+            utilisateur: req.user.id,
+            role: 'membre',
+            dateAjout: new Date()
+        });
+        
+        // Sauvegarder les modifications
+        await workspace.save();
+        
+        // Recharger le workspace pour obtenir les données à jour
+        const workspaceUpdated = await Workspace.findById(req.params.id)
+            .populate('proprietaire', 'firstName lastName username email')
+            .populate('membres.utilisateur', 'firstName lastName username email');
+            
+        return res.status(200).json({
+            status: 'success',
+            message: 'Vous avez rejoint ce workspace automatiquement',
+            data: {
+                workspace: workspaceUpdated
+            }
+        });
+    }
+
+    // Si l'utilisateur est déjà membre, renvoyer simplement les informations du workspace
     res.status(200).json({
         status: 'success',
         data: {

@@ -213,6 +213,50 @@ const messageService = {
       console.error('Erreur lors du décodage du token JWT:', error);
       return null;
     }
+  },
+
+  /**
+   * Récupérer les canaux d'un workspace
+   * @param {String} workspaceId - ID du workspace
+   * @returns {Promise} Promesse avec la liste des canaux
+   */
+  async getChannels(workspaceId) {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Vous devez être connecté pour accéder aux canaux');
+      }
+      
+      const response = await fetch(`${API_URL}/workspaces/${workspaceId}/canaux`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          throw new Error('Session expirée, veuillez vous reconnecter');
+        }
+        throw new Error(`Erreur lors de la récupération des canaux: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data && data.status === 'success' && data.data && data.data.canaux) {
+        return { data: data.data.canaux };
+      } else if (data && Array.isArray(data)) {
+        return { data: data };
+      }
+      
+      return { data: [] };
+    } catch (error) {
+      console.error(`Erreur lors de la récupération des canaux du workspace ${workspaceId}:`, error);
+      throw error;
+    }
   }
 };
 

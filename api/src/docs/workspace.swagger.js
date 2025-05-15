@@ -57,14 +57,14 @@
  * @swagger
  * /api/v1/workspaces:
  *   get:
- *     summary: Obtenir tous les workspaces
- *     description: Récupère tous les workspaces publics et ceux dont l'utilisateur est membre
+ *     summary: Obtenir tous les workspaces dont l'utilisateur est membre
+ *     description: Récupère uniquement les workspaces dont l'utilisateur connecté est membre (utilisé pour la page d'accueil)
  *     tags: [Workspaces]
  *     security:
  *       - BearerAuth: []
  *     responses:
  *       200:
- *         description: Liste des workspaces
+ *         description: Liste des workspaces de l'utilisateur
  *         content:
  *           application/json:
  *             schema:
@@ -97,16 +97,22 @@
  *                   example: Token d'authentification manquant
  *
  * @swagger
- * /api/v1/workspaces/mes-workspaces:
+ * /api/v1/workspaces/recherche/public:
  *   get:
- *     summary: Récupère tous les workspaces dont l'utilisateur connecté est membre
- *     description: Renvoie uniquement les workspaces où l'utilisateur connecté est listé comme membre, triés par ordre alphabétique
+ *     summary: Rechercher des workspaces publics
+ *     description: Permet de rechercher des workspaces publics par nom ou description (utilisé pour la barre de recherche)
  *     tags: [Workspaces]
  *     security:
  *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         schema:
+ *           type: string
+ *         description: Terme de recherche pour filtrer les workspaces publics
  *     responses:
  *       200:
- *         description: Liste des workspaces dont l'utilisateur est membre
+ *         description: Liste des workspaces publics correspondant à la recherche
  *         content:
  *           application/json:
  *             schema:
@@ -117,7 +123,7 @@
  *                   example: success
  *                 resultats:
  *                   type: integer
- *                   example: 2
+ *                   example: 3
  *                 data:
  *                   type: object
  *                   properties:
@@ -399,10 +405,10 @@
  *         description: Workspace ou invitation non trouvée
  *
  * @swagger
- * /api/v1/workspaces/{id}/inviter/{userId}:
+ * /api/v1/workspaces/{id}/inviter:
  *   post:
  *     summary: Envoyer une invitation par email
- *     description: Envoie une invitation par email à un utilisateur pour rejoindre le workspace
+ *     description: Envoie une invitation par email à un utilisateur pour rejoindre un workspace
  *     tags: [Workspaces]
  *     security:
  *       - BearerAuth: []
@@ -412,12 +418,20 @@
  *         required: true
  *         schema:
  *           type: string
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *         description: ID de l'utilisateur à inviter
+ *         description: ID du workspace
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email de l'utilisateur à inviter
  *     responses:
  *       200:
  *         description: Invitation envoyée avec succès

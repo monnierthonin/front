@@ -20,8 +20,7 @@ const workspaceService = {
       }
       
       // Appeler l'API pour récupérer les workspaces dont l'utilisateur est membre
-      // Utiliser l'endpoint /mes-workspaces au lieu de /workspaces
-      const response = await fetch(`${API_URL}/workspaces/mes-workspaces`, {
+      const response = await fetch(`${API_URL}/workspaces`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -41,7 +40,7 @@ const workspaceService = {
       }
 
       const data = await response.json();
-      console.log('Données reçues de l\'API (mes-workspaces):', data);
+      console.log('Données reçues de l\'API (workspaces):', data);
       
       // Vérifier que les données reçues ont la structure attendue
       if (data && data.status === 'success') {
@@ -121,6 +120,44 @@ const workspaceService = {
     } catch (error) {
       console.error('Erreur lors du décodage du token JWT:', error);
       return null;
+    }
+  },
+
+  /**
+   * Récupérer les membres d'un workspace
+   * @param {String} workspaceId - ID du workspace
+   * @returns {Promise} Promesse avec la liste des membres
+   */
+  async getWorkspaceMembers(workspaceId) {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Vous devez être connecté pour accéder aux membres du workspace');
+      }
+      
+      const response = await fetch(`${API_URL}/workspaces/${workspaceId}/members`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          throw new Error('Session expirée, veuillez vous reconnecter');
+        }
+        throw new Error(`Erreur lors de la récupération des membres: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.data;
+    } catch (error) {
+      console.error(`Erreur lors de la récupération des membres du workspace ${workspaceId}:`, error);
+      throw error;
     }
   }
 };

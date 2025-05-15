@@ -44,15 +44,33 @@ const messagePrivateSchema = new mongoose.Schema({
         ref: 'User',
         required: [true, 'Un message doit avoir un expéditeur']
     },
-    // Champ destinataire conservé pour la rétrocompatibilité
+    // Ce champ définit le contexte du message : soit un utilisateur (1:1) soit une conversation (groupe)
+    contexte: {
+        // Type de contexte : 'user' pour message privé direct, 'conversation' pour groupe
+        type: {
+            type: String,
+            enum: ['user', 'conversation'],
+            required: true
+        },
+        // ID de l'utilisateur destinataire (si type='user') ou de la conversation (si type='conversation')
+        id: {
+            type: mongoose.Schema.ObjectId,
+            required: true,
+            refPath: 'contexte.type'
+        }
+    },
+    
+    // DEPRECATED: Ces champs sont dépréciés et ne sont conservés que pour référence
+    // Ne pas utiliser ces champs dans le nouveau code
     destinataire: {
         type: mongoose.Schema.ObjectId,
-        ref: 'User'
+        ref: 'User',
+        select: false // Ne pas inclure ce champ dans les résultats par défaut
     },
-    // Nouveau champ pour référencer la conversation
     conversation: {
         type: mongoose.Schema.ObjectId,
-        ref: 'ConversationPrivee'
+        ref: 'ConversationPrivee',
+        select: false // Ne pas inclure ce champ dans les résultats par défaut
     },
     lu: {
         // Tableau des utilisateurs qui ont lu le message

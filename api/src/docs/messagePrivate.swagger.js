@@ -46,6 +46,22 @@
  *           type: string
  *           format: date-time
  *           description: Date et heure de la dernière modification du message
+ *         fichiers:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               nom:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *               url:
+ *                 type: string
+ *               urlPreview:
+ *                 type: string
+ *                 description: URL de l'aperçu du fichier (pour les images)
+ *               taille:
+ *                 type: number
  */
 
 /**

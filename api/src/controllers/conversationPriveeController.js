@@ -433,11 +433,15 @@ exports.sendMessageToConversation = async (req, res, next) => {
             }
         }
         
-        // Créer le message
+        // Créer le message avec la structure standardisée
         const newMessage = await MessagePrivate.create({
             contenu,
             expediteur: req.user._id,
-            conversation: id,
+            // Structure standardisée avec le champ contexte
+            contexte: {
+                type: 'conversation',  // Message dans une conversation de groupe
+                id: id
+            },
             reponseA: reponseA || null,
             horodatage: Date.now(),
             envoye: true,

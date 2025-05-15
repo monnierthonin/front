@@ -194,11 +194,26 @@ exports.uploadFichierConversation = catchAsync(async (req, res, next) => {
         // Si aucun ID de message n'est fourni, créer un nouveau message
         console.log('Création d\'un nouveau message privé avec fichier');
         
-        // Créer le message directement avec les bonnes données
+        // Créer le message directement avec les bonnes données en utilisant la structure standardisée
+        // Déterminer si c'est une conversation de groupe ou un message direct
+        // Note: conversationId peut être soit un ID d'utilisateur (1:1) soit un ID de conversation (groupe)
+        console.log(`Détermination du type de contexte pour l'ID: ${conversationId}`);
+        
+        // Vérifier si l'ID correspond à une conversation de groupe existante
+        const ConversationPrivee = require('../models/conversationPrivee');
+        const isConversationGroup = await ConversationPrivee.exists({ _id: conversationId });
+        
+        const contextType = isConversationGroup ? 'conversation' : 'user';
+        console.log(`Type de contexte déterminé: ${contextType}`);
+        
         const nouveauMessage = await MessagePrivate.create({
             contenu: req.body.contenu || '',
             expediteur: req.user.id,
-            conversation: conversationId,
+            // Structure standardisée avec le champ contexte
+            contexte: {
+                type: contextType,
+                id: conversationId
+            },
             fichiers: [{
                 nom: fichierInfo.nom,
                 type: fichierInfo.type,
@@ -320,9 +335,21 @@ exports.listerFichiersConversation = catchAsync(async (req, res, next) => {
     const { conversationId } = req.params;
     
     // Trouver tous les messages de la conversation qui ont des fichiers
+    // Utiliser uniquement le nouveau modèle standardisé avec contexte
     const messages = await MessagePrivate.find({
-        conversation: conversationId,
-        'fichiers.0': { $exists: true } // Au moins un fichier
+        $and: [
+            // Au moins un fichier
+            { 'fichiers.0': { $exists: true } },
+            // Recherche par contexte uniquement
+            { $or: [
+                // Messages dans une conversation privée 1:1
+                { 'contexte.type': 'user', 'contexte.id': conversationId, expediteur: req.user._id },
+                { 'contexte.type': 'user', 'contexte.id': req.user._id, expediteur: conversationId },
+                
+                // Messages dans une conversation de groupe
+                { 'contexte.type': 'conversation', 'contexte.id': conversationId }
+            ]}
+        ]
     }).populate('expediteur', 'username avatar');
 
     // Extraire les fichiers avec leurs métadonnées

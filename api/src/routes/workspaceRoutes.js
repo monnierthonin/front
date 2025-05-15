@@ -11,11 +11,11 @@ const { authenticate } = require('../middleware/auth');
 // Utiliser les routes de canaux pour les routes imbriquées
 router.use('/:workspaceId/canaux', canalRouter);
 
-// Obtenir tous les workspaces
+// Obtenir tous les workspaces dont l'utilisateur est membre (page d'accueil)
 router.get('/', authenticate, workspaceController.obtenirWorkspaces);
 
-// Obtenir les workspaces dont l'utilisateur est membre
-router.get('/mes-workspaces', authenticate, workspaceController.obtenirMesWorkspaces);
+// Rechercher des workspaces publics (pour la barre de recherche)
+router.get('/recherche/public', authenticate, workspaceController.rechercherWorkspacesPublics);
 
 // Créer un nouveau workspace
 router.post('/', authenticate, workspaceController.creerWorkspace);

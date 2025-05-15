@@ -308,8 +308,11 @@ const userService = {
         console.log('Données utilisateur extraites directement:', userData);
       }
       
-      // S'assurer que profilePicture est bien présent ou définir à default.jpg
-      if (userData && !userData.profilePicture) {
+      // Vérifier si les données sont dans un sous-objet 'user'
+      if (userData && userData.user && userData.user.profilePicture) {
+        console.log('Photo de profil trouvée dans user:', userData.user.profilePicture);
+        userData.profilePicture = userData.user.profilePicture;
+      } else if (userData && (!userData.profilePicture || userData.profilePicture === '' || userData.profilePicture === null || userData.profilePicture === undefined)) {
         console.log('Aucune photo de profil trouvée, utilisation de default.jpg');
         userData.profilePicture = 'default.jpg';
       }
