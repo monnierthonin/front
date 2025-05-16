@@ -15,7 +15,6 @@ const workspaceService = {
       const token = localStorage.getItem('token');
       
       if (!token) {
-        console.log('Aucun token d\'authentification trouvé, utilisation des workspaces par défaut');
         return [];
       }
       
@@ -40,13 +39,11 @@ const workspaceService = {
       }
 
       const data = await response.json();
-      console.log('Données reçues de l\'API (workspaces):', data);
       
       // Vérifier que les données reçues ont la structure attendue
       if (data && data.status === 'success') {
         // Récupérer les workspaces depuis data.workspaces (nouvelle structure)
         const workspaces = data.data && data.data.workspaces ? data.data.workspaces : [];
-        console.log('Nombre de workspaces récupérés:', workspaces.length);
         
         return workspaces.map(workspace => ({
           _id: workspace._id || workspace.id,
@@ -58,7 +55,6 @@ const workspaceService = {
       // Si les données ne sont pas au format attendu, retourner un tableau vide
       return [];
     } catch (error) {
-      console.error('Erreur lors de la récupération des workspaces:', error);
       // En cas d'erreur, on retourne un tableau vide
       return [];
     }
@@ -97,7 +93,6 @@ const workspaceService = {
       const data = await response.json();
       return data.data;
     } catch (error) {
-      console.error(`Erreur lors de la récupération du workspace ${id}:`, error);
       throw error;
     }
   },
@@ -113,51 +108,11 @@ const workspaceService = {
       
       // Décoder de base64 et parser le JSON
       const decoded = JSON.parse(atob(payload));
-      console.log('Token décodé:', decoded);
       
       // Retourner l'ID utilisateur (peut être dans id, _id, ou userId selon votre implémentation)
       return decoded.id || decoded._id || decoded.userId || null;
     } catch (error) {
-      console.error('Erreur lors du décodage du token JWT:', error);
       return null;
-    }
-  },
-
-  /**
-   * Récupérer les membres d'un workspace
-   * @param {String} workspaceId - ID du workspace
-   * @returns {Promise} Promesse avec la liste des membres
-   */
-  async getWorkspaceMembers(workspaceId) {
-    try {
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('Vous devez être connecté pour accéder aux membres du workspace');
-      }
-      
-      const response = await fetch(`${API_URL}/workspaces/${workspaceId}/members`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          localStorage.removeItem('token');
-          throw new Error('Session expirée, veuillez vous reconnecter');
-        }
-        throw new Error(`Erreur lors de la récupération des membres: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.data;
-    } catch (error) {
-      console.error(`Erreur lors de la récupération des membres du workspace ${workspaceId}:`, error);
-      throw error;
     }
   }
 };

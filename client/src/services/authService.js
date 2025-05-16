@@ -21,7 +21,6 @@ const authService = {
    */
   async register(userData) {
     try {
-      console.log('Données d\'inscription envoyées:', userData);
       
       // S'assurer que la confirmation du mot de passe est envoyée à l'API
       // si elle n'est pas déjà présente dans userData
@@ -50,12 +49,10 @@ const authService = {
       // Si l'inscription réussit, stocker le token dans le localStorage
       if (data.token) {
         localStorage.setItem('token', data.token);
-        console.log('Token stocké après inscription:', data.token);
       }
       
       return data;
     } catch (error) {
-      console.error('Erreur d\'inscription:', error);
       throw error;
     }
   },
@@ -67,7 +64,6 @@ const authService = {
    */
   async login(credentials) {
     try {
-      console.log('Tentative de connexion avec:', credentials);
 
       // Vérification des champs requis
       if (!credentials.email || !credentials.password) {
@@ -89,7 +85,6 @@ const authService = {
       });
 
       const data = await response.json();
-      console.log('Réponse de connexion:', response.status, data);
       
       if (!response.ok) {
         const errorMessage = data.message || 
@@ -100,7 +95,6 @@ const authService = {
       // Si la connexion réussit, stocker le token dans le localStorage
       if (data.token) {
         localStorage.setItem('token', data.token);
-        console.log('Token stocké après connexion:', data.token);
         
         // Charger directement le profil utilisateur
         try {
@@ -128,7 +122,6 @@ const authService = {
             // Enregistrer la photo de profil (qu'elle soit définie ou non)
             // L'API gère déjà l'image par défaut si nécessaire
             localStorage.setItem('profilePicture', profileResponse.data.profilePicture || 'default.jpg');
-            console.log('Photo de profil chargée depuis le serveur:', profileResponse.data.profilePicture || 'default.jpg');
             
             // Notifier les composants immédiatement
             eventBus.emit(APP_EVENTS.PROFILE_PICTURE_UPDATED, profileResponse.data.profilePicture || 'default.jpg');
@@ -137,7 +130,6 @@ const authService = {
           // Émettre l'événement de connexion réussie
           eventBus.emit(APP_EVENTS.USER_LOGGED_IN);
         } catch (profileError) {
-          console.error('Erreur lors du chargement du profil après connexion:', profileError);
           // En cas d'erreur, émettre quand même l'événement de connexion
           eventBus.emit(APP_EVENTS.USER_LOGGED_IN);
         }
@@ -145,7 +137,6 @@ const authService = {
       
       return data;
     } catch (error) {
-      console.error('Erreur de connexion:', error);
       throw error;
     }
   },

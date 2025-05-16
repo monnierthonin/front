@@ -1,8 +1,8 @@
 <template>
-  <FriendsList />
+  <FriendsList :workspaceId="workspaceId" />
   <div class="home">
-    <Message />
-    <textBox />
+    <Message :workspaceId="workspaceId" :messages="messages" :isLoading="isLoading" />
+    <textBox :workspaceId="workspaceId" />
   </div>
 </template>
 
@@ -53,11 +53,22 @@ export default {
         this.messages = [];
         
         // Charger les données du nouveau workspace
-        // Vous devrez implémenter cette logique selon vos besoins
-        console.log('Chargement du workspace:', this.workspaceId);
+        const workspaceService = await import('../services/workspaceService.js');
+        const response = await workspaceService.default.getWorkspaceById(this.workspaceId);
         
+        if (response && response.data) {
+          // Mettre à jour les données du workspace
+          
+          // Si le workspace a des canaux par défaut, charger leurs messages
+          if (response.data.canaux && response.data.canaux.length > 0) {
+            const messageService = await import('../services/messageService.js');
+            const defaultChannel = response.data.canaux[0];
+            const messagesResponse = await messageService.default.getCanalMessages(this.workspaceId, defaultChannel._id);
+            this.messages = messagesResponse || [];
+          }
+        }
       } catch (error) {
-        console.error('Erreur lors du chargement du workspace:', error);
+        // Gestion silencieuse des erreurs
       } finally {
         this.isLoading = false;
       }

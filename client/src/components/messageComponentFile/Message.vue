@@ -120,7 +120,6 @@ export default {
         // Format: HH:MM jour/mois/année
         return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')} ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
       } catch (error) {
-        console.error('Erreur lors du formatage de la date:', error);
         return dateString;
       }
     },

@@ -28,7 +28,7 @@ const userService = {
 
       if (!response.ok) {
         const data = await response.json();
-        console.log('Erreur détaillée:', data);
+
         throw new Error(data.message || (data.error ? `Erreur: ${data.error}` : 'Erreur lors de la suppression du compte'));
       }
 
@@ -36,7 +36,7 @@ const userService = {
       localStorage.removeItem('token');
       return true;
     } catch (error) {
-      console.error('Erreur lors de la suppression du compte:', error);
+
       throw error;
     }
   },
@@ -45,7 +45,7 @@ const userService = {
    * @returns {Promise} Promesse avec les données du profil
    */
   async getProfile() {
-    console.log('Tentative de récupération du profil utilisateur');
+
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Non authentifié');
@@ -63,15 +63,15 @@ const userService = {
 
       if (!response.ok) {
         const data = await response.json();
-        console.log('Erreur détaillée:', data);
+
         throw new Error(data.message || 'Erreur lors de la récupération du profil');
       }
 
       const data = await response.json();
-      console.log('Profil récupéré avec succès:', data);
+
       return data;
     } catch (error) {
-      console.error('Erreur lors de la récupération du profil:', error);
+
       throw error;
     }
   },
@@ -82,7 +82,7 @@ const userService = {
    * @returns {Promise} Promesse avec les données du profil mis à jour
    */
   async updateProfile(profileData) {
-    console.log('Tentative de mise à jour du profil:', profileData);
+
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Non authentifié');
@@ -101,15 +101,15 @@ const userService = {
 
       if (!response.ok) {
         const data = await response.json();
-        console.log('Erreur détaillée:', data);
+
         throw new Error(data.message || 'Erreur lors de la mise à jour du profil');
       }
 
       const data = await response.json();
-      console.log('Profil mis à jour avec succès:', data);
+
       return data;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du profil:', error);
+
       throw error;
     }
   },
@@ -120,7 +120,7 @@ const userService = {
    * @returns {Promise} Promesse avec le résultat du changement de mot de passe
    */
   async updatePassword(passwordData) {
-    console.log('Tentative de changement du mot de passe', passwordData);
+
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Non authentifié');
@@ -128,7 +128,6 @@ const userService = {
 
     try {
       // Essayons avec une autre structure pour les données
-      console.log('Test avec un autre format de données');
       const response = await fetch(`${API_URL}/users/profile/password`, {
         method: 'PUT',
         headers: {
@@ -143,29 +142,28 @@ const userService = {
         credentials: 'include'
       });
 
-      console.log('Réponse du serveur:', response.status, response.statusText);
+
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.log('Erreur détaillée:', errorData);
+
         throw new Error(errorData.message || errorData.error || 'Erreur lors du changement de mot de passe');
       }
-
+      
       const data = await response.json();
-      console.log('Mot de passe changé avec succès:', data);
       return data;
     } catch (error) {
-      console.error('Erreur lors du changement de mot de passe:', error);
       throw error;
     }
   },
+  
   /**
    * Mettre à jour le statut de l'utilisateur
    * @param {String} status - Le nouveau statut ('online', 'offline', 'away')
    * @returns {Promise} Promesse avec le résultat de la mise à jour du statut
    */
   async updateStatus(status) {
-    console.log('Tentative de mise à jour du statut:', status);
+
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Non authentifié');
@@ -201,15 +199,15 @@ const userService = {
 
       if (!response.ok) {
         const data = await response.json();
-        console.log('Erreur détaillée:', data);
+
         throw new Error(data.message || 'Erreur lors de la mise à jour du statut');
       }
 
       const data = await response.json();
-      console.log('Statut mis à jour avec succès:', data);
+
       return data;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du statut:', error);
+
       throw error;
     }
   },
@@ -220,7 +218,7 @@ const userService = {
    * @returns {Promise} Promesse avec le résultat de la mise à jour du thème
    */
   async updateTheme(theme) {
-    console.log('Tentative de mise à jour du thème:', theme);
+
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Non authentifié');
@@ -231,11 +229,11 @@ const userService = {
     if (theme === 'sombre' || theme === 'clair') {
       // Déjà en français, pas besoin de conversion
       themeFr = theme;
-      console.log('Thème déjà en français:', themeFr);
+
     } else {
       // Convertir les valeurs anglaises en françaises pour l'API
       themeFr = theme === 'dark' ? 'sombre' : 'clair';
-      console.log('Thème converti de l\'anglais au français:', theme, '->', themeFr);
+
     }
 
     try {
@@ -252,15 +250,15 @@ const userService = {
 
       if (!response.ok) {
         const data = await response.json();
-        console.log('Erreur détaillée:', data);
+
         throw new Error(data.message || 'Erreur lors de la mise à jour du thème');
       }
 
       const data = await response.json();
-      console.log('Thème mis à jour avec succès:', data);
+
       return data;
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du thème:', error);
+
       throw error;
     }
   },
@@ -271,7 +269,7 @@ const userService = {
    * @returns {Promise} Promesse avec les données du profil
    */
   async getUserProfileById(id) {
-    console.log('Récupération du profil pour l\'utilisateur avec ID:', id);
+
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('Non authentifié');
@@ -289,37 +287,37 @@ const userService = {
 
       if (!response.ok) {
         const data = await response.json();
-        console.log('Erreur détaillée:', data);
+
         throw new Error(data.message || 'Erreur lors de la récupération du profil utilisateur');
       }
 
       const rawData = await response.json();
-      console.log('Données brutes du profil utilisateur:', rawData);
+
       
       // Vérifier la structure des données retournées
       let userData;
       if (rawData.data) {
         // Si les données sont encapsulées dans un objet 'data'
         userData = rawData.data;
-        console.log('Données utilisateur extraites de data:', userData);
+
       } else {
         // Si les données sont directement dans la réponse
         userData = rawData;
-        console.log('Données utilisateur extraites directement:', userData);
+
       }
       
       // Vérifier si les données sont dans un sous-objet 'user'
       if (userData && userData.user && userData.user.profilePicture) {
-        console.log('Photo de profil trouvée dans user:', userData.user.profilePicture);
+
         userData.profilePicture = userData.user.profilePicture;
       } else if (userData && (!userData.profilePicture || userData.profilePicture === '' || userData.profilePicture === null || userData.profilePicture === undefined)) {
-        console.log('Aucune photo de profil trouvée, utilisation de default.jpg');
+
         userData.profilePicture = 'default.jpg';
       }
       
       return userData;
     } catch (error) {
-      console.error('Erreur lors de la récupération du profil utilisateur:', error);
+
       throw error;
     }
   }

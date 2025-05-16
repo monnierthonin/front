@@ -61,17 +61,14 @@ export default {
               }
               // Stocker le statut pour une utilisation par d'autres composants
               localStorage.setItem('userStatus', status);
-              console.log('Statut utilisateur chargé:', status);
             }
             
             // Récupérer et stocker la photo de profil
             if (response.data.profilePicture) {
               localStorage.setItem('profilePicture', response.data.profilePicture);
-              console.log('Photo de profil chargée depuis le serveur:', response.data.profilePicture);
             } else {
               // Si aucune photo de profil n'est définie, utiliser l'image par défaut
               localStorage.setItem('profilePicture', 'default.jpg');
-              console.log('Aucune photo de profil trouvée, utilisation de l\'image par défaut');
             }
             
             // Vérifier si c'est une connexion récente en regardant le localStorage
@@ -81,7 +78,6 @@ export default {
               localStorage.removeItem('justLoggedIn');
               
               // Émettre l'événement de connexion réussie - maintenant que nous avons les données de profil
-              console.log('Lancement de l\'\u00e9vénement USER_LOGGED_IN');
               eventBus.emit(APP_EVENTS.USER_LOGGED_IN);
             }
             
@@ -89,7 +85,6 @@ export default {
             eventBus.emit(APP_EVENTS.PROFILE_PICTURE_UPDATED, response.data.profilePicture || 'default.jpg');
           }
         } catch (error) {
-          console.error('Erreur lors de la récupération du thème depuis l\'API:', error);
           this.applyDefaultTheme();
         }
       } else {

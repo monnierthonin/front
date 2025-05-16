@@ -23,7 +23,7 @@ class WebSocketService {
   connect(token) {
     return new Promise((resolve, reject) => {
       try {
-        console.log('Tentative de connexion WebSocket...');
+
         
         // Construire l'URL avec le token d'authentification
         const wsUrl = `${SOCKET_URL}?token=${encodeURIComponent(token)}`;
@@ -33,7 +33,7 @@ class WebSocketService {
 
         // Événement de connexion réussie
         this.socket.onopen = () => {
-          console.log('WebSocket connecté avec succès');
+
           this.connected = true;
           this.reconnectAttempts = 0;
           
@@ -47,14 +47,14 @@ class WebSocketService {
 
         // Événement de déconnexion
         this.socket.onclose = (event) => {
-          console.log(`WebSocket déconnecté, code: ${event.code}, raison: ${event.reason}`);
+
           this.connected = false;
           
           // Tentative de reconnexion automatique
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectInterval = setTimeout(() => {
               this.reconnectAttempts++;
-              console.log(`Tentative de reconnexion (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+
               this.connect(token);
             }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts)); // Backoff exponentiel
           }
@@ -62,7 +62,7 @@ class WebSocketService {
 
         // Événement d'erreur
         this.socket.onerror = (error) => {
-          console.error('Erreur de connexion WebSocket:', error);
+
           if (!this.connected) {
             reject(error);
           }
@@ -72,19 +72,19 @@ class WebSocketService {
         this.socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log('Message WebSocket reçu:', data);
+
             
             // Traiter les différents types de messages
             if (data.type === 'message' || data.type === 'new_message') {
               this.handleIncomingMessage(data.payload || data);
             }
           } catch (error) {
-            console.error('Erreur lors du traitement du message WebSocket:', error);
+
           }
         };
         
       } catch (error) {
-        console.error('Erreur lors de l\'initialisation du WebSocket:', error);
+
         reject(error);
       }
     });
@@ -106,7 +106,7 @@ class WebSocketService {
         this.reconnectInterval = null;
       }
       
-      console.log('WebSocket déconnecté manuellement');
+
     }
   }
 
@@ -117,7 +117,7 @@ class WebSocketService {
    */
   sendMessage(type, data) {
     if (!this.connected || !this.socket) {
-      console.error('WebSocket non connecté, impossible d\'envoyer le message');
+
       return;
     }
     
@@ -136,17 +136,17 @@ class WebSocketService {
    */
   joinChannel(workspaceId, channelId) {
     if (!this.connected || !this.socket) {
-      console.error('WebSocket non connecté, impossible de rejoindre le canal');
+
       return;
     }
 
     const channelKey = `${workspaceId}:${channelId}`;
-    console.log(`Demande d'abonnement au canal ${channelKey}`);
+
     
     this.sendMessage('join_channel', { workspaceId, channelId });
     this.channelSubscriptions.add({ workspaceId, channelId, key: channelKey });
     
-    console.log(`Abonné au canal ${channelKey}`);
+
   }
 
   /**
@@ -160,7 +160,7 @@ class WebSocketService {
     }
 
     const channelKey = `${workspaceId}:${channelId}`;
-    console.log(`Quitter le canal ${channelKey}`);
+
     
     this.sendMessage('leave_channel', { workspaceId, channelId });
     
@@ -191,7 +191,7 @@ class WebSocketService {
     // Rejoindre le canal si pas déjà fait
     this.joinChannel(workspaceId, channelId);
     
-    console.log(`Abonné aux messages du canal ${channelKey}`);
+
     
     // Retourner une fonction pour se désabonner
     return () => {
@@ -213,7 +213,7 @@ class WebSocketService {
   handleIncomingMessage(message) {
     // Vérifier si le message a les propriétés nécessaires
     if (!message || !message.workspaceId || !message.canalId) {
-      console.warn('Message WebSocket invalide:', message);
+
       return;
     }
 
@@ -225,7 +225,7 @@ class WebSocketService {
         try {
           callback(message);
         } catch (error) {
-          console.error('Erreur dans un gestionnaire de message:', error);
+
         }
       });
     }

@@ -22,7 +22,7 @@ const routes = [
     beforeEnter: async (to, from, next) => {
       try {
         const workspaceService = await import('@/services/workspaceService.js');
-        const response = await workspaceService.default.getWorkspaces();
+        const response = await workspaceService.default.getUserWorkspaces();
         if (response && response.data && response.data.length > 0) {
           // Rediriger vers le premier workspace
           next({ name: 'Workspace', params: { id: response.data[0]._id } });
@@ -31,7 +31,6 @@ const routes = [
           next();
         }
       } catch (error) {
-        console.error('Erreur lors de la récupération des workspaces:', error);
         next();
       }
     }
@@ -78,7 +77,6 @@ function isTokenValid(token) {
     const expiration = payload.exp * 1000; // Convertir en millisecondes
     return Date.now() < expiration;
   } catch (error) {
-    console.error('Erreur lors de la validation du token:', error);
     return false;
   }
 }
@@ -91,7 +89,6 @@ router.beforeEach((to, from, next) => {
   
   // Si le token existe mais n'est pas valide, le supprimer
   if (token && !isTokenValid(token)) {
-    console.log('Token expiré ou invalide, suppression...');
     localStorage.removeItem('token');
   }
   
@@ -101,17 +98,15 @@ router.beforeEach((to, from, next) => {
   // Vérifier si la route actuelle est une route publique
   const isPublicRoute = publicRoutes.includes(to.path);
   
-  console.log(`Nav vers: ${to.path}, Auth: ${isAuthenticated}, Public: ${isPublicRoute}`);
+
   
   // Si la route n'est pas publique et l'utilisateur n'est pas authentifié
   if (!isPublicRoute && !isAuthenticated) {
-    console.warn(`Accès non autorisé à ${to.path} - redirection vers /auth`);
     return next('/auth');
   }
   
   // Si l'utilisateur est authentifié et essaie d'accéder à la page d'authentification
   if (isPublicRoute && isAuthenticated) {
-    console.log('Utilisateur déjà connecté, redirection vers la page d\'accueil');
     return next('/');
   }
   

@@ -54,24 +54,42 @@ export default {
       wsChannelUnsubscribe: null // Fonction pour se désabonner du canal courant
     }
   },
+  watch: {
+    // Surveiller les changements d'ID de workspace dans l'URL
+    '$route.params.id': {
+      immediate: true,
+      handler(newId) {
+        if (newId && newId !== this.workspaceId) {
+          this.workspaceId = newId;
+          // Recharger les données du workspace
+          this.chargerDonnees();
+          
+          // Réinitialiser l'état
+          this.canalActif = null;
+          this.messages = [];
+        }
+      }
+    }
+  },
+  
   created() {
     // Récupérer l'ID du workspace depuis l'URL
     this.workspaceId = this.$route.params.id
-    console.log('Workspace ID récupéré de l\'URL:', this.workspaceId)
+
     
     // Récupérer l'ID de l'utilisateur connecté
     this.userId = messageService.getUserIdFromToken()
-    console.log('User ID récupéré du token:', this.userId)
+
     
     if (this.workspaceId) {
-      console.log('Chargement des données du workspace...')
+
       this.chargerDonnees()
       
       // Initialiser la connexion WebSocket
       this.initWebSocket()
     } else {
       this.error = 'ID de workspace non spécifié'
-      console.error('ID de workspace non spécifié')
+
     }
   },
   beforeUnmount() {
@@ -98,12 +116,12 @@ export default {
         const workspaceData = await workspaceService.getWorkspaceById(this.workspaceId)
         this.workspace = workspaceData.workspace
         this.membres = this.workspace.membres || []
-        console.log('Workspace chargé avec', this.membres.length, 'membres')
+
         
         // Chargement des canaux du workspace
         const canauxData = await canalService.getWorkspaceCanaux(this.workspaceId)
         this.canaux = canauxData || []
-        console.log('Canaux chargés:', this.canaux.length)
+
         
         // Sélectionner le premier canal par défaut si des canaux existent
         if (this.canaux.length > 0) {
@@ -111,7 +129,7 @@ export default {
         }
       } catch (error) {
         this.error = `Erreur lors du chargement des données: ${error.message}`
-        console.error('Erreur lors du chargement des données du workspace:', error)
+
       } finally {
         this.isLoading = false
       }
@@ -122,31 +140,31 @@ export default {
      * @param {Object} canal - Le canal à activer
      */
     async changerCanalActif(canal) {
-      console.log('Méthode changerCanalActif appelée avec le canal:', canal)
+
       
       if (!canal) {
-        console.error('Aucun canal fourni à changerCanalActif')
+
         return
       }
       
       if (this.canalActif && canal._id === this.canalActif._id) {
-        console.log('Même canal déjà actif, aucune action nécessaire')
+
         return
       }
       
       this.canalActif = canal
-      console.log('Canal actif changé:', canal.nom, 'avec ID:', canal._id)
+
       
       // Charger les messages du canal sélectionné
-      console.log('Appel de chargerMessages() pour le canal', canal.nom)
+
       await this.chargerMessages()
       
       // S'abonner au canal via WebSocket pour recevoir les messages en temps réel
       if (this.wsConnected) {
-        console.log('Abonnement WebSocket au canal', canal.nom)
+
         this.subscribeToChannel(canal)
       } else {
-        console.warn('Impossible de s\'abonner au canal via WebSocket: connexion non établie')
+
       }
     },
     

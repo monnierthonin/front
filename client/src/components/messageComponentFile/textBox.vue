@@ -66,7 +66,6 @@ export default {
      */
     handleFileUpload() {
       // Fonctionnalité à implémenter
-      console.log('Upload de fichier - fonctionnalité à implémenter');
     },
     
     /**
