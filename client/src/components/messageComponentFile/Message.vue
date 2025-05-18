@@ -11,7 +11,7 @@
           <!-- Profile picture -->
           <div class="profile-pic">
             <ProfilePicture 
-              :userId="message.auteur._id" 
+              :profilePicture="message.auteur.profilePicture" 
               :altText="getUserName(message.auteur)" 
             />
           </div>
