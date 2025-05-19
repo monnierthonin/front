@@ -1,6 +1,18 @@
 <template>
   <div class="inputMessage">
-    <div class="textInput" :class="{ 'disabled': !canalActif }">
+    <!-- Barre de réponse (visible uniquement en mode réponse) -->
+    <div v-if="replyingToMessage" class="reply-bar">
+      <div class="reply-info">
+        <span class="reply-prefix">Réponse à</span>
+        <span class="reply-author">{{ getAuthorName(replyingToMessage.auteur) }}</span>
+        <span class="reply-preview">{{ getMessagePreview(replyingToMessage.contenu) }}</span>
+      </div>
+      <button class="cancel-reply-btn" @click="cancelReply">
+        <span>&times;</span>
+      </button>
+    </div>
+    
+    <div class="textInput" :class="{ 'disabled': !canalActif, 'reply-mode': replyingToMessage }">
       <button @click="handleFileUpload" :disabled="!canalActif">
         <img src="../../assets/styles/image/importFile.png" alt="importFile" class="importFile">
       </button>
@@ -8,9 +20,10 @@
         ref="inputText" 
         v-model="messageText" 
         class="inputText" 
-        placeholder="Entrez votre message" 
+        :placeholder="placeholderText" 
         :disabled="!canalActif"
         @keyup.enter="handleEnterKey"
+        @keyup.esc="cancelReply"
       ></textarea>
       <button @click="envoyerMessage" :disabled="!canalActif || !messageText.trim()">
         <img src="../../assets/styles/image/messageEnvoi.png" alt="messageEnvoi" class="messageEnvoi">
@@ -30,12 +43,27 @@ export default {
     canalActif: {
       type: Object,
       default: () => null
+    },
+    replyingToMessage: {
+      type: Object,
+      default: null
     }
   },
   data() {
     return {
       messageText: ''
     };
+  },
+  computed: {
+    /**
+     * Texte de placeholder personnalisé en fonction du mode (réponse ou non)
+     */
+    placeholderText() {
+      if (this.replyingToMessage) {
+        return "Répondre à ce message...";
+      }
+      return "Entrez votre message";
+    }
   },
   methods: {
     /**
@@ -46,11 +74,26 @@ export default {
         return;
       }
       
-      this.$emit('envoyer-message', {
-        contenu: this.messageText.trim(),
-        canalId: this.canalActif._id,
-        workspaceId: this.workspaceId
-      });
+      // Déterminer si c'est une réponse ou un message normal
+      if (this.replyingToMessage) {
+        // C'est une réponse à un message existant
+        this.$emit('reply-to-message', {
+          contenu: this.messageText.trim(),
+          parentMessageId: this.replyingToMessage._id,
+          canalId: this.canalActif._id,
+          workspaceId: this.workspaceId
+        });
+        
+        // Annuler le mode réponse après l'envoi
+        this.$emit('cancel-reply');
+      } else {
+        // Message normal
+        this.$emit('envoyer-message', {
+          contenu: this.messageText.trim(),
+          canalId: this.canalActif._id,
+          workspaceId: this.workspaceId
+        });
+      }
       
       // Réinitialiser le champ de texte
       this.messageText = '';
@@ -78,6 +121,38 @@ export default {
         e.preventDefault();
         this.envoyerMessage();
       }
+    },
+    
+    /**
+     * Annuler le mode réponse
+     */
+    cancelReply() {
+      this.$emit('cancel-reply');
+    },
+    
+    /**
+     * Obtenir le nom de l'auteur du message
+     * @param {Object} author - Auteur du message
+     * @returns {String} - Nom d'affichage de l'auteur
+     */
+    getAuthorName(author) {
+      if (!author) return 'Utilisateur';
+      return author.username || author.firstName || author.email || 'Utilisateur';
+    },
+    
+    /**
+     * Obtenir un aperçu court du message
+     * @param {String} content - Contenu du message
+     * @returns {String} - Aperçu tronqué du message
+     */
+    getMessagePreview(content) {
+      if (!content) return '';
+      
+      // Limiter à 30 caractères et ajouter des points de suspension si nécessaire
+      if (content.length > 30) {
+        return content.substring(0, 30) + '...';
+      }
+      return content;
     }
   },
   mounted() {
@@ -165,5 +240,85 @@ button:disabled {
 .inputText:disabled {
   cursor: not-allowed;
   background-color: #bebebe;
+}
+
+/* Styles pour la barre de réponse */
+.reply-bar {
+  position: fixed;
+  bottom: 60px;
+  left: 10px;
+  right: 10px;
+  background-color: var(--color-background-soft, #36393f);
+  border: 1px solid var(--color-border, #444);
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 8px;
+  margin: 0 auto;
+  animation: slide-up 0.2s ease-out;
+  z-index: 20;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  max-width: calc(100% - 20px);
+  width: calc(var(--whidth-header) + var(--whidth-chanelWorkspace) + var(--whidth-userChanel) - 20px);
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.reply-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.reply-prefix {
+  color: var(--color-text-light, #a3a3a3);
+  font-size: 0.85rem;
+}
+
+.reply-author {
+  font-weight: bold;
+  font-size: 0.85rem;
+  color: var(--primary-color, #007bff);
+}
+
+.reply-preview {
+  color: var(--color-text-light, #a3a3a3);
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.cancel-reply-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-light, #a3a3a3);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  padding: 0;
+}
+
+.cancel-reply-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+/* Ajuster le style quand on est en mode réponse */
+.textInput.reply-mode {
+  margin-top: 10px;
 }
 </style>

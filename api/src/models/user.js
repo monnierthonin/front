@@ -135,7 +135,26 @@ const userSchema = new mongoose.Schema({
     default: 'sombre'
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+// Transformation pour générer des URLs complètes pour les photos de profil
+userSchema.set('toJSON', {
+  transform: function(doc, ret) {
+    if (ret.profilePicture) {
+      // Si c'est une URL externe (OAuth), la laisser telle quelle
+      if (ret.profilePicture.startsWith('http')) {
+        // Ne rien changer
+      } else {
+        // Construire l'URL complète pour les images stockées localement
+        const baseUrl = process.env.API_URL || 'http://localhost:3000';
+        ret.profilePicture = `${baseUrl}/uploads/profiles/${ret.profilePicture}`;
+      }
+    }
+    return ret;
+  }
 });
 
 // Ne pas hasher le mot de passe s'il n'a pas été modifié ou si c'est une connexion OAuth

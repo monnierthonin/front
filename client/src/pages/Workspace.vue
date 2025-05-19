@@ -9,12 +9,16 @@
     <Message 
       :messages="messages" 
       :isLoading="isLoadingMessages" 
-      :currentUserId="userId" 
+      :currentUserId="userId"
+      @reply-to-message="handleReplyToMessage" 
     />
     <textBox 
       :workspaceId="workspaceId" 
-      :canalActif="canalActif" 
+      :canalActif="canalActif"
+      :replyingToMessage="replyingToMessage"
       @envoyer-message="envoyerMessage"
+      @reply-to-message="envoyerReponse"
+      @cancel-reply="cancelReply"
     />
   </div>
 </template>
@@ -49,6 +53,8 @@ export default {
       isLoading: true,
       isLoadingMessages: false,
       error: null,
+      // Message en cours de réponse
+      replyingToMessage: null,
       // Abonnement WebSocket
       wsConnected: false,
       wsChannelUnsubscribe: null // Fonction pour se désabonner du canal courant
@@ -140,17 +146,16 @@ export default {
      * @param {Object} canal - Le canal à activer
      */
     async changerCanalActif(canal) {
-
-      
       if (!canal) {
-
         return
       }
       
       if (this.canalActif && canal._id === this.canalActif._id) {
-
         return
       }
+      
+      // Réinitialiser le message en cours de réponse lors du changement de canal
+      this.replyingToMessage = null;
       
       this.canalActif = canal
 
@@ -264,6 +269,23 @@ export default {
     },
     
     /**
+     * Gérer la demande de réponse à un message
+     * @param {Object} message - Le message auquel répondre
+     */
+    handleReplyToMessage(message) {
+      console.log('Préparation de la réponse au message:', message);
+      this.replyingToMessage = message;
+    },
+    
+    /**
+     * Annuler la réponse en cours
+     */
+    cancelReply() {
+      console.log('Annulation de la réponse en cours');
+      this.replyingToMessage = null;
+    },
+    
+    /**
      * Gérer un nouveau message reçu en temps réel
      * @param {Object} message - Le nouveau message reçu
      */
@@ -335,6 +357,70 @@ export default {
       }
       
       console.log('Fin de la méthode envoyerMessage()')
+    },
+    
+    /**
+     * Envoyer une réponse à un message
+     * @param {Object} messageData - Données de la réponse
+     */
+    async envoyerReponse(messageData) {
+      console.log('Début de la méthode envoyerReponse() avec les données:', messageData)
+      
+      if (!this.canalActif) {
+        console.error('Aucun canal actif sélectionné, impossible d\'envoyer la réponse')
+        return
+      }
+      
+      if (!this.workspaceId) {
+        console.error('ID du workspace manquant, impossible d\'envoyer la réponse')
+        return
+      }
+      
+      if (!messageData.parentMessageId) {
+        console.error('ID du message parent manquant, impossible d\'envoyer la réponse')
+        return
+      }
+      
+      try {
+        const { contenu, parentMessageId } = messageData
+        console.log(`Tentative d'envoi d'une réponse au message ${parentMessageId}:`);
+        console.log('- Contenu:', contenu)
+        console.log('- Workspace ID:', this.workspaceId)
+        console.log('- Canal ID:', this.canalActif._id)
+        
+        // Appeler le service pour envoyer la réponse au message
+        const nouvelleReponse = await messageService.sendReply(
+          this.workspaceId,
+          this.canalActif._id,
+          parentMessageId,
+          contenu
+        )
+        
+        console.log('Réponse du service messageService.sendReply:', nouvelleReponse)
+        
+        if (!nouvelleReponse) {
+          console.error('Aucune réponse retournée par le service après envoi')
+          return
+        }
+        
+        // Ajouter la réponse localement pour une expérience fluide
+        const messageExists = this.messages.some(msg => msg._id === nouvelleReponse._id);
+        if (!messageExists) {
+          this.messages.push(nouvelleReponse);
+          console.log('Réponse ajoutée localement en attendant la confirmation WebSocket');
+        }
+        
+        // Réinitialiser l'état de réponse
+        this.replyingToMessage = null;
+        
+        console.log('Réponse envoyée avec succès:', nouvelleReponse);
+      } catch (error) {
+        console.error('Erreur lors de l\'envoi de la réponse:', error)
+        console.error('Détails de l\'erreur:', error.message, error.stack)
+        this.error = `Erreur lors de l'envoi de la réponse: ${error.message}`
+      }
+      
+      console.log('Fin de la méthode envoyerReponse()')
     }
   }
 }

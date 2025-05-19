@@ -63,10 +63,17 @@ export default {
   },
   computed: {
     profileImageUrl() {
-      if (this.currentProfilePicture && this.currentProfilePicture !== 'default.jpg') {
-        return `http://localhost:3000/uploads/profiles/${this.currentProfilePicture}`;
+      if (this.currentProfilePicture) {
+        // Si c'est déjà une URL complète, l'utiliser directement
+        if (this.currentProfilePicture.startsWith('http://') || this.currentProfilePicture.startsWith('https://')) {
+          return this.currentProfilePicture;
+        }
+        // Sinon, construire l'URL (ancien format)
+        else if (this.currentProfilePicture !== 'default.jpg') {
+          return `http://localhost:3000/uploads/profiles/${this.currentProfilePicture}`;
+        }
       }
-      // Utilisation de l'image importée
+      // Utilisation de l'image importée par défaut
       return defaultProfileImg;
     }
   },

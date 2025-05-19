@@ -65,6 +65,7 @@ const userController = {
   getProfile: async (req, res) => {
     try {
       const user = await User.findById(req.user.id).select('-password');
+      // La transformation des URLs est maintenant gérée par le schéma User
       res.json({
         success: true,
         data: user
@@ -111,10 +112,11 @@ const userController = {
         .select('nom description')
         .limit(5); // Limiter à 5 workspaces pour éviter une réponse trop lourde
       
+      // La transformation des URLs est maintenant gérée par le schéma User
       res.json({
         success: true,
         data: {
-          user,
+          user: user,
           stats: {
             messageCount,
             workspaceCount: workspaces.length
@@ -485,6 +487,7 @@ const userController = {
         .select('_id username firstName lastName profilePicture status') // Sélectionner uniquement les champs nécessaires
         .limit(all ? 50 : 10); // Limiter à 50 résultats si all=true, sinon 10
 
+      // La transformation des URLs est maintenant gérée par le schéma User
       res.json({
         success: true,
         data: {

@@ -61,9 +61,16 @@ export default {
   },
   computed: {
     profileImageUrl() {
-      // Utiliser directement l'API qui gère déjà l'image par défaut
-      const imagePath = this.currentProfilePicture || 'default.jpg';
-      return `http://localhost:3000/uploads/profiles/${imagePath}`;
+      if (this.currentProfilePicture) {
+        // Si c'est déjà une URL complète, l'utiliser directement
+        if (this.currentProfilePicture.startsWith('http://') || this.currentProfilePicture.startsWith('https://')) {
+          return this.currentProfilePicture;
+        }
+        // Sinon, construire l'URL (ancien format)
+        return `http://localhost:3000/uploads/profiles/${this.currentProfilePicture}`;
+      }
+      // Image par défaut si aucune image spécifiée
+      return 'http://localhost:3000/uploads/profiles/default.jpg';
     }
   },
   created() {
@@ -174,7 +181,7 @@ export default {
         const data = await response.json();
         console.log('Photo de profil mise à jour:', data);
         
-        // Mettre à jour le localStorage avec le nouveau nom de fichier
+        // Mettre à jour le localStorage avec la nouvelle photo de profil
         if (data.success && data.data && data.data.profilePicture) {
           const newProfilePicture = data.data.profilePicture;
           localStorage.setItem('profilePicture', newProfilePicture);

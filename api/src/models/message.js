@@ -142,10 +142,35 @@ messageSchema.pre('save', async function(next) {
             this.mentions = [];
         }
 
-        // Extraire les références de canaux (#canal)
-        const canalsMatch = this.contenu ? this.contenu.match(/#(\w+)/g) : null;
-        if (canalsMatch) {
-            this.canalsReferenced = canalsMatch.map(canal => canal.substring(1));
+        // Gestion des références de canaux (#canal)
+        // Vérifier si canalsReferenced est déjà défini et non vide
+        const hasPresetCanals = this.canalsReferenced && Array.isArray(this.canalsReferenced) && this.canalsReferenced.length > 0;
+        
+        // Si canalsReferenced n'est pas déjà défini par le frontend
+        if (!hasPresetCanals) {
+            // Extraire les références de canaux (#canal) du contenu
+            const canalsMatch = this.contenu ? this.contenu.match(/#(\w+)/g) : null;
+            if (canalsMatch) {
+                // Rechercher les canaux correspondants dans la base de données
+                const Canal = mongoose.model('Canal');
+                const canalNames = canalsMatch.map(canal => canal.substring(1));
+                
+                try {
+                    // Trouver les canaux correspondants
+                    const canals = await Canal.find({ nom: { $in: canalNames } });
+                    
+                    // Stocker les IDs des canaux trouvés
+                    this.canalsReferenced = canals.map(canal => canal._id);
+                } catch (error) {
+                    console.error('Erreur lors de la recherche des canaux référencés:', error);
+                    this.canalsReferenced = [];
+                }
+            } else {
+                this.canalsReferenced = [];
+            }
+        } else {
+            // Utiliser les canalsReferenced déjà fournis par le frontend
+            console.log('Utilisation des canaux référencés fournis par le frontend:', this.canalsReferenced);
         }
 
         // Marquer comme modifié si ce n'est pas une nouvelle création

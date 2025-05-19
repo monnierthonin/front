@@ -190,6 +190,179 @@ const messageService = {
 
       return null;
     }
+  },
+
+  /**
+   * Modifier un message existant
+   * @param {String} workspaceId - ID du workspace
+   * @param {String} canalId - ID du canal
+   * @param {String} messageId - ID du message à modifier
+   * @param {String} contenu - Nouveau contenu du message
+   * @returns {Promise} Promesse avec les données du message modifié
+   */
+  async updateMessage(workspaceId, canalId, messageId, contenu) {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Vous devez être connecté pour modifier un message');
+      }
+      
+      // Construire l'URL
+      const url = `${API_URL}/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}`;
+      
+      // Construire le corps de la requête
+      const requestBody = JSON.stringify({ contenu });
+      
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: requestBody
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          throw new Error('Session expirée, veuillez vous reconnecter');
+        }
+        
+        const responseText = await response.text();
+        throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
+      }
+
+      // Convertir la réponse en JSON
+      const responseText = await response.text();
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        throw new Error('Impossible de parser la réponse du serveur');
+      }
+      
+      // Vérifier la structure de la réponse et extraire le message modifié
+      if (data && data.data && data.data.message) {
+        return data.data.message;
+      } else if (data && data.message) {
+        return data.message;
+      }
+      
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Supprimer un message
+   * @param {String} workspaceId - ID du workspace
+   * @param {String} canalId - ID du canal
+   * @param {String} messageId - ID du message à supprimer
+   * @returns {Promise} Promesse avec le résultat de la suppression
+   */
+  async deleteMessage(workspaceId, canalId, messageId) {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Vous devez être connecté pour supprimer un message');
+      }
+      
+      // Construire l'URL
+      const url = `${API_URL}/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}`;
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          throw new Error('Session expirée, veuillez vous reconnecter');
+        }
+        
+        const responseText = await response.text();
+        throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Répondre à un message existant
+   * @param {String} workspaceId - ID du workspace
+   * @param {String} canalId - ID du canal
+   * @param {String} messageId - ID du message auquel répondre
+   * @param {String} contenu - Contenu de la réponse
+   * @returns {Promise} Promesse avec les données du message créé
+   */
+  async sendReply(workspaceId, canalId, messageId, contenu) {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Vous devez être connecté pour répondre à un message');
+      }
+      
+      // Construire l'URL
+      const url = `${API_URL}/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}/reponses`;
+      
+      // Construire le corps de la requête
+      const requestBody = JSON.stringify({ contenu });
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: requestBody
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          throw new Error('Session expirée, veuillez vous reconnecter');
+        }
+        
+        const responseText = await response.text();
+        throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
+      }
+
+      // Convertir la réponse en JSON
+      const responseText = await response.text();
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        throw new Error('Impossible de parser la réponse du serveur');
+      }
+      
+      // Vérifier la structure de la réponse et extraire le message créé
+      if (data && data.data && data.data.message) {
+        return data.data.message;
+      } else if (data && data.message) {
+        return data.message;
+      }
+      
+      return data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 

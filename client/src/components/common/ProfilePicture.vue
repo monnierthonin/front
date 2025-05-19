@@ -39,15 +39,17 @@ export default {
     profilePictureUrl() {
       // Si une profilePicture est fournie directement en prop, l'utiliser
       if (this.profilePicture) {
-        const imagePath = this.profilePicture;
-        // Vérifier si c'est déjà une URL complète
-        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-          return imagePath;
-        } else {
-          // Sinon, construire l'URL
-          return `http://localhost:3000/uploads/profiles/${imagePath}`;
+        // Si c'est déjà une URL complète, l'utiliser directement
+        if (typeof this.profilePicture === 'string' && 
+            (this.profilePicture.startsWith('http://') || this.profilePicture.startsWith('https://'))) {
+          return this.profilePicture;
+        } 
+        // Sinon, on suppose que c'est un nom de fichier et on construit l'URL
+        else if (typeof this.profilePicture === 'string') {
+          return `http://localhost:3000/uploads/profiles/${this.profilePicture}`;
         }
       }
+      
       // Image par défaut si aucune image spécifiée
       return 'http://localhost:3000/uploads/profiles/default.jpg';
     }
