@@ -131,9 +131,8 @@
           
           <!-- Emoji Picker -->
           <div class="emoji-picker-container" v-if="activeEmojiPickerMessageId === message._id">
-            <EmojiPicker 
-              :isVisible="true" 
-              @emoji-selected="addReaction(message, $event)" 
+            <SimpleEmojiPicker 
+              @select="addReaction(message, $event)" 
               @close="closeEmojiPicker()"
             />
           </div>
@@ -147,12 +146,12 @@
 import messageService from '../../services/messageService.js';
 import fichierService from '../../services/fichierService.js';
 import ProfilePicture from '../common/ProfilePicture.vue';
-import EmojiPicker from '../common/EmojiPicker.vue';
+import SimpleEmojiPicker from '../common/SimpleEmojiPicker.vue';
 
 export default {
   components: {
     ProfilePicture,
-    EmojiPicker
+    SimpleEmojiPicker
   },
   name: 'Message',
   props: {
@@ -417,7 +416,7 @@ export default {
      * @param {Object} message - Message sur lequel ajouter un emoji
      */
     handleEmoji(message) {
-      this.$emit('emoji', message);
+      this.toggleEmojiPicker(message);
     },
     
     /**
@@ -471,7 +470,13 @@ export default {
      * @returns {Boolean} true si l'utilisateur a déjà réagi
      */
     hasUserReacted(reaction, userId) {
-      return reaction.utilisateurs.some(id => id === userId);
+      if (!reaction.utilisateurs || !Array.isArray(reaction.utilisateurs) || !userId) {
+        return false;
+      }
+      return reaction.utilisateurs.some(id => {
+        if (!id) return false;
+        return id.toString() === userId.toString() || id === userId;
+      });
     },
     
     /**
@@ -491,6 +496,23 @@ export default {
      */
     closeEmojiPicker() {
       this.activeEmojiPickerMessageId = null;
+    },
+    
+    /**
+     * Gère le clic sur le bouton d'emoji
+     * @param {Object} message - Le message concerné
+     */
+    handleEmoji(message) {
+      this.toggleEmojiPicker(message);
+    },
+    
+    /**
+     * Gère le clic sur une réaction existante (ajoute ou retire la réaction)
+     * @param {Object} message - Le message concerné 
+     * @param {String} emoji - L'emoji de la réaction
+     */
+    handleReaction(message, emoji) {
+      this.addReaction(message, emoji);
     },
     
     /**
