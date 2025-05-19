@@ -33,6 +33,8 @@
 </template>
 
 <script>
+import fichierService from '../../services/fichierService';
+
 export default {
   name: 'textBox',
   props: {
@@ -51,7 +53,9 @@ export default {
   },
   data() {
     return {
-      messageText: ''
+      messageText: '',
+      selectedFile: null,
+      uploadingFile: false
     };
   },
   computed: {
@@ -69,30 +73,72 @@ export default {
     /**
      * Envoyer le message au canal actif
      */
-    envoyerMessage() {
-      if (!this.canalActif || !this.messageText.trim()) {
+    async envoyerMessage() {
+      if (!this.canalActif || (!this.messageText.trim() && !this.selectedFile)) {
         return;
       }
       
-      // Déterminer si c'est une réponse ou un message normal
-      if (this.replyingToMessage) {
-        // C'est une réponse à un message existant
-        this.$emit('reply-to-message', {
-          contenu: this.messageText.trim(),
-          parentMessageId: this.replyingToMessage._id,
-          canalId: this.canalActif._id,
-          workspaceId: this.workspaceId
-        });
-        
-        // Annuler le mode réponse après l'envoi
-        this.$emit('cancel-reply');
+      // Si un fichier est sélectionné, l'envoyer avec le message
+      if (this.selectedFile) {
+        this.uploadingFile = true;
+        try {
+          // Déterminer si c'est une réponse ou un message normal avec fichier
+          if (this.replyingToMessage) {
+            // Pas encore implémenté: réponse avec fichier
+            alert('La fonctionnalité de réponse avec fichier n\'est pas encore disponible.');
+            return;
+          } else {
+            // Message normal avec fichier
+            if (this.canalActif.type === 'conversation') {
+              await fichierService.uploadFichierConversation(
+                this.selectedFile, 
+                this.canalActif._id, 
+                null, // pas de messageId car nouveau message
+                this.messageText.trim()
+              );
+            } else {
+              await fichierService.uploadFichierCanal(
+                this.selectedFile, 
+                this.canalActif._id, 
+                null, // pas de messageId car nouveau message
+                this.messageText.trim()
+              );
+            }
+            
+            // Émettre un événement pour rafraîchir les messages
+            this.$emit('refresh-messages');
+          }
+          
+          // Réinitialiser le fichier sélectionné
+          this.selectedFile = null;
+        } catch (error) {
+          console.error('Erreur lors de l\'upload avec message:', error);
+          alert('Erreur lors de l\'envoi du fichier. Vérifiez que le type et la taille sont autorisés.');
+          return;
+        } finally {
+          this.uploadingFile = false;
+        }
       } else {
-        // Message normal
-        this.$emit('envoyer-message', {
-          contenu: this.messageText.trim(),
-          canalId: this.canalActif._id,
-          workspaceId: this.workspaceId
-        });
+        // Message sans fichier - comportement standard
+        if (this.replyingToMessage) {
+          // C'est une réponse à un message existant
+          this.$emit('reply-to-message', {
+            contenu: this.messageText.trim(),
+            parentMessageId: this.replyingToMessage._id,
+            canalId: this.canalActif._id,
+            workspaceId: this.workspaceId
+          });
+          
+          // Annuler le mode réponse après l'envoi
+          this.$emit('cancel-reply');
+        } else {
+          // Message normal
+          this.$emit('envoyer-message', {
+            contenu: this.messageText.trim(),
+            canalId: this.canalActif._id,
+            workspaceId: this.workspaceId
+          });
+        }
       }
       
       // Réinitialiser le champ de texte
@@ -105,10 +151,67 @@ export default {
     },
     
     /**
-     * Gérer l'upload de fichier (à implémenter plus tard)
+     * Gérer l'upload de fichier
      */
     handleFileUpload() {
-      // Fonctionnalité à implémenter
+      if (!this.canalActif) return;
+      
+      // Créer un input file invisible et le déclencher
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.style.display = 'none';
+      
+      // Ajouter un écouteur d'événement pour le changement de fichier
+      fileInput.addEventListener('change', async (e) => {
+        if (e.target.files && e.target.files[0]) {
+          const file = e.target.files[0];
+          this.selectedFile = file;
+          
+          // Si on a du texte, envoyer le message avec le fichier
+          if (this.messageText.trim()) {
+            this.envoyerMessage();
+          } else {
+            // Sinon, envoyer juste le fichier
+            this.uploadingFile = true;
+            try {
+              // Upload du fichier selon le type de canal (canal ou conversation)
+              if (this.canalActif.type === 'conversation') {
+                await fichierService.uploadFichierConversation(
+                  file, 
+                  this.canalActif._id,
+                  null, // pas de messageId car nouveau message
+                  ''
+                );
+              } else {
+                await fichierService.uploadFichierCanal(
+                  file, 
+                  this.canalActif._id,
+                  null, // pas de messageId car nouveau message
+                  ''
+                );
+              }
+              
+              // Émettre un événement pour rafraîchir les messages
+              this.$emit('refresh-messages');
+              this.selectedFile = null;
+            } catch (error) {
+              console.error('Erreur lors de l\'upload:', error);
+              alert('Erreur lors de l\'envoi du fichier. Vérifiez que le type et la taille sont autorisés.');
+            } finally {
+              this.uploadingFile = false;
+            }
+          }
+        }
+      });
+      
+      // Ajouter l'input au DOM et déclencher le clic
+      document.body.appendChild(fileInput);
+      fileInput.click();
+      
+      // Nettoyer après l'opération
+      setTimeout(() => {
+        document.body.removeChild(fileInput);
+      }, 500);
     },
     
     /**

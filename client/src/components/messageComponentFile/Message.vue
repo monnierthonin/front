@@ -61,6 +61,50 @@
               <p>{{ message.contenu }}</p>
               <span v-if="message.modifie" class="message-modified-indicator">  (modifié)</span>
             </div>
+            
+            <!-- Réactions aux messages -->
+            <div v-if="message.reactions && message.reactions.length > 0" class="message-reactions">
+              <div 
+                v-for="(reaction, index) in message.reactions" 
+                :key="index" 
+                class="reaction-badge"
+                :class="{ 'user-reacted': hasUserReacted(reaction, currentUserId) }"
+                @click="handleReaction(message, reaction.emoji)"
+              >
+                <span class="reaction-emoji">{{ reaction.emoji }}</span>
+                <span class="reaction-count">{{ reaction.utilisateurs.length }}</span>
+              </div>
+            </div>
+            
+            <!-- Affichage des fichiers joints -->
+            <div v-if="message.fichiers && message.fichiers.length > 0" class="message-files">
+              <div v-for="(fichier, index) in message.fichiers" :key="index" class="file-attachment">
+                <!-- Afficher différemment selon le type de fichier -->
+                <div v-if="isImage(fichier.type)" class="file-image-container">
+                  <img 
+                    :src="getFileUrl(fichier.url)" 
+                    :alt="fichier.nom" 
+                    class="file-image"
+                    @click="openFileInNewTab(fichier.url)"
+                  />
+                </div>
+                
+                <!-- Pour les autres types de fichiers -->
+                <div v-else class="file-other-container" @click="openFileInNewTab(fichier.url)">
+                  <div class="file-icon">
+                    <img 
+                      :src="getFileTypeIcon(fichier.type)" 
+                      :alt="getFileTypeLabel(fichier.type)" 
+                      class="file-type-icon"
+                    />
+                  </div>
+                  <div class="file-info">
+                    <div class="file-name">{{ fichier.nom }}</div>
+                    <div class="file-size">{{ formatFileSize(fichier.taille) }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
     
           <!-- Action buttons -->
@@ -84,6 +128,15 @@
               <img src="../../assets/styles/image/delet.png" alt="Delete" />
             </button>
           </div>
+          
+          <!-- Emoji Picker -->
+          <div class="emoji-picker-container" v-if="activeEmojiPickerMessageId === message._id">
+            <EmojiPicker 
+              :isVisible="true" 
+              @emoji-selected="addReaction(message, $event)" 
+              @close="closeEmojiPicker()"
+            />
+          </div>
         </div>
       </div>
     </template>
@@ -92,11 +145,14 @@
 
 <script>
 import messageService from '../../services/messageService.js';
+import fichierService from '../../services/fichierService.js';
 import ProfilePicture from '../common/ProfilePicture.vue';
+import EmojiPicker from '../common/EmojiPicker.vue';
 
 export default {
   components: {
-    ProfilePicture
+    ProfilePicture,
+    EmojiPicker
   },
   name: 'Message',
   props: {
@@ -117,8 +173,10 @@ export default {
     return {
       userId: null,
       showEditModal: false,
-      editingMessage: null,
-      editContent: ''
+      editMessageId: null,
+      editContent: '',
+      parentMessages: {},
+      activeEmojiPickerMessageId: null
     };
   },
   created() {
@@ -140,7 +198,103 @@ export default {
      * @returns {Boolean} true si c'est l'utilisateur actuel
      */
     isCurrentUser(authorId) {
-      return authorId === this.userId;
+      return authorId === this.currentUserId;
+    },
+    
+    /**
+     * Vérifier si le fichier est une image
+     * @param {String} mimeType - Type MIME du fichier
+     * @returns {Boolean} true si c'est une image
+     */
+    isImage(mimeType) {
+      return mimeType && mimeType.startsWith('image/');
+    },
+    
+    /**
+     * Obtenir l'URL complète d'un fichier
+     * @param {String} url - URL relative du fichier
+     * @returns {String} URL complète du fichier
+     */
+    getFileUrl(url) {
+      return fichierService.getFullFileUrl(url);
+    },
+    
+    /**
+     * Ouvrir le fichier dans un nouvel onglet
+     * @param {String} url - URL du fichier
+     */
+    openFileInNewTab(url) {
+      const fullUrl = this.getFileUrl(url);
+      window.open(fullUrl, '_blank');
+    },
+    
+    /**
+     * Obtenir l'icône correspondant au type de fichier
+     * @param {String} mimeType - Type MIME du fichier
+     * @returns {String} URL de l'icône
+     */
+    getFileTypeIcon(mimeType) {
+      const importFileIcon = new URL('../../assets/styles/image/importFile.png', import.meta.url).href;
+      const reactIcon = new URL('../../assets/styles/image/react.png', import.meta.url).href;
+      
+      // Utilisons des icônes existantes déjà dans le projet
+      if (!mimeType) return importFileIcon;
+      
+      if (mimeType.startsWith('image/')) {
+        return reactIcon; // Icône par défaut pour les images
+      } else if (mimeType === 'application/pdf' || mimeType.includes('word') || 
+                mimeType.includes('excel') || mimeType.includes('spreadsheet') || 
+                mimeType.includes('powerpoint') || mimeType.includes('presentation')) {
+        return importFileIcon; // Icône par défaut pour les documents
+      } else if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('compressed')) {
+        return importFileIcon; // Icône par défaut pour les archives
+      } else if (mimeType.includes('text/')) {
+        return importFileIcon; // Icône par défaut pour les textes
+      }
+      
+      return importFileIcon;
+    },
+    
+    /**
+     * Obtenir un libellé pour le type de fichier
+     * @param {String} mimeType - Type MIME du fichier
+     * @returns {String} Libellé du type
+     */
+    getFileTypeLabel(mimeType) {
+      if (!mimeType) return 'Fichier';
+      
+      if (mimeType.startsWith('image/')) {
+        return 'Image';
+      } else if (mimeType === 'application/pdf') {
+        return 'PDF';
+      } else if (mimeType.includes('word')) {
+        return 'Document Word';
+      } else if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) {
+        return 'Feuille de calcul';
+      } else if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) {
+        return 'Présentation';
+      } else if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('compressed')) {
+        return 'Archive';
+      } else if (mimeType.includes('text/')) {
+        return 'Texte';
+      }
+      
+      return 'Fichier';
+    },
+    
+    /**
+     * Formater la taille du fichier en unités lisibles
+     * @param {Number} bytes - Taille en octets
+     * @returns {String} Taille formatée (Ko, Mo, etc.)
+     */
+    formatFileSize(bytes) {
+      if (!bytes || bytes === 0) return '0 octet';
+      
+      const k = 1024;
+      const sizes = ['octets', 'Ko', 'Mo', 'Go', 'To'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     },
     
     /**
@@ -308,6 +462,72 @@ export default {
         console.error('Erreur lors de la suppression du message:', error);
         alert(`Erreur: ${error.message}`);
       }
+    },
+    
+    /**
+     * Vérifie si l'utilisateur a déjà réagi avec cet emoji
+     * @param {Object} reaction - L'objet réaction 
+     * @param {String} userId - ID de l'utilisateur connecté
+     * @returns {Boolean} true si l'utilisateur a déjà réagi
+     */
+    hasUserReacted(reaction, userId) {
+      return reaction.utilisateurs.some(id => id === userId);
+    },
+    
+    /**
+     * Affiche ou masque le sélecteur d'emoji pour un message
+     * @param {Object} message - Le message concerné
+     */
+    toggleEmojiPicker(message) {
+      if (this.activeEmojiPickerMessageId === message._id) {
+        this.activeEmojiPickerMessageId = null;
+      } else {
+        this.activeEmojiPickerMessageId = message._id;
+      }
+    },
+    
+    /**
+     * Ferme le sélecteur d'emoji
+     */
+    closeEmojiPicker() {
+      this.activeEmojiPickerMessageId = null;
+    },
+    
+    /**
+     * Ajoute ou retire une réaction à un message
+     * @param {Object} message - Le message auquel réagir
+     * @param {String} emoji - L'emoji à ajouter ou retirer
+     */
+    addReaction(message, emoji) {
+      const workspaceId = this.$route.params.id;
+      const canalId = this.$route.params.canalId;
+      
+      messageService.reactToMessage(workspaceId, canalId, message._id, emoji)
+        .then(() => {
+          this.closeEmojiPicker();
+          this.$emit('update-messages');
+        })
+        .catch(error => {
+          console.error('Erreur lors de l\'ajout de la réaction :', error);
+          alert(`Erreur: ${error.message}`);
+        });
+    },
+    
+    /**
+     * Gère le clic sur une réaction existante (ajoute ou retire la réaction)
+     * @param {Object} message - Le message concerné
+     * @param {String} emoji - L'emoji de la réaction
+     */
+    handleReaction(message, emoji) {
+      this.addReaction(message, emoji);
+    },
+    
+    /**
+     * Gère le clic sur le bouton d'emoji
+     * @param {Object} message - Le message concerné
+     */
+    handleEmoji(message) {
+      this.toggleEmojiPicker(message);
     },
     
     /**
@@ -694,5 +914,136 @@ export default {
 
 .highlight-message {
   animation: highlight-pulse 2s ease;
+}
+/* Styles pour les fichiers joints */
+.message-files {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.file-attachment {
+  cursor: pointer;
+  border-radius: 6px;
+  overflow: hidden;
+  max-width: 400px;
+  transition: transform 0.2s ease;
+}
+
+.file-attachment:hover {
+  transform: translateY(-2px);
+}
+
+.file-image-container {
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.file-image {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.file-other-container {
+  display: flex;
+  align-items: center;
+  background-color: var(--color-background-mute, rgba(0, 0, 0, 0.05));
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.1));
+  max-width: 100%;
+}
+
+.file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+}
+
+.file-type-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.file-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.file-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text, #36393f);
+}
+
+.file-size {
+  font-size: 0.8rem;
+  color: var(--color-text-light, #72767d);
+}
+
+/* Styles pour les réactions aux messages */
+.message-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.reaction-badge {
+  display: flex;
+  align-items: center;
+  background-color: var(--color-background-mute, rgba(0, 0, 0, 0.05));
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.1));
+  border-radius: 12px;
+  padding: 0 8px;
+  height: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reaction-badge:hover {
+  background-color: var(--color-background-soft, rgba(0, 0, 0, 0.1));
+}
+
+.reaction-emoji {
+  font-size: 14px;
+  margin-right: 4px;
+}
+
+.reaction-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text, #36393f);
+}
+
+.user-reacted {
+  background-color: rgba(88, 101, 242, 0.15);
+  border-color: rgba(88, 101, 242, 0.3);
+}
+
+.current-user .user-reacted {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Styles pour le sélecteur d'emoji */
+.emoji-picker-container {
+  position: relative;
+  z-index: 1000;
+}
+
+.action-btn {
+  position: relative;
 }
 </style>

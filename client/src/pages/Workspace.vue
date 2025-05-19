@@ -19,6 +19,7 @@
       @envoyer-message="envoyerMessage"
       @reply-to-message="envoyerReponse"
       @cancel-reply="cancelReply"
+      @refresh-messages="chargerMessages"
     />
   </div>
 </template>

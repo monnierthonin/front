@@ -363,6 +363,70 @@ const messageService = {
     } catch (error) {
       throw error;
     }
+  },
+  /**
+   * Réagir à un message
+   * @param {String} workspaceId - ID du workspace
+   * @param {String} canalId - ID du canal
+   * @param {String} messageId - ID du message auquel réagir
+   * @param {String} emoji - L'emoji à ajouter
+   * @returns {Promise} Promesse avec le message mis à jour
+   */
+  async reactToMessage(workspaceId, canalId, messageId, emoji) {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Vous devez être connecté pour réagir à un message');
+      }
+      
+      // Construire l'URL
+      const url = `${API_URL}/workspaces/${workspaceId}/canaux/${canalId}/messages/${messageId}/reactions`;
+      
+      // Construire le corps de la requête
+      const requestBody = JSON.stringify({ emoji });
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: requestBody
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          throw new Error('Session expirée, veuillez vous reconnecter');
+        }
+        
+        const responseText = await response.text();
+        throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
+      }
+
+      // Convertir la réponse en JSON
+      const responseText = await response.text();
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        throw new Error('Impossible de parser la réponse du serveur');
+      }
+      
+      // Vérifier la structure de la réponse et extraire le message mis à jour avec les réactions
+      if (data && data.data && data.data.message) {
+        return data.data.message;
+      } else if (data && data.message) {
+        return data.message;
+      }
+      
+      return data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 
