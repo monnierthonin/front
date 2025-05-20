@@ -124,12 +124,27 @@ const messagePrivateController = {
         let otherUserId;
         let otherUser;
         
+        // Vérifier que expediteur et destinataire sont définis et ont des _id
+        const expediteurIsValid = message.expediteur && message.expediteur._id;
+        const destinataireIsValid = message.destinataire && message.destinataire._id;
+        
+        // Si l'un des deux n'est pas valide, ignorer ce message
+        if (!expediteurIsValid || !destinataireIsValid) {
+          console.log(`Message ${message._id} ignoré car l'expéditeur ou le destinataire est manquant`);
+          return; // Skip this message
+        }
+        
         if (message.expediteur._id.toString() === req.user._id.toString()) {
           otherUserId = message.destinataire._id.toString();
           otherUser = message.destinataire;
         } else {
           otherUserId = message.expediteur._id.toString();
           otherUser = message.expediteur;
+        }
+        
+        if (!otherUserId || !otherUser) {
+          console.log(`Message ${message._id} ignoré car l'ID ou l'utilisateur n'a pas pu être déterminé`);
+          return; // Skip this message
         }
         
         if (!conversations[otherUserId]) {
