@@ -34,6 +34,9 @@ router.post('/:id/membres', authenticate, workspaceController.ajouterMembre);
 router.delete('/:id/membres/:membreId', authenticate, workspaceController.supprimerMembre);
 router.patch('/:id/membres/:membreId/role', authenticate, workspaceController.modifierRoleMembre);
 
+// Quitter un workspace
+router.delete('/:id/quitter', authenticate, workspaceController.quitterWorkspace);
+
 // Gestion des invitations
 router.post('/:id/inviter', authenticate, workspaceController.envoyerInvitation);
 router.delete('/:id/invitations/:token', authenticate, workspaceController.revoquerInvitation);

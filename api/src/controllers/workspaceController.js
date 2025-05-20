@@ -502,8 +502,41 @@ exports.modifierRoleMembre = catchAsync(async (req, res, next) => {
     res.status(200).json({
         status: 'success',
         data: {
-            workspace
+            membre
         }
+    });
+});
+
+// Permettre à un utilisateur de quitter un workspace
+exports.quitterWorkspace = catchAsync(async (req, res, next) => {
+    const workspace = await Workspace.findById(req.params.id);
+    if (!workspace) {
+        return next(new AppError('Workspace non trouvé', 404));
+    }
+
+    // Vérifier si l'utilisateur est membre du workspace
+    const membre = workspace.membres.find(m => m.utilisateur.toString() === req.user.id);
+    if (!membre) {
+        return next(new AppError('Vous n\'êtes pas membre de ce workspace', 404));
+    }
+
+    // Empêcher le propriétaire de quitter le workspace
+    if (workspace.proprietaire.toString() === req.user.id) {
+        return next(new AppError('En tant que propriétaire, vous ne pouvez pas quitter le workspace. Transférez la propriété à un autre membre ou supprimez le workspace.', 400));
+    }
+
+    // Empêcher le dernier admin de quitter le workspace
+    if (membre.role === 'admin' && workspace.membres.filter(m => m.role === 'admin').length === 1) {
+        return next(new AppError('Vous êtes le dernier administrateur. Veuillez nommer un autre administrateur avant de quitter le workspace.', 400));
+    }
+
+    // Supprimer l'utilisateur de la liste des membres
+    workspace.membres = workspace.membres.filter(m => m.utilisateur.toString() !== req.user.id);
+    await workspace.save();
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Vous avez quitté le workspace avec succès'
     });
 });
 

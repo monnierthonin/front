@@ -97,6 +97,90 @@ const workspaceService = {
     }
   },
   
+  /**
+   * Rechercher des workspaces publics
+   * @param {String} query - Terme de recherche
+   * @returns {Promise} Promesse avec la liste des workspaces correspondants
+   */
+  async searchPublicWorkspaces(query = '') {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Vous devez être connecté pour rechercher des workspaces');
+      }
+      
+      // Utiliser l'endpoint de recherche des workspaces publics
+      const response = await fetch(`${API_URL}/workspaces/recherche/public?query=${encodeURIComponent(query)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          throw new Error('Session expirée, veuillez vous reconnecter');
+        }
+        throw new Error(`Erreur lors de la recherche de workspaces: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data && data.status === 'success') {
+        return data.data.workspaces || [];
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Erreur lors de la recherche de workspaces:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Créer un nouveau workspace
+   * @param {Object} workspaceData - Données du workspace à créer
+   * @returns {Promise} Promesse avec les données du workspace créé
+   */
+  async createWorkspace(workspaceData) {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Vous devez être connecté pour créer un workspace');
+      }
+      
+      const response = await fetch(`${API_URL}/workspaces`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(workspaceData)
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          throw new Error('Session expirée, veuillez vous reconnecter');
+        }
+        
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Erreur lors de la création du workspace: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.data.workspace;
+    } catch (error) {
+      throw error;
+    }
+  },
+  
   // Extraire l'ID utilisateur à partir du token JWT
   getUserIdFromToken(token) {
     try {

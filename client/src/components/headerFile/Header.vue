@@ -7,27 +7,27 @@
             <img src="../../assets/styles/image/logoSupchat.png" alt="LogoSupChat" class="logo">
           </router-link>
         </div>
-          <ul class="nav-links">
-            <li><router-link to="/" class="nav-link"><img src="../../assets/styles/image/logoAjout.png" alt="ajoutWorkspace" class="AjoutWorkspace"></router-link></li>
-            <li class="workspace-container">
-              <div class="workspace-list">
-                <div v-if="loading" class="loading-workspace">Chargement...</div>
-                <div v-else-if="errorMessage" class="error-workspace">{{ errorMessage }}</div>
-                <div 
-                  v-else-if="workspaces.length > 0" 
-                  v-for="workspace in workspaces" 
-                  :key="workspace._id"
-                  class="workspace-item" 
-                  :style="getWorkspaceColor(workspace)" 
-                  :title="workspace.nom"
-                  @click="goToWorkspace(workspace._id)"
-                >
-                  <div class="workspace-initiale">{{ getWorkspaceInitiale(workspace) }}</div>
-                </div>
-                <div v-else class="empty-workspace">Aucun workspace</div>
+        <ul class="nav-links">
+          <li><div class="nav-link" @click="openWorkspaceModal"><img src="../../assets/styles/image/logoAjout.png" alt="ajoutWorkspace" class="AjoutWorkspace"></div></li>
+          <li class="workspace-container">
+            <div class="workspace-list">
+              <div v-if="loading" class="loading-workspace">Chargement...</div>
+              <div v-else-if="errorMessage" class="error-workspace">{{ errorMessage }}</div>
+              <div 
+                v-else-if="workspaces.length > 0" 
+                v-for="workspace in workspaces" 
+                :key="workspace._id"
+                class="workspace-item" 
+                :style="getWorkspaceColor(workspace)" 
+                :title="workspace.nom"
+                @click="goToWorkspace(workspace._id)"
+              >
+                <div class="workspace-initiale">{{ getWorkspaceInitiale(workspace) }}</div>
               </div>
-            </li>
-          </ul>
+              <div v-else class="empty-workspace">Aucun workspace</div>
+            </div>
+          </li>
+        </ul>
       </div>
       <div class="botom-header">
         <div class="boutonModeration" v-if="isAdmin"><!-- a afficher quand l'utilisateur est admin -->
@@ -42,6 +42,13 @@
         </div>
       </div>
     </nav>
+    <!-- Modal pour l'ajout et la recherche de workspaces -->
+    <WorkspaceModal 
+      :is-open="isWorkspaceModalOpen" 
+      @close="closeWorkspaceModal"
+      @workspace-created="handleWorkspaceCreated"
+      @workspace-joined="handleWorkspaceJoined"
+    />
   </header>
 </template>
 
@@ -49,8 +56,13 @@
 import workspaceService from '../../services/workspaceService';
 import defaultProfileImg from '../../assets/styles/image/profilDelault.png';
 import { eventBus, APP_EVENTS } from '../../utils/eventBus.js';
+import { ref, onMounted } from 'vue'
+import WorkspaceModal from '@/components/workspace/WorkspaceModal.vue'
 
 export default {
+  components: {
+    WorkspaceModal
+  },
   data() {
     return {
       currentProfilePicture: localStorage.getItem('profilePicture') || 'default.jpg',
@@ -58,7 +70,8 @@ export default {
       workspaces: [],
       loading: true,
       errorMessage: '',
-      isAuthenticated: false
+      isAuthenticated: false,
+      isWorkspaceModalOpen: false
     }
   },
   computed: {
@@ -109,6 +122,26 @@ export default {
     await this.loadWorkspaces();
   },
   methods: {
+    // Ouvrir le modal de gestion des workspaces
+    openWorkspaceModal() {
+      this.isWorkspaceModalOpen = true;
+    },
+
+    // Fermer le modal
+    closeWorkspaceModal() {
+      this.isWorkspaceModalOpen = false;
+    },
+
+    // Gérer la création d'un nouveau workspace
+    handleWorkspaceCreated(workspace) {
+      this.loadWorkspaces();
+    },
+
+    // Gérer l'ajout à un workspace existant
+    handleWorkspaceJoined(workspace) {
+      this.loadWorkspaces();
+    },
+    
     async loadWorkspaces() {
       try {
         this.loading = true;
