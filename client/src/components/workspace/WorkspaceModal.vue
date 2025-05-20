@@ -3,7 +3,7 @@
     <div v-if="isOpen" class="modal-overlay" @click.self="closeModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Gestion des workspaces</h2>
+        <h2>Rejoindre/Créer un workspace</h2>
         <button class="close-button" @click="closeModal">×</button>
       </div>
       
@@ -232,15 +232,14 @@ export default {
   justify-content: center;
   align-items: center;
   z-index: 9999;
-  /* Ensure the modal is above everything else */
   pointer-events: all;
 }
 
 .modal-content {
-  background-color: #36393f;
+  background-color: var(--background-secondary);
   width: 800px;
   max-width: 90%;
-  border-radius: 5px;
+  border-radius: 10px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   overflow: hidden;
   position: relative;
@@ -252,12 +251,12 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 15px 20px;
-  background-color: #2f3136;
-  border-bottom: 1px solid #202225;
+  background-color: var(--secondary-color);
+  border-bottom: 1px solid var(--secondary-color-transition);
 }
 
 .modal-header h2 {
-  color: white;
+  color: var(--text-primary);
   margin: 0;
   font-size: 1.4rem;
 }
@@ -265,20 +264,20 @@ export default {
 .close-button {
   background: none;
   border: none;
-  color: #8e9297;
+  color: var(--text-secondary);
   font-size: 24px;
   cursor: pointer;
   transition: color 0.2s;
 }
 
 .close-button:hover {
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .modal-body {
   display: flex;
   padding: 0;
-  color: #dcddde;
+  color: var(--text-primary);
 }
 
 .create-workspace, .search-workspace {
@@ -287,13 +286,13 @@ export default {
 }
 
 .create-workspace {
-  border-right: 1px solid #2f3136;
+  border-right: 1px solid var(--secondary-color-transition);
 }
 
 h3 {
   margin-top: 0;
   margin-bottom: 15px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 1.1rem;
 }
 
@@ -304,17 +303,17 @@ h3 {
 .form-group label {
   display: block;
   margin-bottom: 6px;
-  color: #b9bbbe;
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
 input, textarea {
   width: 100%;
   padding: 10px;
-  border: 1px solid #202225;
-  background-color: #40444b;
-  color: #ffffff;
-  border-radius: 3px;
+  border: 1px solid var(--secondary-color-transition);
+  background-color: var(--background-primary);
+  color: var(--text-primary);
+  border-radius: 4px;
   font-size: 0.9rem;
 }
 
@@ -343,14 +342,14 @@ textarea {
   display: inline-block;
   width: 50px;
   height: 24px;
-  background-color: #72767d;
+  background-color: var(--secondary-color-transition);
   border-radius: 12px;
   cursor: pointer;
   transition: background-color 0.3s;
 }
 
 .toggle-switch input:checked + label {
-  background-color: #5865f2;
+  background-color: var(--primary-color);
 }
 
 .toggle-switch label:after {
@@ -360,7 +359,7 @@ textarea {
   left: 2px;
   width: 20px;
   height: 20px;
-  background-color: white;
+  background-color: var(--text-primary);
   border-radius: 50%;
   transition: transform 0.3s;
 }
@@ -372,21 +371,22 @@ textarea {
 .toggle-switch span {
   margin-left: 10px;
   font-size: 0.9rem;
+  color: var(--text-primary);
 }
 
-.submit-button, .join-button {
-  padding: 10px 15px;
-  background-color: #5865f2;
-  color: white;
+.submit-button, .join-button, .search-bar button {
+  padding: 0.5rem 1rem;
+  background-color: var(--primary-color);
+  color: var(--text-color);
   border: none;
-  border-radius: 3px;
+  border-radius: 4px;
   cursor: pointer;
-  font-weight: bold;
-  transition: background-color 0.2s;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
 }
 
-.submit-button:hover, .join-button:hover {
-  background-color: #4752c4;
+.submit-button:hover, .join-button:hover, .search-bar button:hover {
+  background-color: var(--hover-color);
 }
 
 .search-bar {
@@ -400,15 +400,19 @@ textarea {
 }
 
 .error-message {
-  color: #ed4245;
+  color: rgb(239, 68, 68);
   margin-top: 10px;
   font-size: 0.9rem;
+  background-color: rgba(239, 68, 68, 0.1);
+  padding: 0.75rem;
+  border-radius: 5px;
+  text-align: center;
 }
 
 .loading, .no-results {
   text-align: center;
   padding: 20px 0;
-  color: #8e9297;
+  color: var(--text-secondary);
 }
 
 .workspace-list {
@@ -424,9 +428,9 @@ textarea {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  border-radius: 3px;
+  border-radius: 4px;
   margin-bottom: 5px;
-  background-color: #2f3136;
+  background-color: var(--secondary-color);
 }
 
 .workspace-info {
@@ -435,13 +439,13 @@ textarea {
 
 .workspace-info h4 {
   margin: 0 0 5px;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .workspace-info p {
   margin: 0;
   font-size: 0.85rem;
-  color: #b9bbbe;
+  color: var(--text-secondary);
   max-width: 250px;
   white-space: nowrap;
   overflow: hidden;
