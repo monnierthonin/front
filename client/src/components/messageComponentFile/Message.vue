@@ -56,24 +56,10 @@
               <span class="timestamp">{{ formatDate(message.createdAt) }}</span>
             </div>
             
-            <!-- Message text --><!-- ___________________________________________ecpace devant modifier-->
+            <!-- Message text -->
             <div class="message-text">
               <p>{{ message.contenu }}</p>
               <span v-if="message.modifie" class="message-modified-indicator">  (modifié)</span>
-            </div>
-            
-            <!-- Réactions aux messages -->
-            <div v-if="message.reactions && message.reactions.length > 0" class="message-reactions">
-              <div 
-                v-for="(reaction, index) in message.reactions" 
-                :key="index" 
-                class="reaction-badge"
-                :class="{ 'user-reacted': hasUserReacted(reaction, currentUserId) }"
-                @click="handleReaction(message, reaction.emoji)"
-              >
-                <span class="reaction-emoji">{{ reaction.emoji }}</span>
-                <span class="reaction-count">{{ reaction.utilisateurs.length }}</span>
-              </div>
             </div>
             
             <!-- Affichage des fichiers joints -->
@@ -112,7 +98,7 @@
             <button class="action-btn" @click="handleReply(message)">
               <img src="../../assets/styles/image/repondre.png" alt="Reply" />
             </button>
-            <button class="action-btn" @click="handleEmoji(message)">
+            <button class="action-btn">
               <img src="../../assets/styles/image/react.png" alt="Emoji" />
             </button>
             <button 
@@ -128,14 +114,6 @@
               <img src="../../assets/styles/image/delet.png" alt="Delete" />
             </button>
           </div>
-          
-          <!-- Emoji Picker -->
-          <div class="emoji-picker-container" v-if="activeEmojiPickerMessageId === message._id">
-            <SimpleEmojiPicker 
-              @select="addReaction(message, $event)" 
-              @close="closeEmojiPicker()"
-            />
-          </div>
         </div>
       </div>
     </template>
@@ -146,12 +124,10 @@
 import messageService from '../../services/messageService.js';
 import fichierService from '../../services/fichierService.js';
 import ProfilePicture from '../common/ProfilePicture.vue';
-import SimpleEmojiPicker from '../common/SimpleEmojiPicker.vue';
 
 export default {
   components: {
-    ProfilePicture,
-    SimpleEmojiPicker
+    ProfilePicture
   },
   name: 'Message',
   props: {
@@ -172,10 +148,9 @@ export default {
     return {
       userId: null,
       showEditModal: false,
-      editMessageId: null,
+      editingMessage: null,
       editContent: '',
-      parentMessages: {},
-      activeEmojiPickerMessageId: null
+      parentMessages: {}
     };
   },
   created() {
@@ -389,8 +364,6 @@ export default {
       }
     },
     
-    // La méthode getProfilePicture a été remplacée par le composant ProfilePicture
-    
     /**
      * Faire défiler vers le bas pour voir les derniers messages
      */
@@ -409,14 +382,6 @@ export default {
     handleReply(message) {
       // Émettre un événement pour informer le composant parent
       this.$emit('reply-to-message', message);
-    },
-    
-    /**
-     * Gérer l'ajout d'emoji à un message
-     * @param {Object} message - Message sur lequel ajouter un emoji
-     */
-    handleEmoji(message) {
-      this.toggleEmojiPicker(message);
     },
     
     /**
@@ -464,94 +429,6 @@ export default {
     },
     
     /**
-     * Vérifie si l'utilisateur a déjà réagi avec cet emoji
-     * @param {Object} reaction - L'objet réaction 
-     * @param {String} userId - ID de l'utilisateur connecté
-     * @returns {Boolean} true si l'utilisateur a déjà réagi
-     */
-    hasUserReacted(reaction, userId) {
-      if (!reaction.utilisateurs || !Array.isArray(reaction.utilisateurs) || !userId) {
-        return false;
-      }
-      return reaction.utilisateurs.some(id => {
-        if (!id) return false;
-        return id.toString() === userId.toString() || id === userId;
-      });
-    },
-    
-    /**
-     * Affiche ou masque le sélecteur d'emoji pour un message
-     * @param {Object} message - Le message concerné
-     */
-    toggleEmojiPicker(message) {
-      if (this.activeEmojiPickerMessageId === message._id) {
-        this.activeEmojiPickerMessageId = null;
-      } else {
-        this.activeEmojiPickerMessageId = message._id;
-      }
-    },
-    
-    /**
-     * Ferme le sélecteur d'emoji
-     */
-    closeEmojiPicker() {
-      this.activeEmojiPickerMessageId = null;
-    },
-    
-    /**
-     * Gère le clic sur le bouton d'emoji
-     * @param {Object} message - Le message concerné
-     */
-    handleEmoji(message) {
-      this.toggleEmojiPicker(message);
-    },
-    
-    /**
-     * Gère le clic sur une réaction existante (ajoute ou retire la réaction)
-     * @param {Object} message - Le message concerné 
-     * @param {String} emoji - L'emoji de la réaction
-     */
-    handleReaction(message, emoji) {
-      this.addReaction(message, emoji);
-    },
-    
-    /**
-     * Ajoute ou retire une réaction à un message
-     * @param {Object} message - Le message auquel réagir
-     * @param {String} emoji - L'emoji à ajouter ou retirer
-     */
-    addReaction(message, emoji) {
-      const workspaceId = this.$route.params.id;
-      const canalId = this.$route.params.canalId;
-      
-      messageService.reactToMessage(workspaceId, canalId, message._id, emoji)
-        .then(() => {
-          this.closeEmojiPicker();
-          this.$emit('update-messages');
-        })
-        .catch(error => {
-          console.error('Erreur lors de l\'ajout de la réaction :', error);
-          alert(`Erreur: ${error.message}`);
-        });
-    },
-    
-    /**
-     * Gère le clic sur une réaction existante (ajoute ou retire la réaction)
-     * @param {Object} message - Le message concerné
-     * @param {String} emoji - L'emoji de la réaction
-     */
-    handleReaction(message, emoji) {
-      this.addReaction(message, emoji);
-    },
-    
-    /**
-     * Gère le clic sur le bouton d'emoji
-     * @param {Object} message - Le message concerné
-     */
-    handleEmoji(message) {
-      this.toggleEmojiPicker(message);
-    },
-    
     /**
      * Enregistrer les modifications d'un message
      */
@@ -1014,58 +891,105 @@ export default {
   color: var(--color-text-light, #72767d);
 }
 
-/* Styles pour les réactions aux messages */
-.message-reactions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
+/* Les styles pour les réactions aux messages ont été supprimés */
 
-.reaction-badge {
-  display: flex;
-  align-items: center;
-  background-color: var(--color-background-mute, rgba(0, 0, 0, 0.05));
-  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.1));
-  border-radius: 12px;
-  padding: 0 8px;
-  height: 24px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.reaction-badge:hover {
-  background-color: var(--color-background-soft, rgba(0, 0, 0, 0.1));
-}
-
-.reaction-emoji {
-  font-size: 14px;
-  margin-right: 4px;
-}
-
-.reaction-count {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text, #36393f);
-}
-
-.user-reacted {
-  background-color: rgba(88, 101, 242, 0.15);
-  border-color: rgba(88, 101, 242, 0.3);
-}
-
-.current-user .user-reacted {
-  background-color: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-/* Styles pour le sélecteur d'emoji */
-.emoji-picker-container {
-  position: relative;
-  z-index: 1000;
-}
+/* Les styles pour le sélecteur d'emoji ont été supprimés */
 
 .action-btn {
   position: relative;
+}
+
+/* Styles pour le modal d'emojis */
+.edit-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.edit-modal {
+  background-color: var(--background-primary);
+  border-radius: 8px;
+  width: 95%;
+  max-width: 400px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.edit-modal-header {
+  padding: 16px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--secondary-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.edit-modal-body {
+  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.emoji-modal-body {
+  padding: 16px;
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.edit-modal-footer {
+  padding: 12px 16px;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--secondary-color);
+  gap: 10px;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text-color);
+}
+
+.cancel-button, .save-button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.cancel-button {
+  background-color: transparent;
+  border: 1px solid var(--secondary-color);
+  color: var(--text-color);
+}
+
+.save-button {
+  background-color: var(--primary-color);
+  border: none;
+  color: white;
+}
+
+.edit-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid var(--secondary-color);
+  background-color: var(--background-secondary);
+  color: var(--text-color);
+  font-family: inherit;
+  resize: vertical;
 }
 </style>

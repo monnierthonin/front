@@ -14,7 +14,7 @@
  *       required:
  *         - contenu
  *         - expediteur
- *         - destinataire
+ *         - conversation
  *       properties:
  *         contenu:
  *           type: string
@@ -23,12 +23,22 @@
  *         expediteur:
  *           type: string
  *           description: ID de l'utilisateur qui a envoyé le message
- *         destinataire:
+ *         conversation:
  *           type: string
- *           description: ID de l'utilisateur destinataire du message
+ *           description: ID de la conversation à laquelle le message appartient
  *         lu:
- *           type: boolean
- *           description: Indique si le message a été lu par le destinataire
+ *           type: array
+ *           description: Liste des utilisateurs qui ont lu le message et quand
+ *           items:
+ *             type: object
+ *             properties:
+ *               utilisateur:
+ *                 type: string
+ *                 description: ID de l'utilisateur qui a lu le message
+ *               dateLecture:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Date et heure à laquelle le message a été lu
  *         envoye:
  *           type: boolean
  *           description: Indique si le message a été correctement envoyé
@@ -62,6 +72,22 @@
  *                 description: URL de l'aperçu du fichier (pour les images)
  *               taille:
  *                 type: number
+ *         reactions:
+ *           type: array
+ *           description: Réactions au message
+ *           items:
+ *             type: object
+ *             properties:
+ *               utilisateur:
+ *                 type: string
+ *                 description: ID de l'utilisateur qui a réagi
+ *               emoji:
+ *                 type: string
+ *                 description: Emoji utilisé pour la réaction
+ *               date:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Date et heure de la réaction
  */
 
 /**
@@ -115,7 +141,15 @@
  *                             type: string
  *                             format: date-time
  *                           lu:
- *                             type: boolean
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 utilisateur:
+ *                                   type: string
+ *                                 dateLecture:
+ *                                   type: string
+ *                                   format: date-time
  *                           envoye:
  *                             type: boolean
  *                           isFromMe:
@@ -157,6 +191,24 @@
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/MessagePrivate'
+ *                 conversation:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     dateCreation:
+ *                       type: string
+ *                       format: date-time
+ *                     participants:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           utilisateur:
+ *                             type: string
+ *                           dateAjout:
+ *                             type: string
+ *                             format: date-time
  *       404:
  *         description: Utilisateur non trouvé
  */
@@ -167,6 +219,7 @@
  *   post:
  *     tags: [Messages Privés]
  *     summary: Envoyer un message privé à un autre utilisateur
+ *     description: Envoie un message privé à un utilisateur en créant ou utilisant une conversation existante
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -217,6 +270,7 @@
  *   patch:
  *     tags: [Messages Privés]
  *     summary: Marquer un message privé comme lu
+ *     description: Ajoute l'utilisateur connecté à la liste des lecteurs du message
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -237,12 +291,16 @@
  *                 success:
  *                   type: boolean
  *                   example: true
+ *                 message:
+ *                   type: string
+ *                   description: Message de confirmation (optionnel)
+ *                   example: Le message est déjà marqué comme lu par l'expéditeur
  *                 data:
  *                   $ref: '#/components/schemas/MessagePrivate'
  *       404:
- *         description: Message non trouvé
+ *         description: Message non trouvé ou conversation non trouvée
  *       403:
- *         description: Non autorisé à marquer ce message comme lu
+ *         description: Non autorisé à accéder à cette conversation
  */
 
 /**
@@ -251,7 +309,7 @@
  *   patch:
  *     tags: [Messages Privés]
  *     summary: Modifier un message privé
- *     description: Permet à l'expéditeur de modifier le contenu d'un message privé
+ *     description: Permet à l'expéditeur de modifier le contenu d'un message privé s'il est participant à la conversation
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -285,12 +343,15 @@
  *                 success:
  *                   type: boolean
  *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Message modifié avec succès
  *                 data:
  *                   $ref: '#/components/schemas/MessagePrivate'
  *       404:
- *         description: Message non trouvé
+ *         description: Message non trouvé ou conversation non trouvée
  *       403:
- *         description: Non autorisé à modifier ce message
+ *         description: Non autorisé à modifier ce message ou à accéder à cette conversation
  */
 
 /**
@@ -299,6 +360,7 @@
  *   delete:
  *     tags: [Messages Privés]
  *     summary: Supprimer un message privé
+ *     description: Supprime un message privé et met à jour le dernier message de la conversation si nécessaire
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -323,7 +385,50 @@
  *                   type: string
  *                   example: Message supprimé avec succès
  *       404:
- *         description: Message non trouvé
+ *         description: Message non trouvé ou conversation non trouvée
  *       403:
- *         description: Non autorisé à supprimer ce message
+ *         description: Non autorisé à supprimer ce message ou à accéder à cette conversation
+ */
+
+/**
+ * @swagger
+ * /api/v1/messages/private/files/{conversationId}:
+ *   get:
+ *     tags: [Messages Privés]
+ *     summary: Récupérer les messages avec fichiers d'une conversation
+ *     description: Récupère tous les messages contenant des fichiers pour une conversation spécifique
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: conversationId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID de la conversation
+ *     responses:
+ *       200:
+ *         description: Messages avec fichiers récupérés avec succès
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 count:
+ *                   type: integer
+ *                   description: Nombre de messages avec fichiers
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     messages:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/MessagePrivate'
+ *       404:
+ *         description: Conversation non trouvée
+ *       403:
+ *         description: Non autorisé à accéder à cette conversation
  */

@@ -44,4 +44,13 @@ router.put('/:id/messages/:messageId', conversationPriveeController.updateMessag
 // Supprimer un message dans une conversation
 router.delete('/:id/messages/:messageId', conversationPriveeController.deleteMessage);
 
+// Répondre à un message
+router.post('/:id/messages/:messageId/reply', conversationPriveeController.replyToMessage);
+
+// Ajouter une réaction à un message
+router.post('/:id/messages/:messageId/reactions', conversationPriveeController.addReaction);
+
+// Supprimer une réaction d'un message
+router.delete('/:id/messages/:messageId/reactions', conversationPriveeController.removeReaction);
+
 module.exports = router;

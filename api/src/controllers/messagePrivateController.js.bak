@@ -18,6 +18,25 @@ const messagePrivateController = {
     try {
       const { userId } = req.params;
       
+      // Débogage: Afficher tous les messages dans la base de données
+      const allMessages = await MessagePrivate.find({});
+      console.log('==== TOUS LES MESSAGES DANS LA BASE ====');
+      console.log(`Total messages: ${allMessages.length}`);
+      allMessages.forEach((msg, index) => {
+        console.log(`\n[Message ${index + 1}]`);
+        console.log(`ID: ${msg._id}`);
+        console.log(`Contenu: "${msg.contenu}"`);
+        console.log(`Expéditeur: ${msg.expediteur}`);
+        console.log(`Destinataire: ${msg.destinataire || 'Non défini'}`);
+        console.log(`Conversation: ${msg.conversation || 'Non défini'}`);
+        console.log(`Fichiers: ${msg.fichiers ? msg.fichiers.length : 0}`);
+        if (msg.fichiers && msg.fichiers.length > 0) {
+          console.log('Premier fichier:');
+          console.log(JSON.stringify(msg.fichiers[0], null, 2));
+        }
+      });
+      console.log('==== FIN DES MESSAGES ====');
+      
       // Vérifier si l'utilisateur existe
       const userExists = await User.exists({ _id: userId });
       if (!userExists) {
@@ -51,6 +70,7 @@ const messagePrivateController = {
       })
       .sort({ horodatage: 1 }) // Tri par date croissante
       .populate('expediteur', 'username firstName lastName profilePicture')
+      .populate('destinataire', 'username firstName lastName profilePicture')
       .populate({
         path: 'reponseA',
         populate: {
@@ -60,56 +80,31 @@ const messagePrivateController = {
       });
       
       // Marquer les messages non lus comme lus si l'utilisateur est le destinataire
-      const unreadMessages = messages.filter(msg => {
-        // Vérifier si l'expéditeur n'est pas l'utilisateur courant
-        if (msg.expediteur._id.toString() === req.user._id.toString()) {
-          return false;
-        }
-        
-        // Vérifier si l'utilisateur n'a pas déjà lu le message
-        if (Array.isArray(msg.lu)) {
-          return !msg.lu.some(l => 
-            l && l.utilisateur && l.utilisateur.toString && l.utilisateur.toString() === req.user._id.toString()
-          );
-        }
-        
-        return true;
-      });
+      const unreadMessages = messages.filter(
+        msg => msg.destinataire._id.toString() === req.user._id.toString() && !msg.lu
+      );
       
-      // Si des messages non lus sont trouvés, les marquer comme lus
       if (unreadMessages.length > 0) {
-        for (const message of unreadMessages) {
-          if (!Array.isArray(message.lu)) {
-            message.lu = [];
-          }
-          
-          message.lu.push({
-            utilisateur: req.user._id,
-            dateLecture: new Date()
+        await MessagePrivate.updateMany(
+          { 
+            _id: { $in: unreadMessages.map(msg => msg._id) }
+          },
+          { lu: true }
+        );
+        
+        // Notifier l'expéditeur que ses messages ont été lus
+        unreadMessages.forEach(msg => {
+          io.to(msg.expediteur._id.toString()).emit('message-prive-lu', {
+            messageId: msg._id,
+            lu: true
           });
-          
-          await message.save();
-          
-          // Notifier l'expéditeur que ses messages ont été lus
-          if (io) {
-            io.to(message.expediteur._id.toString()).emit('message-prive-lu', {
-              messageId: message._id,
-              lecteur: req.user._id,
-              conversation: conversation._id
-            });
-          }
-        }
+        });
       }
       
       res.json({
         success: true,
         count: messages.length,
-        data: messages,
-        conversation: {
-          _id: conversation._id,
-          dateCreation: conversation.dateCreation,
-          participants: conversation.participants
-        }
+        data: messages
       });
     } catch (error) {
       console.error('Erreur lors de la récupération des messages privés:', error);
@@ -239,51 +234,46 @@ const messagePrivateController = {
    */
   sendPrivateMessage: async (req, res, next) => {
     try {
-      const { destinataireId, contenu, reponseAId } = req.body;
+      const { userId } = req.params;
+      const { contenu, reponseA } = req.body;
       
-      if (!contenu || contenu.trim() === '') {
-        return next(new AppError('Le contenu du message ne peut pas être vide', 400));
-      }
-      
-      // Vérifier si le destinataire existe
-      const destinataireExists = await User.exists({ _id: destinataireId });
-      if (!destinataireExists) {
+      // Vérifier si l'utilisateur existe
+      const destinataire = await User.findById(userId);
+      if (!destinataire) {
         return next(new AppError('Destinataire non trouvé', 404));
-      }
-      
-      // Vérifier si c'est une réponse à un message existant
-      let reponseA = null;
-      if (reponseAId) {
-        reponseA = await MessagePrivate.findById(reponseAId);
-        if (!reponseA) {
-          return next(new AppError('Message original non trouvé', 404));
-        }
       }
       
       // Vérifier si une conversation existe déjà entre les deux utilisateurs
       const ConversationPrivee = require('../models/conversationPrivee');
       let conversation = await ConversationPrivee.findOne({
-        'participants.utilisateur': { $all: [req.user._id, destinataireId] },
+        'participants.utilisateur': { $all: [req.user._id, userId] },
         estGroupe: false
       });
       
       // Si aucune conversation n'existe, en créer une nouvelle
       if (!conversation) {
+        console.log('Aucune conversation existante pour l\'envoi de message, création d\'une nouvelle...');
         conversation = await ConversationPrivee.create({
           participants: [
             { utilisateur: req.user._id },
-            { utilisateur: destinataireId }
+            { utilisateur: userId }
           ],
           createur: req.user._id,
           estGroupe: false
         });
+        console.log(`Nouvelle conversation créée: ${conversation._id}`);
       }
       
-      // Si le message est une réponse, vérifier qu'il appartient à la même conversation
+      // Vérifier si le message est une réponse à un autre message
       if (reponseA) {
-        // Vérifier que le message auquel on répond appartient à la conversation
-        if (reponseA.conversation && !reponseA.conversation.equals(conversation._id)) {
-          return next(new AppError('Vous n\'êtes pas autorisé à répondre à ce message', 403));
+        const messageOriginal = await MessagePrivate.findById(reponseA);
+        if (!messageOriginal) {
+          return next(new AppError('Message original non trouvé', 404));
+        }
+        
+        // Vérifier que l'utilisateur est participant à la conversation
+        if (!conversation.estParticipant(req.user._id)) {
+          return next(new AppError('Vous n\'\u00eates pas autorisé à répondre à ce message', 403));
         }
       }
       
@@ -356,7 +346,7 @@ const messagePrivateController = {
       }
       
       if (!conversation.estParticipant(req.user._id)) {
-        return next(new AppError('Vous n\'êtes pas autorisé à accéder à cette conversation', 403));
+        return next(new AppError('Vous n\'\u00eates pas autorisé à accéder à cette conversation', 403));
       }
       
       // Vérifier que l'utilisateur n'est pas l'expéditeur du message
@@ -435,7 +425,7 @@ const messagePrivateController = {
       
       // Vérifier que l'utilisateur est bien l'expéditeur du message
       if (message.expediteur._id.toString() !== req.user._id.toString()) {
-        return next(new AppError('Vous n\'êtes pas autorisé à modifier ce message', 403));
+        return next(new AppError('Vous n\'\u00eates pas autorisé à modifier ce message', 403));
       }
       
       // Vérifier que l'utilisateur est participant à la conversation
@@ -451,7 +441,7 @@ const messagePrivateController = {
       }
       
       if (!conversation.estParticipant(req.user._id)) {
-        return next(new AppError('Vous n\'êtes pas autorisé à modifier ce message', 403));
+        return next(new AppError('Vous n\'\u00eates pas autorisé à modifier ce message', 403));
       }
       
       // Mettre à jour le message
@@ -518,7 +508,7 @@ const messagePrivateController = {
       
       // Vérifier que l'utilisateur est participant à la conversation
       if (!conversation.estParticipant(req.user._id)) {
-        return next(new AppError('Vous n\'êtes pas autorisé à accéder à cette conversation', 403));
+        return next(new AppError('Vous n\'\u00eates pas autorisé à accéder à cette conversation', 403));
       }
       
       // Utiliser une requête optimisée qui récupère tous les messages avec fichiers
@@ -572,112 +562,146 @@ const messagePrivateController = {
   /**
    * Supprimer un message privé
    */
-  deletePrivateMessage: async (req, res, next) => {
-    try {
-      const { messageId } = req.params;
-      
-      // Vérifier si le message existe
-      const message = await MessagePrivate.findById(messageId)
-        .populate('conversation')
-        .populate('expediteur', 'username firstName lastName profilePicture');
-        
-      if (!message) {
-        return next(new AppError('Message non trouvé', 404));
       }
-      
-      // Vérifier que l'utilisateur est bien l'expéditeur du message
-      if (message.expediteur._id.toString() !== req.user._id.toString()) {
-        console.log(`Utilisateur non autorisé: ${req.user._id} pour le message: ${messageId}`);
-        return next(new AppError('Vous n\'êtes pas autorisé à supprimer ce message', 403));
-      }
-      
-      // Vérifier que l'utilisateur est participant à la conversation
-      if (!message.conversation) {
-        return next(new AppError('La conversation associée à ce message n\'existe pas', 404));
-      }
-      
-      const ConversationPrivee = require('../models/conversationPrivee');
-      const conversation = await ConversationPrivee.findById(message.conversation._id);
-      
-      if (!conversation) {
-        return next(new AppError('Conversation non trouvée', 404));
-      }
-      
-      if (!conversation.estParticipant(req.user._id)) {
-        return next(new AppError('Vous n\'êtes pas autorisé à accéder à cette conversation', 403));
-      }
-      
-      // Rechercher les messages qui font référence à ce message comme réponse
-      console.log(`Recherche des messages qui font référence à: ${messageId}`);
-      const referencingMessages = await MessagePrivate.find({ reponseA: messageId });
-      
-      // Mettre à jour les messages qui font référence à ce message
-      if (referencingMessages.length > 0) {
-        console.log(`${referencingMessages.length} messages font référence à ce message, mise à jour...`);
-        await MessagePrivate.updateMany(
-          { reponseA: messageId },
-          { $unset: { reponseA: 1 } }
-        );
-      }
-      
-      // Vérifier si ce message est le dernier de la conversation
-      let updateConversation = false;
-      if (conversation.dernierMessage && conversation.dernierMessage.toString() === messageId) {
-        updateConversation = true;
-        // Trouver le message le plus récent de la conversation (hormis celui qu'on supprime)
-        const previousMessage = await MessagePrivate.findOne({
-          conversation: conversation._id,
-          _id: { $ne: messageId }
-        }).sort({ horodatage: -1 });
-        
-        if (previousMessage) {
-          conversation.dernierMessage = previousMessage._id;
-        } else {
-          // S'il n'y a plus de messages, mettre dernierMessage à null
-          conversation.dernierMessage = null;
+    });
+    
+    console.log(`${messages.length} messages avec fichiers trouvés pour la conversation ${conversationId}`);
+    
+    // Afficher des détails sur les messages trouvés pour le débogage
+    if (messages.length > 0) {
+      console.log('Détails des messages avec fichiers trouvés:');
+      messages.forEach((msg) => {
+        console.log(`- Message ID: ${msg._id}`);
+        console.log(`  Expéditeur: ${msg.expediteur?._id || msg.expediteur}`);
+        console.log(`  Fichiers: ${msg.fichiers ? msg.fichiers.length : 0}`);
+        if (msg.fichiers && msg.fichiers.length > 0) {
+          console.log(`  Premier fichier: ${JSON.stringify(msg.fichiers[0])}`);
         }
-        
-        await conversation.save();
-        console.log(`Mise à jour du dernier message de la conversation: ${conversation._id}`);
-      }
-      
-      // Supprimer le message
-      console.log(`Suppression du message: ${messageId}`);
-      await MessagePrivate.findByIdAndDelete(messageId);
-      
-      // Notifier tous les participants de la conversation en temps réel
-      if (io) {
-        try {
-          const participantsIds = conversation.participants
-            .filter(p => p.utilisateur.toString() !== req.user._id.toString())
-            .map(p => p.utilisateur.toString());
-            
-          participantsIds.forEach(participantId => {
-            io.to(participantId).emit('message-prive-supprime', {
-              messageId: message._id,
-              conversation: message.conversation._id,
-              dernierMessageMisAJour: updateConversation
-            });
-          });
-          
-          console.log('Notifications envoyées avec succès');
-        } catch (socketError) {
-          console.error('Erreur lors de l\'envoi des notifications socket:', socketError);
-          // Ne pas faire échouer la requête si la notification échoue
-        }
-      } else {
-        console.log('Socket.IO n\'est pas disponible, notifications non envoyées');
-      }
-      
-      res.json({
-        success: true,
-        message: 'Message supprimé avec succès'
       });
-    } catch (error) {
-      console.error('Erreur lors de la suppression du message:', error);
-      next(new AppError('Erreur lors de la suppression du message', 500));
     }
+    
+    res.json({
+      success: true,
+      count: messages.length,
+      data: {
+        messages
+      }
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des messages avec fichiers:', error);
+    next(new AppError('Erreur lors de la récupération des messages avec fichiers', 500));
   }
+},
+
+/**
+ * Supprimer un message privé
+ */
+deletePrivateMessage: async (req, res, next) => {
+  try {
+    const { messageId } = req.params;
+    
+    // Vérifier si le message existe
+    const message = await MessagePrivate.findById(messageId)
+      .populate('conversation')
+      .populate('expediteur', 'username firstName lastName profilePicture');
+      
+    if (!message) {
+      return next(new AppError('Message non trouvé', 404));
+    }
+    
+    // Vérifier que l'utilisateur est bien l'expéditeur du message
+    if (message.expediteur._id.toString() !== req.user._id.toString()) {
+      console.log(`Utilisateur non autorisé: ${req.user._id} pour le message: ${messageId}`);
+      return next(new AppError('Vous n\'\u00eates pas autorisé à supprimer ce message', 403));
+    }
+    
+    // Vérifier que l'utilisateur est participant à la conversation
+    if (!message.conversation) {
+      return next(new AppError('La conversation associée à ce message n\'existe pas', 404));
+    }
+    
+    const ConversationPrivee = require('../models/conversationPrivee');
+    const conversation = await ConversationPrivee.findById(message.conversation._id);
+    
+    if (!conversation) {
+      return next(new AppError('Conversation non trouvée', 404));
+    }
+    
+    if (!conversation.estParticipant(req.user._id)) {
+      return next(new AppError('Vous n\'\u00eates pas autorisé à accéder à cette conversation', 403));
+    }
+    
+    // Rechercher les messages qui font référence à ce message comme réponse
+    console.log(`Recherche des messages qui font référence à: ${messageId}`);
+    const referencingMessages = await MessagePrivate.find({ reponseA: messageId });
+    
+    // Mettre à jour les messages qui font référence à ce message
+    if (referencingMessages.length > 0) {
+      console.log(`${referencingMessages.length} messages font référence à ce message, mise à jour...`);
+      await MessagePrivate.updateMany(
+        { reponseA: messageId },
+        { $unset: { reponseA: 1 } }
+      );
+    }
+    
+    // Vérifier si ce message est le dernier de la conversation
+    let updateConversation = false;
+    if (conversation.dernierMessage && conversation.dernierMessage.toString() === messageId) {
+      updateConversation = true;
+      // Trouver le message le plus récent de la conversation (hormis celui qu'on supprime)
+      const previousMessage = await MessagePrivate.findOne({
+        conversation: conversation._id,
+        _id: { $ne: messageId }
+      }).sort({ horodatage: -1 });
+      
+      if (previousMessage) {
+        conversation.dernierMessage = previousMessage._id;
+      } else {
+        // S'il n'y a plus de messages, mettre dernierMessage à null
+        conversation.dernierMessage = null;
+      }
+      
+      await conversation.save();
+      console.log(`Mise à jour du dernier message de la conversation: ${conversation._id}`);
+    }
+    
+    // Supprimer le message
+    console.log(`Suppression du message: ${messageId}`);
+    await MessagePrivate.findByIdAndDelete(messageId);
+    
+    // Notifier tous les participants de la conversation en temps réel
+    if (io) {
+      try {
+        const participantsIds = conversation.participants
+          .filter(p => p.utilisateur.toString() !== req.user._id.toString())
+          .map(p => p.utilisateur.toString());
+          
+        participantsIds.forEach(participantId => {
+          io.to(participantId).emit('message-prive-supprime', {
+            messageId: message._id,
+            conversation: message.conversation._id,
+            dernierMessageMisAJour: updateConversation
+          });
+        });
+        
+        console.log('Notifications envoyées avec succès');
+      } catch (socketError) {
+        console.error('Erreur lors de l\'envoi des notifications socket:', socketError);
+        // Ne pas faire échouer la requête si la notification échoue
+      }
+    } else {
+      console.log('Socket.IO n\'est pas disponible, notifications non envoyées');
+    }
+    
+    res.json({
+      success: true,
+      message: 'Message supprimé avec succès'
+    });
+  } catch (error) {
+    console.error('Erreur lors de la suppression du message:', error);
+    next(new AppError('Erreur lors de la suppression du message', 500));
+  }
+}
 };
 
 module.exports = messagePrivateController;

@@ -28,17 +28,17 @@ export default {
   },
   mounted() {
     // Fermer le picker si on clique en dehors
-    const handleClickOutside = (event) => {
+    this.handleClickOutside = (event) => {
       if (this.$refs.emojiPickerRef && !this.$refs.emojiPickerRef.contains(event.target)) {
         this.$emit('close');
       }
     };
-    document.addEventListener('click', handleClickOutside);
-    
-    // Nettoyage de l'écouteur d'événement
-    this.$once('hook:beforeDestroy', () => {
-      document.removeEventListener('click', handleClickOutside);
-    });
+    document.addEventListener('click', this.handleClickOutside);
+  },
+  
+  // Nettoyage de l'écouteur d'événement avant de détruire le composant
+  beforeUnmount() {
+    document.removeEventListener('click', this.handleClickOutside);
   }
 };
 </script>
