@@ -15,7 +15,8 @@
         v-for="contact in contacts" 
         :key="contact._id"
         class="friend-item"
-        @click="openConversation(contact._id)"
+        :class="{ 'active': selectedContactId === contact._id }"
+        @click="openConversation(contact._id, contact)"
       >
         <div class="friend-avatar">
           <img 
@@ -46,11 +47,14 @@ export default {
   components: {
     SearchBar
   },
-  setup() {
+  emits: ['select-contact'],
+  setup(props, { emit }) {
     const contacts = ref([]);
     const loading = ref(true);
     const error = ref(null);
     const currentUserId = ref(null);
+    const selectedContactId = ref(null);
+    const selectedContact = ref(null);
 
     // Récupérer l'ID de l'utilisateur connecté à partir du token JWT
     const getCurrentUserId = () => {
@@ -214,10 +218,13 @@ export default {
     };
 
     // Ouvrir une conversation avec un contact
-    const openConversation = (contactId) => {
-      // Navigation vers la page de conversation privée
-      // À implémenter selon la structure de routage
+    const openConversation = (contactId, contact) => {
       console.log('Ouverture de la conversation avec:', contactId);
+      selectedContactId.value = contactId;
+      selectedContact.value = contact;
+      
+      // Émettre un événement pour informer le parent qu'un contact a été sélectionné
+      emit('select-contact', { contactId, contact });
     };
 
     // Afficher le modal pour créer une nouvelle conversation
@@ -233,30 +240,41 @@ export default {
       const existingContact = contacts.value.find(contact => contact._id === user._id);
       
       if (existingContact) {
-        openConversation(user._id);
+        openConversation(user._id, existingContact);
       } else {
-        // Ajouter temporairement l'utilisateur aux contacts et ouvrir la conversation
-        contacts.value.push({
+        // Créer un contact à partir des données de l'utilisateur
+        const newContact = {
           _id: user._id,
           username: user.username,
           prenom: user.firstName,
           nom: user.lastName,
           profilePicture: user.profilePicture,
           status: user.status || 'online'
-        });
-        openConversation(user._id);
+        };
+        
+        // Ajouter l'utilisateur aux contacts et ouvrir la conversation
+        contacts.value.push(newContact);
+        openConversation(user._id, newContact);
       }
     };
 
     // Charger les contacts au montage du composant
     onMounted(() => {
-      loadContacts();
+      loadContacts().then(() => {
+        // Sélectionner automatiquement le premier contact si disponible
+        if (contacts.value.length > 0) {
+          const firstContact = contacts.value[0];
+          openConversation(firstContact._id, firstContact);
+        }
+      });
     });
 
     return {
       contacts,
       loading,
       error,
+      selectedContactId,
+      selectedContact,
       getContactName,
       openConversation,
       showNewMessageModal,
@@ -267,6 +285,12 @@ export default {
 </script>
 
 <style scoped>
+.friends-container {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+}
+
 .friends-sidebar {
   position: fixed;
   left: var(--whidth-header);
@@ -278,6 +302,17 @@ export default {
   flex-direction: column;
   justify-content: space-between;
   border-left: 1px solid var(--border-color);
+  z-index: 10;
+}
+
+.private-messages-view {
+  position: fixed;
+  left: calc(var(--whidth-header) + var(--whidth-friendsList));
+  top: 0;
+  height: 100vh;
+  width: calc(100% - var(--whidth-header) - var(--whidth-friendsList));
+  background-color: var(--color-background);
+  overflow-y: auto;
 }
 
 .friends-list {
@@ -304,6 +339,11 @@ export default {
 
 .friend-item:hover {
   background-color: var(--secondary-color-transition);
+}
+
+.friend-item.active {
+  background-color: var(--secondary-color-transition);
+  border-left: 3px solid var(--primary-color);
 }
 
 .friend-avatar {

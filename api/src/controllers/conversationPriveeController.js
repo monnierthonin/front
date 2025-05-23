@@ -353,12 +353,33 @@ exports.getConversationMessages = async (req, res, next) => {
             return next(new AppError('Vous n\'êtes pas autorisé à accéder à cette conversation', 403));
         }
         
-        // Récupérer les messages de la conversation
+        // Débogage: Afficher tous les messages dans la base de données
+        const allMessages = await MessagePrivate.find({});
+        console.log(`==== DÉBOGAGE: TOUS LES MESSAGES (${allMessages.length}) ====`);
+        allMessages.forEach((msg, index) => {
+            if (index < 5) { // Limiter l'affichage pour éviter de surcharger les logs
+                console.log(`\n[Message ${index + 1}]`);
+                console.log(`ID: ${msg._id}`);
+                console.log(`Contenu: "${msg.contenu}"`);
+                console.log(`Expéditeur: ${msg.expediteur}`);
+                console.log(`Contexte: ${msg.contexte ? JSON.stringify(msg.contexte) : 'Non défini'}`);
+                console.log(`Conversation (déprécié): ${msg.conversation || 'Non défini'}`);
+            }
+        });
+        console.log('==== FIN DÉBOGAGE ====');
+        
+        // Récupérer les messages de la conversation (prendre en compte les deux formats)
         const messages = await MessagePrivate.find({
-            conversation: id
+            $or: [
+                // Nouveau format avec contexte
+                { 'contexte.type': 'conversation', 'contexte.id': id },
+                // Ancien format avec champ conversation
+                { conversation: id }
+            ]
         })
         .sort({ horodatage: 1 }) // Tri par date croissante
         .populate('expediteur', 'username firstName lastName profilePicture')
+        .populate('destinataire', 'username firstName lastName profilePicture')
         .populate({
             path: 'reponseA',
             populate: {
@@ -367,25 +388,58 @@ exports.getConversationMessages = async (req, res, next) => {
             }
         });
         
+        console.log(`Messages trouvés pour la conversation ${id}: ${messages.length}`);
+        
         // Marquer les messages non lus comme lus
-        const unreadMessages = messages.filter(msg => {
+        const unreadMessages = [];
+        
+        for (const msg of messages) {
             // Vérifier si l'utilisateur a déjà lu le message
-            if (!msg.lu) return false;
-            const userRead = msg.lu.find(read => read.utilisateur.toString() === req.user._id.toString());
-            return !userRead;
-        });
+            let dejaLu = false;
+            
+            if (Array.isArray(msg.lu)) {
+                // Nouveau format: tableau d'objets {utilisateur, dateLecture}
+                dejaLu = msg.lu.some(read => {
+                    return read && read.utilisateur && 
+                           read.utilisateur.toString && 
+                           read.utilisateur.toString() === req.user._id.toString();
+                });
+            } else if (msg.lu === true) {
+                // Ancien format: boolean
+                dejaLu = true;
+            }
+            
+            // Si l'expéditeur n'est pas l'utilisateur actuel et que le message n'est pas déjà lu
+            if (!dejaLu && msg.expediteur && msg.expediteur._id && 
+                msg.expediteur._id.toString() !== req.user._id.toString()) {
+                unreadMessages.push(msg);
+            }
+        }
         
         if (unreadMessages.length > 0) {
+            console.log(`Marquage de ${unreadMessages.length} messages comme lus`);
+            
             // Mettre à jour les messages non lus
             for (const msg of unreadMessages) {
-                msg.lu.push({
-                    utilisateur: req.user._id,
-                    date: new Date()
-                });
+                // Vérifier le format du champ lu
+                if (Array.isArray(msg.lu)) {
+                    // Nouveau format
+                    msg.lu.push({
+                        utilisateur: req.user._id,
+                        dateLecture: new Date()
+                    });
+                } else {
+                    // Ancien format ou non défini
+                    msg.lu = [{
+                        utilisateur: req.user._id,
+                        dateLecture: new Date()
+                    }];
+                }
+                
                 await msg.save();
                 
                 // Notifier l'expéditeur que ses messages ont été lus
-                if (io) {
+                if (io && msg.expediteur && msg.expediteur._id) {
                     io.to(msg.expediteur._id.toString()).emit('message-prive-lu', {
                         messageId: msg._id,
                         lu: true,

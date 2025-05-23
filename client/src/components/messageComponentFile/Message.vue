@@ -1,157 +1,25 @@
 <template>
-  <div class="messages-list" ref="messagesList">
-    <div v-if="isLoading" class="messages-loading">Chargement des messages...</div>
-    <div v-else-if="messages.length === 0" class="messages-empty">Aucun message dans ce canal</div>
-    
-    <!-- Modal d'édition de message -->
-    <div v-if="showEditModal" class="edit-modal-overlay">
-      <div class="edit-modal">
-        <div class="edit-modal-header">
-          Modifier le message
-          <button class="close-button" @click="closeEditModal">×</button>
-        </div>
-        <div class="edit-modal-body">
-          <textarea 
-            v-model="editContent" 
-            class="edit-textarea" 
-            @keydown.esc="closeEditModal"
-            @keydown.ctrl.enter="saveMessageEdit"
-          ></textarea>
-        </div>
-        <div class="edit-modal-footer">
-          <button class="cancel-button" @click="closeEditModal">Annuler</button>
-          <button class="save-button" @click="saveMessageEdit">Enregistrer</button>
-        </div>
-      </div>
-    </div>
-    
-    <template v-else>
-      <div 
-        v-for="message in messages" 
-        :key="message._id"
-        :class="['message-container', { 'current-user': isCurrentUser(message.auteur._id) }]"
-        :data-message-id="message._id">
-        <div class="message-content">
-          <!-- Profile picture -->
-          <div class="profile-pic">
-            <ProfilePicture 
-              :profilePicture="message.auteur.profilePicture" 
-              :altText="getUserName(message.auteur)" 
-            />
-          </div>
-          
-          <!-- Message body -->
-          <div class="message-body">
-            <!-- Référence à un message parent (si c'est une réponse) -->
-            <div v-if="message.reponseA" class="message-reply-reference" @click="scrollToParentMessage(message.reponseA)">
-              <span class="reply-to-icon">↩</span>
-              <span class="reply-to-text">Réponse à </span>
-              <span class="reply-to-author">{{ getMessageAuthorName(message.reponseA) }}:</span>
-              <span class="reply-to-content">{{ getMessagePreview(message.reponseA) }}</span>
-            </div>
-            
-            <!-- Username and timestamp -->
-            <div class="message-header">
-              <span class="username">{{ getUserName(message.auteur) }}</span>
-              <span class="timestamp">{{ formatDate(message.createdAt) }}</span>
-            </div>
-            
-            <!-- Message text --><!-- ___________________________________________ecpace devant modifier-->
-            <div class="message-text">
-              <p>{{ message.contenu }}</p>
-              <span v-if="message.modifie" class="message-modified-indicator">  (modifié)</span>
-            </div>
-            
-            <!-- Réactions aux messages -->
-            <div v-if="message.reactions && message.reactions.length > 0" class="message-reactions">
-              <div 
-                v-for="(reaction, index) in message.reactions" 
-                :key="index" 
-                class="reaction-badge"
-                :class="{ 'user-reacted': hasUserReacted(reaction, currentUserId) }"
-                @click="handleReaction(message, reaction.emoji)"
-              >
-                <span class="reaction-emoji">{{ reaction.emoji }}</span>
-                <span class="reaction-count">{{ reaction.utilisateurs.length }}</span>
-              </div>
-            </div>
-            
-            <!-- Affichage des fichiers joints -->
-            <div v-if="message.fichiers && message.fichiers.length > 0" class="message-files">
-              <div v-for="(fichier, index) in message.fichiers" :key="index" class="file-attachment">
-                <!-- Afficher différemment selon le type de fichier -->
-                <div v-if="isImage(fichier.type)" class="file-image-container">
-                  <img 
-                    :src="getFileUrl(fichier.url)" 
-                    :alt="fichier.nom" 
-                    class="file-image"
-                    @click="openFileInNewTab(fichier.url)"
-                  />
-                </div>
-                
-                <!-- Pour les autres types de fichiers -->
-                <div v-else class="file-other-container" @click="openFileInNewTab(fichier.url)">
-                  <div class="file-icon">
-                    <img 
-                      :src="getFileTypeIcon(fichier.type)" 
-                      :alt="getFileTypeLabel(fichier.type)" 
-                      class="file-type-icon"
-                    />
-                  </div>
-                  <div class="file-info">
-                    <div class="file-name">{{ fichier.nom }}</div>
-                    <div class="file-size">{{ formatFileSize(fichier.taille) }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-    
-          <!-- Action buttons -->
-          <div class="message-actions">
-            <button class="action-btn" @click="handleReply(message)">
-              <img src="../../assets/styles/image/repondre.png" alt="Reply" />
-            </button>
-            <button class="action-btn" @click="handleEmoji(message)">
-              <img src="../../assets/styles/image/react.png" alt="Emoji" />
-            </button>
-            <button 
-              v-if="isCurrentUser(message.auteur._id)" 
-              class="action-btn" 
-              @click="handleEdit(message)">
-              <img src="../../assets/styles/image/modifier.png" alt="Edit" />
-            </button>
-            <button 
-              v-if="isCurrentUser(message.auteur._id)" 
-              class="action-btn" 
-              @click="handleDelete(message)">
-              <img src="../../assets/styles/image/delet.png" alt="Delete" />
-            </button>
-          </div>
-          
-          <!-- Emoji Picker -->
-          <div class="emoji-picker-container" v-if="activeEmojiPickerMessageId === message._id">
-            <SimpleEmojiPicker 
-              @select="addReaction(message, $event)" 
-              @close="closeEmojiPicker()"
-            />
-          </div>
-        </div>
-      </div>
-    </template>
-  </div>
+  <!-- Utiliser MessageBase comme composant central pour afficher les messages -->
+  <MessageBase
+    :messages="messages"
+    :isLoading="isLoading"
+    :currentUserId="currentUserId"
+    :messageType="'channel'"
+    :workspaceId="workspaceId"
+    @reply-to-message="handleReplyToMessage"
+    @delete-message="handleDeleteMessage"
+    @add-reaction="handleAddReaction"
+    @update-message="handleUpdateMessage"
+  />
 </template>
 
 <script>
+import MessageBase from '../common/MessageBase.vue';
 import messageService from '../../services/messageService.js';
-import fichierService from '../../services/fichierService.js';
-import ProfilePicture from '../common/ProfilePicture.vue';
-import SimpleEmojiPicker from '../common/SimpleEmojiPicker.vue';
 
 export default {
   components: {
-    ProfilePicture,
-    SimpleEmojiPicker
+    MessageBase
   },
   name: 'Message',
   props: {
@@ -170,292 +38,34 @@ export default {
   },
   data() {
     return {
-      userId: null,
-      showEditModal: false,
-      editMessageId: null,
-      editContent: '',
-      parentMessages: {},
-      activeEmojiPickerMessageId: null
+      workspaceId: this.$route.params.id || ''
     };
   },
-  created() {
-    // Récupérer l'ID de l'utilisateur connecté s'il n'est pas fourni via les props
-    if (!this.currentUserId) {
-      this.userId = messageService.getUserIdFromToken();
-    } else {
-      this.userId = this.currentUserId;
-    }
-  },
-  updated() {
-    // Faire défiler vers le bas pour voir les derniers messages
-    this.scrollToBottom();
-  },
+
   methods: {
-    /**
-     * Vérifier si le message provient de l'utilisateur connecté
-     * @param {String} authorId - ID de l'auteur du message
-     * @returns {Boolean} true si c'est l'utilisateur actuel
-     */
-    isCurrentUser(authorId) {
-      return authorId === this.currentUserId;
-    },
-    
-    /**
-     * Vérifier si le fichier est une image
-     * @param {String} mimeType - Type MIME du fichier
-     * @returns {Boolean} true si c'est une image
-     */
-    isImage(mimeType) {
-      return mimeType && mimeType.startsWith('image/');
-    },
-    
-    /**
-     * Obtenir l'URL complète d'un fichier
-     * @param {String} url - URL relative du fichier
-     * @returns {String} URL complète du fichier
-     */
-    getFileUrl(url) {
-      return fichierService.getFullFileUrl(url);
-    },
-    
-    /**
-     * Ouvrir le fichier dans un nouvel onglet
-     * @param {String} url - URL du fichier
-     */
-    openFileInNewTab(url) {
-      const fullUrl = this.getFileUrl(url);
-      window.open(fullUrl, '_blank');
-    },
-    
-    /**
-     * Obtenir l'icône correspondant au type de fichier
-     * @param {String} mimeType - Type MIME du fichier
-     * @returns {String} URL de l'icône
-     */
-    getFileTypeIcon(mimeType) {
-      const importFileIcon = new URL('../../assets/styles/image/importFile.png', import.meta.url).href;
-      const reactIcon = new URL('../../assets/styles/image/react.png', import.meta.url).href;
-      
-      // Utilisons des icônes existantes déjà dans le projet
-      if (!mimeType) return importFileIcon;
-      
-      if (mimeType.startsWith('image/')) {
-        return reactIcon; // Icône par défaut pour les images
-      } else if (mimeType === 'application/pdf' || mimeType.includes('word') || 
-                mimeType.includes('excel') || mimeType.includes('spreadsheet') || 
-                mimeType.includes('powerpoint') || mimeType.includes('presentation')) {
-        return importFileIcon; // Icône par défaut pour les documents
-      } else if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('compressed')) {
-        return importFileIcon; // Icône par défaut pour les archives
-      } else if (mimeType.includes('text/')) {
-        return importFileIcon; // Icône par défaut pour les textes
-      }
-      
-      return importFileIcon;
-    },
-    
-    /**
-     * Obtenir un libellé pour le type de fichier
-     * @param {String} mimeType - Type MIME du fichier
-     * @returns {String} Libellé du type
-     */
-    getFileTypeLabel(mimeType) {
-      if (!mimeType) return 'Fichier';
-      
-      if (mimeType.startsWith('image/')) {
-        return 'Image';
-      } else if (mimeType === 'application/pdf') {
-        return 'PDF';
-      } else if (mimeType.includes('word')) {
-        return 'Document Word';
-      } else if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) {
-        return 'Feuille de calcul';
-      } else if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) {
-        return 'Présentation';
-      } else if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('compressed')) {
-        return 'Archive';
-      } else if (mimeType.includes('text/')) {
-        return 'Texte';
-      }
-      
-      return 'Fichier';
-    },
-    
-    /**
-     * Formater la taille du fichier en unités lisibles
-     * @param {Number} bytes - Taille en octets
-     * @returns {String} Taille formatée (Ko, Mo, etc.)
-     */
-    formatFileSize(bytes) {
-      if (!bytes || bytes === 0) return '0 octet';
-      
-      const k = 1024;
-      const sizes = ['octets', 'Ko', 'Mo', 'Go', 'To'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    },
-    
-    /**
-     * Formatter la date du message
-     * @param {String} date - Date à formatter
-     * @returns {String} - Date formattée
-     */
-    formatDate(date) {
-      if (!date) return '';
-      return new Date(date).toLocaleString();
-    },
-    
-    /**
-     * Obtenir le nom d'affichage d'un utilisateur
-     * @param {Object} user - Données de l'utilisateur
-     * @returns {String} Nom d'affichage
-     */
-    getUserName(user) {
-      if (!user) return '';
-      return user.username || user.firstName || user.email || 'Utilisateur';
-    },
-    
-    /**
-     * Obtenir le nom de l'auteur d'un message référencé (réponse)
-     * @param {Object|String} messageRef - Référence au message parent ou ID
-     * @returns {String} - Nom de l'auteur du message parent
-     */
-    getMessageAuthorName(messageRef) {
-      if (!messageRef) return 'Message supprimé';
-      
-      // Si messageRef est un objet complet avec les infos du message parent
-      if (typeof messageRef === 'object' && messageRef.auteur) {
-        return this.getUserName(messageRef.auteur);
-      }
-      
-      // Si messageRef est un objet mais sans les infos de l'auteur
-      if (typeof messageRef === 'object' && messageRef._id) {
-        // Ici on pourrait faire une requête pour obtenir les détails du message
-        return 'Utilisateur';
-      }
-      
-      // Si messageRef est juste un ID de message
-      if (typeof messageRef === 'string') {
-        // Ici on pourrait aussi faire une requête pour obtenir les détails
-        return 'Utilisateur';
-      }
-      
-      return 'Message inconnu';
-    },
-    
-    /**
-     * Obtenir un aperçu du contenu d'un message référencé
-     * @param {Object|String} messageRef - Référence au message parent
-     * @returns {String} - Aperçu du contenu du message
-     */
-    getMessagePreview(messageRef) {
-      if (!messageRef) return 'Message supprimé';
-      
-      // Si messageRef est un objet complet avec le contenu
-      if (typeof messageRef === 'object' && messageRef.contenu) {
-        // Tronquer le contenu s'il est trop long (max 40 caractères)
-        const maxLength = 40;
-        if (messageRef.contenu.length > maxLength) {
-          return messageRef.contenu.substring(0, maxLength) + '...';
-        }
-        return messageRef.contenu;
-      }
-      
-      return 'Contenu indisponible';
-    },
-    
-    /**
-     * Faire défiler jusqu'au message parent lorsqu'on clique sur la référence
-     * @param {Object|String} messageRef - Référence au message parent
-     */
-    scrollToParentMessage(messageRef) {
-      if (!messageRef || typeof messageRef !== 'object' || !messageRef._id) {
-        return;
-      }
-      
-      // Trouver l'élément du message parent dans le DOM
-      const parentMessageElement = document.querySelector(`[data-message-id="${messageRef._id}"]`);
-      
-      // Si l'élément existe, faire défiler jusqu'à lui
-      if (parentMessageElement) {
-        parentMessageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
-        // Ajouter une classe pour mettre en évidence le message parent pendant quelques secondes
-        parentMessageElement.classList.add('highlight-message');
-        setTimeout(() => {
-          parentMessageElement.classList.remove('highlight-message');
-        }, 2000);
-      }
-    },
-    
-    // La méthode getProfilePicture a été remplacée par le composant ProfilePicture
-    
-    /**
-     * Faire défiler vers le bas pour voir les derniers messages
-     */
-    scrollToBottom() {
-      this.$nextTick(() => {
-        if (this.$refs.messagesList) {
-          this.$refs.messagesList.scrollTop = this.$refs.messagesList.scrollHeight;
-        }
-      });
-    },
     
     /**
      * Gérer la réponse à un message
-     * @param {Object} message - Message auquel répondre
      */
-    handleReply(message) {
-      // Émettre un événement pour informer le composant parent
+    handleReplyToMessage(message) {
       this.$emit('reply-to-message', message);
     },
     
     /**
-     * Gérer l'ajout d'emoji à un message
-     * @param {Object} message - Message sur lequel ajouter un emoji
-     */
-    handleEmoji(message) {
-      this.toggleEmojiPicker(message);
-    },
-    
-    /**
-     * Gérer la modification d'un message
-     * @param {Object} message - Message à modifier
-     */
-    handleEdit(message) {
-      // Ouvrir le widget d'édition pour ce message
-      this.editingMessage = { ...message };
-      this.editContent = message.contenu;
-      this.showEditModal = true;
-    },
-    
-    /**
      * Gérer la suppression d'un message
-     * @param {Object} message - Message à supprimer
      */
-    handleDelete(message) {
-      // Confirmer avant de supprimer
-      if (confirm('Êtes-vous sûr de vouloir supprimer ce message ?')) {
-        this.deleteMessage(message);
-      }
-    },
-    
-    /**
-     * Envoyer la requête de suppression du message
-     * @param {Object} message - Message à supprimer
-     */
-    async deleteMessage(message) {
+    handleDeleteMessage(message) {
       try {
-        const workspaceId = this.$route.params.id; // ID du workspace depuis l'URL
-        const canalId = message.canal; // ID du canal depuis le message
-        
-        await messageService.deleteMessage(workspaceId, canalId, message._id);
-        
-        // Supprimer le message de la liste locale
-        const index = this.messages.findIndex(m => m._id === message._id);
-        if (index !== -1) {
-          this.messages.splice(index, 1);
+        // Appeler l'API pour supprimer le message
+        if (this.workspaceId && message.canal && message.canal._id) {
+          messageService.deleteMessage(this.workspaceId, message.canal._id, message._id)
+            .then(() => {
+              this.$emit('update-messages');
+            })
+            .catch(error => {
+              console.error('Erreur lors de la suppression du message:', error);
+              alert(`Erreur: ${error.message}`);
+            });
         }
       } catch (error) {
         console.error('Erreur lors de la suppression du message:', error);
@@ -464,135 +74,49 @@ export default {
     },
     
     /**
-     * Vérifie si l'utilisateur a déjà réagi avec cet emoji
-     * @param {Object} reaction - L'objet réaction 
-     * @param {String} userId - ID de l'utilisateur connecté
-     * @returns {Boolean} true si l'utilisateur a déjà réagi
+     * Gérer l'ajout d'une réaction
      */
-    hasUserReacted(reaction, userId) {
-      if (!reaction.utilisateurs || !Array.isArray(reaction.utilisateurs) || !userId) {
-        return false;
-      }
-      return reaction.utilisateurs.some(id => {
-        if (!id) return false;
-        return id.toString() === userId.toString() || id === userId;
-      });
-    },
-    
-    /**
-     * Affiche ou masque le sélecteur d'emoji pour un message
-     * @param {Object} message - Le message concerné
-     */
-    toggleEmojiPicker(message) {
-      if (this.activeEmojiPickerMessageId === message._id) {
-        this.activeEmojiPickerMessageId = null;
-      } else {
-        this.activeEmojiPickerMessageId = message._id;
-      }
-    },
-    
-    /**
-     * Ferme le sélecteur d'emoji
-     */
-    closeEmojiPicker() {
-      this.activeEmojiPickerMessageId = null;
-    },
-    
-    /**
-     * Gère le clic sur le bouton d'emoji
-     * @param {Object} message - Le message concerné
-     */
-    handleEmoji(message) {
-      this.toggleEmojiPicker(message);
-    },
-    
-    /**
-     * Gère le clic sur une réaction existante (ajoute ou retire la réaction)
-     * @param {Object} message - Le message concerné 
-     * @param {String} emoji - L'emoji de la réaction
-     */
-    handleReaction(message, emoji) {
-      this.addReaction(message, emoji);
-    },
-    
-    /**
-     * Ajoute ou retire une réaction à un message
-     * @param {Object} message - Le message auquel réagir
-     * @param {String} emoji - L'emoji à ajouter ou retirer
-     */
-    addReaction(message, emoji) {
-      const workspaceId = this.$route.params.id;
-      const canalId = this.$route.params.canalId;
-      
-      messageService.reactToMessage(workspaceId, canalId, message._id, emoji)
-        .then(() => {
-          this.closeEmojiPicker();
-          this.$emit('update-messages');
-        })
-        .catch(error => {
-          console.error('Erreur lors de l\'ajout de la réaction :', error);
-          alert(`Erreur: ${error.message}`);
-        });
-    },
-    
-    /**
-     * Gère le clic sur une réaction existante (ajoute ou retire la réaction)
-     * @param {Object} message - Le message concerné
-     * @param {String} emoji - L'emoji de la réaction
-     */
-    handleReaction(message, emoji) {
-      this.addReaction(message, emoji);
-    },
-    
-    /**
-     * Gère le clic sur le bouton d'emoji
-     * @param {Object} message - Le message concerné
-     */
-    handleEmoji(message) {
-      this.toggleEmojiPicker(message);
-    },
-    
-    /**
-     * Enregistrer les modifications d'un message
-     */
-    async saveMessageEdit() {
-      if (!this.editingMessage || !this.editContent.trim()) {
-        return;
-      }
-      
+    handleAddReaction({ message, emoji }) {
       try {
-        const workspaceId = this.$route.params.id; // ID du workspace depuis l'URL
-        const canalId = this.editingMessage.canal; // ID du canal depuis le message
-        
-        const updatedMessage = await messageService.updateMessage(
-          workspaceId,
-          canalId,
-          this.editingMessage._id,
-          this.editContent.trim()
-        );
-        
-        // Mettre à jour le message dans la liste locale
-        const index = this.messages.findIndex(m => m._id === this.editingMessage._id);
-        if (index !== -1) {
-          // Fusionner les propriétés pour conserver les informations qui n'ont pas été mises à jour
-          this.messages[index] = { ...this.messages[index], ...updatedMessage, modifie: true };
+        if (this.workspaceId && message.canal && message.canal._id) {
+          messageService.reactToMessage(this.workspaceId, message.canal._id, message._id, emoji)
+            .then(() => {
+              this.$emit('update-messages');
+            })
+            .catch(error => {
+              console.error('Erreur lors de l\'ajout de la réaction:', error);
+              alert(`Erreur: ${error.message}`);
+            });
         }
-        
-        // Fermer le modal
-        this.closeEditModal();
       } catch (error) {
-        console.error('Erreur lors de la modification du message:', error);
+        console.error('Erreur lors de l\'ajout de la réaction:', error);
         alert(`Erreur: ${error.message}`);
       }
     },
     
     /**
-     * Fermer le modal d'édition
+     * Gérer la mise à jour d'un message
      */
-    closeEditModal() {
-      this.showEditModal = false;
-      this.editingMessage = null;
-      this.editContent = '';
+    handleUpdateMessage({ messageId, content }) {
+      try {
+        const index = this.messages.findIndex(m => m._id === messageId);
+        if (index !== -1) {
+          const message = this.messages[index];
+          if (this.workspaceId && message.canal && message.canal._id) {
+            messageService.updateMessage(this.workspaceId, message.canal._id, messageId, content)
+              .then(() => {
+                this.$emit('update-messages');
+              })
+              .catch(error => {
+                console.error('Erreur lors de la mise à jour du message:', error);
+                alert(`Erreur: ${error.message}`);
+              });
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour du message:', error);
+        alert(`Erreur: ${error.message}`);
+      }
     }
   }
 }
@@ -661,6 +185,7 @@ export default {
   width: 40px;
   height: 40px;
   margin-right: 0.75rem;
+  border-radius: 50%;
 }
 
 .current-user .profile-pic {
