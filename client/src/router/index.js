@@ -21,16 +21,22 @@ const routes = [
     meta: { requiresAuth: true },
     beforeEnter: async (to, from, next) => {
       try {
+        // Essayer de rediriger vers un workspace
         const workspaceService = await import('@/services/workspaceService.js');
         const response = await workspaceService.default.getUserWorkspaces();
         if (response && response.data && response.data.length > 0) {
           // Rediriger vers le premier workspace
           next({ name: 'Workspace', params: { id: response.data[0]._id } });
-        } else {
-          // Si pas de workspace, continuer vers la page d'accueil
-          next();
+          return;
         }
+        
+        // Note: La gestion des conversations privées a été retirée dans le cadre de la refonte du système de messages
+        // et sera réimplémentée plus tard
+        
+        // Dans tous les cas, continuer vers la page d'accueil
+        next();
       } catch (error) {
+        console.error('Erreur lors de la redirection:', error);
         next();
       }
     }

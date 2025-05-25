@@ -37,10 +37,37 @@
 </template>
 
 <script>
-import messagePrivateService from '../../services/messagePrivateService';
 import { ref, onMounted } from 'vue';
 import defaultProfileImg from '../../assets/styles/image/profilDelault.png';
 import SearchBar from '../common/SearchBar.vue';
+
+// Données de contacts simulées pour le développement
+const mockContacts = [
+  {
+    _id: '1',
+    username: 'johndoe',
+    prenom: 'John',
+    nom: 'Doe',
+    profilePicture: '',
+    status: 'online'
+  },
+  {
+    _id: '2',
+    username: 'janedoe',
+    prenom: 'Jane',
+    nom: 'Doe',
+    profilePicture: '',
+    status: 'offline'
+  },
+  {
+    _id: '3',
+    username: 'bobsmith',
+    prenom: 'Bob',
+    nom: 'Smith',
+    profilePicture: '',
+    status: 'idle'
+  }
+];
 
 export default {
   name: 'FriendsList',
@@ -70,192 +97,85 @@ export default {
         }).join(''));
         
         const payload = JSON.parse(jsonPayload);
-        return payload.id; // Ou payload.userId selon la structure du token
+        return payload._id || payload.id; // Utiliser l'un ou l'autre selon la structure
       } catch (err) {
         console.error('Erreur lors du décodage du token:', err);
         return null;
       }
     };
 
-    // Charger les conversations et extraire les contacts uniques
+    // Simuler le chargement des contacts
     const loadContacts = async () => {
       try {
         loading.value = true;
         error.value = null;
-        contacts.value = [];
         
-        // Récupérer l'ID de l'utilisateur actuel
+        // En production, cette partie sera remplacée par un appel API
+        // Pour l'instant, on utilise des données fictives
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simuler un délai réseau
+        contacts.value = mockContacts;
+        
         currentUserId.value = getCurrentUserId();
-        if (!currentUserId.value) {
-          throw new Error('Utilisateur non connecté');
-        }
-        
         console.log('ID utilisateur courant:', currentUserId.value);
-        
-        // Récupérer toutes les conversations privées
-        const response = await messagePrivateService.getAllPrivateConversations();
-        console.log('Réponse reçue dans le composant:', response);
-        
-        // Utiliser les données reçues de l'API si disponibles
-        if (response && Array.isArray(response)) {
-          // Traiter les conversations pour extraire les contacts uniques
-          const contactsMap = new Map();
-          
-          // Si la réponse est un tableau d'objets conversations
-          if (Array.isArray(response)) {
-            response.forEach(conversation => {
-              // Si l'objet a une propriété 'user', c'est probablement une structure de la forme {user: {...}, lastMessage: {...}}
-              if (conversation.user && conversation.user._id && conversation.user._id.toString() !== currentUserId.value) {
-                contactsMap.set(conversation.user._id.toString(), {
-                  _id: conversation.user._id,
-                  username: conversation.user.username,
-                  prenom: conversation.user.prenom || conversation.user.firstName,
-                  nom: conversation.user.nom || conversation.user.lastName,
-                  profilePicture: conversation.user.profilePicture,
-                  status: 'online', // Status par défaut, à enrichir plus tard
-                  lastMessage: conversation.lastMessage
-                });
-                return;
-              }
-              
-              // Vérifier les participants (si c'est une structure différente)
-              if (conversation.participants && Array.isArray(conversation.participants)) {
-                conversation.participants.forEach(participant => {
-                  if (participant._id && participant._id.toString() !== currentUserId.value) {
-                    contactsMap.set(participant._id.toString(), {
-                      _id: participant._id,
-                      username: participant.username,
-                      prenom: participant.prenom || participant.firstName,
-                      nom: participant.nom || participant.lastName,
-                      profilePicture: participant.profilePicture,
-                      status: participant.status || 'offline'
-                    });
-                  }
-                });
-                return;
-              }
-              
-              // Vérifier expéditeur/destinataire
-              processMessageParticipants(conversation, contactsMap, currentUserId.value);
-            });
-          } 
-          else if (typeof response === 'object') {
-            // Si c'est un seul objet, on le traite comme un message
-            processMessageParticipants(response, contactsMap, currentUserId.value);
-          }
-          
-          // Convertir la Map en tableau
-          contacts.value = Array.from(contactsMap.values());
-          console.log('Contacts extraits:', contacts.value);
-        }
         
       } catch (err) {
         console.error('Erreur lors du chargement des contacts:', err);
         error.value = err.message || 'Erreur lors du chargement des contacts';
-        
-        // Pour développement - données de test en cas d'erreur
-        contacts.value = [
-          { _id: '1', username: 'Alice', prenom: 'Alice', nom: 'Dupont', status: 'online' },
-          { _id: '2', username: 'Bob', prenom: 'Bob', nom: 'Martin', status: 'offline' },
-          { _id: '3', username: 'Charlie', prenom: 'Charles', nom: 'Garcia', status: 'idle' }
-        ];
       } finally {
         loading.value = false;
       }
     };
-    
-    // Fonction utilitaire pour traiter les expéditeurs et destinataires des messages
-    const processMessageParticipants = (message, contactsMap, currentUserId) => {
-      // Traiter l'expéditeur
-      if (message.expediteur) {
-        const expediteurId = typeof message.expediteur === 'object' ? 
-          message.expediteur._id : message.expediteur;
-        
-        if (expediteurId && expediteurId.toString() !== currentUserId) {
-          const expediteur = typeof message.expediteur === 'object' ? 
-            message.expediteur : { _id: expediteurId };
-          
-          contactsMap.set(expediteurId.toString(), {
-            _id: expediteurId,
-            username: expediteur.username || 'Utilisateur',
-            prenom: expediteur.prenom || expediteur.firstName,
-            nom: expediteur.nom || expediteur.lastName,
-            profilePicture: expediteur.profilePicture,
-            status: expediteur.status || 'offline'
-          });
-        }
-      }
-      
-      // Traiter le destinataire
-      if (message.destinataire) {
-        const destinataireId = typeof message.destinataire === 'object' ? 
-          message.destinataire._id : message.destinataire;
-          
-        if (destinataireId && destinataireId.toString() !== currentUserId) {
-          const destinataire = typeof message.destinataire === 'object' ? 
-            message.destinataire : { _id: destinataireId };
-          
-          contactsMap.set(destinataireId.toString(), {
-            _id: destinataireId,
-            username: destinataire.username || 'Utilisateur',
-            prenom: destinataire.prenom || destinataire.firstName,
-            nom: destinataire.nom || destinataire.lastName,
-            profilePicture: destinataire.profilePicture,
-            status: destinataire.status || 'offline'
-          });
-        }
-      }
-    };
 
-    // Obtenir le nom d'affichage du contact (prénom + nom ou username)
+    // Obtenir le nom d'affichage du contact
     const getContactName = (contact) => {
-      if (contact.firstName && contact.lastName) {
-        return `${contact.firstName} ${contact.lastName}`;
-      } else if (contact.username) {
-        return contact.username;
-      }
+      if (!contact) return 'Utilisateur inconnu';
+      if (contact.prenom && contact.nom) return `${contact.prenom} ${contact.nom}`;
+      if (contact.username) return contact.username;
       return 'Utilisateur inconnu';
     };
 
     // Ouvrir une conversation avec un contact
     const openConversation = (contactId, contact) => {
-      console.log('Ouverture de la conversation avec:', contactId);
       selectedContactId.value = contactId;
       selectedContact.value = contact;
-      
-      // Émettre un événement pour informer le parent qu'un contact a été sélectionné
       emit('select-contact', { contactId, contact });
     };
 
     // Afficher le modal pour créer une nouvelle conversation
     const showNewMessageModal = () => {
-      // Afficher un modal pour rechercher un utilisateur et démarrer une conversation
-      console.log('Ouverture du modal pour une nouvelle conversation');
+      // Cette fonction sera implémentée plus tard
+      console.log('Ouverture du modal de nouvelle conversation');
     };
-    
+
     // Démarrer une conversation avec un utilisateur trouvé via la barre de recherche
     const startConversation = (user) => {
-      console.log('Démarrage d\'une conversation avec l\'utilisateur:', user);
-      // Si l'utilisateur existe déjà dans les contacts, ouvrir sa conversation
-      const existingContact = contacts.value.find(contact => contact._id === user._id);
-      
-      if (existingContact) {
-        openConversation(user._id, existingContact);
-      } else {
-        // Créer un contact à partir des données de l'utilisateur
-        const newContact = {
-          _id: user._id,
-          username: user.username,
-          prenom: user.firstName,
-          nom: user.lastName,
-          profilePicture: user.profilePicture,
-          status: user.status || 'online'
-        };
-        
-        // Ajouter l'utilisateur aux contacts et ouvrir la conversation
-        contacts.value.push(newContact);
-        openConversation(user._id, newContact);
+      if (!user || !user._id) {
+        console.error('Utilisateur invalide');
+        return;
       }
+      
+      console.log('Démarrage d\'une conversation avec:', user);
+      
+      // Vérifier si le contact existe déjà
+      const existingContact = contacts.value.find(c => c._id === user._id);
+      if (existingContact) {
+        openConversation(existingContact._id, existingContact);
+        return;
+      }
+      
+      // Créer un nouveau contact à partir de l'utilisateur trouvé
+      const newContact = {
+        _id: user._id,
+        username: user.username,
+        prenom: user.firstName,
+        nom: user.lastName,
+        profilePicture: user.profilePicture,
+        status: user.status || 'online'
+      };
+      
+      // Ajouter l'utilisateur aux contacts et ouvrir la conversation
+      contacts.value.push(newContact);
+      openConversation(user._id, newContact);
     };
 
     // Charger les contacts au montage du composant
@@ -269,16 +189,23 @@ export default {
       });
     });
 
+    // Fonction pour rafraîchir manuellement la liste des contacts
+    const refreshContacts = () => {
+      return loadContacts();
+    };
+
     return {
       contacts,
       loading,
       error,
       selectedContactId,
       selectedContact,
+      defaultProfileImg,
       getContactName,
       openConversation,
       showNewMessageModal,
-      startConversation
+      startConversation,
+      refreshContacts
     };
   }
 }
@@ -303,6 +230,18 @@ export default {
   justify-content: space-between;
   border-left: 1px solid var(--border-color);
   z-index: 10;
+}
+
+.friends-header {
+  padding: 15px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 10px;
+}
+
+.friends-header h2 {
+  font-size: 16px;
+  margin-bottom: 10px;
+  color: var(--text-color);
 }
 
 .private-messages-view {

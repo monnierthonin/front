@@ -1,12 +1,12 @@
 <template>
   <FriendsList @select-contact="handleContactSelect" />
   <div class="home">
-    <!-- En-tête affichant soit le nom du canal, soit le nom du contact -->
+    <!-- En-tête affichant le nom du contact -->
     <div v-if="selectedContact" class="private-header">
       <div class="contact-info">
         <div class="contact-avatar">
           <img 
-            :src="selectedContact.profilePicture ? `http://localhost:3000/uploads/profiles/${selectedContact.profilePicture}` : require('../assets/styles/image/profilDelault.png')" 
+            :src="selectedContact.profilePicture ? `http://localhost:3000/uploads/profiles/${selectedContact.profilePicture}` : defaultProfileImage" 
             :alt="getContactName(selectedContact)"
           >
           <div class="status-indicator" :class="selectedContact.status || 'offline'"></div>
@@ -15,81 +15,33 @@
       </div>
     </div>
     
-    <!-- Chat messages - conditionally show channel or private messages -->
+    <!-- Zone d'affichage des messages -->
     <div class="messages-container">
-      <template v-if="currentMode === 'private' && selectedContactId">
-        <!-- Messages privés -->
-        <PrivateMessage 
-          :contactId="selectedContactId"
-          :contact="selectedContact"
-          :messages="messages" 
-          :isLoading="isLoading" 
-          :currentUserId="currentUser._id"
-          @message-sent="handleMessageSent"
-          @message-deleted="handleMessageDeleted"
-          @message-updated="handleMessageUpdated"
-          @reaction-added="handleReactionAdded"
-          @reply-to-message="sendReplyToMessage"
-          @refresh-messages="fetchMessages"
-          @cancel-reply="cancelReply"
+      <div v-if="selectedContactId" class="messages-list">
+        <MessagesPrives 
+          :user-id="selectedContactId"
+          :recipient-name="getContactName(selectedContact)"
         />
-      </template>
-      
-      <template v-else-if="currentMode === 'channel' && activeChannel">
-        <!-- Messages de canal -->
-        <ChannelMessage 
-          :channel="activeChannel"
-          :workspaceId="workspaceId"
-          :messages="messages" 
-          :isLoading="isLoading" 
-          :currentUserId="currentUser._id"
-          @send-message="sendMessage"
-          @message-deleted="handleMessageDeleted"
-          @message-updated="handleMessageUpdated"
-          @reaction-added="handleReactionAdded"
-          @reply-to-message="sendReplyToMessage"
-          @refresh-messages="fetchMessages"
-          @cancel-reply="cancelReply"
-        />
-      </template>
-      <template v-else>
-        <!-- Si nous avons des contacts mais aucun n'est sélectionné, utiliser le premier -->
-        <div v-if="!currentMode && firstContactLoaded" class="loading-message">
-          Chargement de la conversation...
-        </div>
-        <div v-else class="welcome-message">
-          <img src="../assets/styles/image/logoSupchat.png" alt="Logo" class="welcome-logo">
-          <h2>Bienvenue sur SupChat</h2>
-          <p>Sélectionnez un canal ou un contact pour commencer à discuter</p>
-        </div>
-      </template>
+      </div>
+      <div v-else class="welcome-message">
+        <img src="../assets/styles/image/logoSupchat.png" alt="Logo" class="welcome-logo">
+        <h2>Bienvenue sur SupChat</h2>
+        <p>Sélectionnez un contact pour commencer à discuter</p>
+      </div>
     </div>
-    
-    <!-- Zone de saisie de texte (canal ou privé) -->
-    <textBox 
-      :workspaceId="workspaceId" 
-      :canalActif="getActiveChannel()" 
-      :replyingToMessage="replyingToMessage"
-      @message-sent="handleMessageSent"
-      @cancel-reply="replyingToMessage = null"
-    />
   </div>
 </template>
 
 <script>
 import FriendsList from '../components/headerFile/FriendsList.vue'
-import PrivateMessage from '../components/messageComponentFile/PrivateMessage.vue'
-import ChannelMessage from '../components/messageComponentFile/ChannelMessage.vue'
-import textBox from '../components/messageComponentFile/textBox.vue'
-import messagePrivateService from '../services/messagePrivateService'
+import MessagesPrives from '../components/messageComponentFile/MessagesPrives.vue'
+import defaultProfileImg from '../assets/styles/image/profilDelault.png'
 
 export default {
   name: 'Home',
   components: {
     FriendsList,
-    PrivateMessage,
-    ChannelMessage,
-    textBox
+    MessagesPrives
   },
   props: {
     id: {
@@ -100,233 +52,48 @@ export default {
   data() {
     return {
       workspaceId: this.id || null,
-      messages: [],
-      isLoading: false,
-      currentMode: null, // 'channel', 'private' ou null
       selectedContactId: null,
       selectedContact: null,
-      replyingToMessage: null,
-      activeChannel: null,
-      firstContactLoaded: false,
+      defaultProfileImage: defaultProfileImg,
+      conversationId: localStorage.getItem('lastConversationId') || null,
       currentUser: this.getCurrentUser()
     }
   },
-  watch: {
-    // Surveiller les changements d'ID de workspace dans l'URL
-    '$route.params.id': {
-      immediate: true,
-      handler(newId) {
-        if (newId && newId !== this.workspaceId) {
-          this.workspaceId = newId;
-          this.loadWorkspaceData();
-        }
-      }
-    }
+  created() {
+    console.log('Component created');
   },
   methods: {
-    // Charger les données d'un workspace et ses messages
-    async loadWorkspaceData() {
-      if (!this.workspaceId) return;
-      
-      this.isLoading = true;
-      try {
-        // Réinitialiser les données
-        this.messages = [];
-        this.currentMode = 'channel';
-        this.selectedContactId = null;
-        this.selectedContact = null;
-        
-        // Charger les données du workspace
-        const workspaceService = await import('../services/workspaceService.js');
-        const response = await workspaceService.default.getWorkspaceById(this.workspaceId);
-        
-        if (response && response.data) {
-          // Si le workspace a des canaux par défaut, charger leurs messages
-          if (response.data.canaux && response.data.canaux.length > 0) {
-            const messageService = await import('../services/messageService.js');
-            const defaultChannel = response.data.canaux[0];
-            this.activeChannel = defaultChannel;
-            const messagesResponse = await messageService.default.getCanalMessages(this.workspaceId, defaultChannel._id);
-            this.messages = messagesResponse || [];
-          }
-        }
-      } catch (error) {
-        console.error('Erreur lors du chargement du workspace:', error);
-      } finally {
-        this.isLoading = false;
-      }
-    },
-    
     // Gérer la sélection d'un contact dans la liste d'amis
-    async handleContactSelect(data) {
+    handleContactSelect(data) {
       console.log('Contact sélectionné:', data);
       
-      // Mettre à jour le mode et les informations du contact
-      this.currentMode = 'private';
+      // Mettre à jour les informations du contact
       this.selectedContactId = data.contactId;
       this.selectedContact = data.contact;
-      this.workspaceId = null;
       
-      // Charger les messages privés avec ce contact
-      await this.loadPrivateMessages(data.contactId);
-    },
-    
-    // Charger les messages privés pour un contact
-    async loadPrivateMessages(contactId) {
-      if (!contactId) return;
-      
-      this.isLoading = true;
-      this.messages = [];
-      
-      try {
-        // Appeler l'API pour obtenir les messages privés
-        const messagesResponse = await messagePrivateService.getPrivateMessages(contactId);
-        console.log('Messages privés reçus:', messagesResponse);
-        
-        // Vérifier le format de la réponse et traiter les messages
-        if (messagesResponse) {
-          // Si nous avons reçu un tableau directement
-          if (Array.isArray(messagesResponse)) {
-            this.messages = this.formatPrivateMessages(messagesResponse);
-          } 
-          // Si nous avons reçu un objet avec une propriété data ou messages
-          else if (messagesResponse.data && Array.isArray(messagesResponse.data)) {
-            this.messages = this.formatPrivateMessages(messagesResponse.data);
-          }
-          else if (messagesResponse.messages && Array.isArray(messagesResponse.messages)) {
-            this.messages = this.formatPrivateMessages(messagesResponse.messages);
-          }
-          
-          console.log('Messages formatés pour affichage:', this.messages);
-        }
-      } catch (error) {
-        console.error('Erreur lors de la récupération des messages privés:', error);
-      } finally {
-        this.isLoading = false;
-      }
-    },
-    
-    // Formatter les messages privés pour les rendre compatibles avec le composant Message
-    formatPrivateMessages(messages) {
-      return messages.map(msg => {
-        // Vérifier si les propriétés nécessaires existent
-        const expediteur = msg.expediteur || {};
-        const destinataire = msg.destinataire || {};
-        
-        return {
-          _id: msg._id,
-          contenu: msg.contenu,
-          createdAt: msg.createdAt,
-          updatedAt: msg.updatedAt,
-          modifie: msg.updatedAt !== msg.createdAt,
-          lu: msg.lu,
-          auteur: {
-            _id: expediteur._id || msg.expediteur,
-            username: expediteur.username || '',
-            firstName: expediteur.prenom || expediteur.firstName || '',
-            lastName: expediteur.nom || expediteur.lastName || '',
-            profilePicture: expediteur.profilePicture
-          },
-          // Pour maintenir la compatibilité avec le composant Message
-          canal: { _id: 'private_' + (destinataire._id || msg.destinataire) }
-        };
-      });
-    },
-    
-    // Gérer l'envoi d'un message privé
-    handleMessageSent(message) {
-      console.log('Message privé envoyé:', message);
-      
-      // Rafraîchir les messages privés
-      if (this.currentMode === 'private' && this.selectedContactId) {
-        this.loadPrivateMessages(this.selectedContactId);
-      }
-    },
-    
-    // Gérer la suppression d'un message
-    handleMessageDeleted(messageId) {
-      console.log('Message supprimé:', messageId);
-      
-      // Supprimer le message de la liste locale
-      this.messages = this.messages.filter(message => message._id !== messageId);
-      
-      // Rafraîchir les messages depuis le serveur
-      this.fetchMessages();
-    },
-    
-    // Gérer la mise à jour d'un message
-    handleMessageUpdated({ messageId, content }) {
-      console.log('Message mis à jour:', messageId, content);
-      
-      // Mettre à jour le message dans la liste locale
-      const messageIndex = this.messages.findIndex(message => message._id === messageId);
-      if (messageIndex !== -1) {
-        this.messages[messageIndex].contenu = content;
-        this.messages[messageIndex].modifie = true;
+      // Stocker l'ID de conversation si disponible
+      if (data.conversationId) {
+        this.conversationId = data.conversationId;
+        localStorage.setItem('lastConversationId', data.conversationId);
       }
       
-      // Rafraîchir les messages depuis le serveur
-      this.fetchMessages();
-    },
-    
-    // Gérer l'ajout d'une réaction
-    handleReactionAdded({ messageId, emoji }) {
-      console.log('Réaction ajoutée:', messageId, emoji);
-      
-      // Rafraîchir les messages depuis le serveur
-      this.fetchMessages();
-    },
-    
-    // Obtenir le canal actif en fonction du mode (privé ou canal)
-    getActiveChannel() {
-      if (this.currentMode === 'private' && this.selectedContactId) {
-        return {
-          _id: this.selectedContactId,
-          type: 'private'
-        };
-      } else if (this.activeChannel) {
-        return {
-          _id: this.activeChannel._id,
-          type: 'channel'
-        };
-      }
-      return null;
-    },
-    
-    // Définir le message auquel on répond
-    setReplyingToMessage(message) {
-      this.replyingToMessage = message;
+      // Note: La logique de chargement des messages sera implémentée plus tard
     },
     
     // Obtenir le nom d'affichage d'un contact
     getContactName(contact) {
-      if (!contact) return 'Contact';
+      if (!contact) return '';
       
-      if (contact.firstName && contact.lastName) {
-        return `${contact.firstName} ${contact.lastName}`;
-      } else if (contact.prenom && contact.nom) {
-        return `${contact.prenom} ${contact.nom}`;
-      } else if (contact.username) {
-        return contact.username;
-      }
+      // Priorité: nom d'affichage > prénom + nom > nom d'utilisateur > email
+      if (contact.displayName) return contact.displayName;
+      if (contact.firstName && contact.lastName) return `${contact.firstName} ${contact.lastName}`;
+      if (contact.username) return contact.username;
+      if (contact.email) return contact.email;
       
-      return 'Contact';
+      return 'Utilisateur inconnu';
     },
     
-    /**
-     * Rafraîchir les messages selon le mode actuel (canal ou privé)
-     */
-    fetchMessages() {
-      if (this.currentMode === 'private' && this.selectedContactId) {
-        this.loadPrivateMessages(this.selectedContactId);
-      } else if (this.currentMode === 'channel' && this.activeChannel) {
-        this.loadChannelMessages(this.activeChannel._id);
-      }
-    },
-    
-    /**
-     * Récupérer les informations de l'utilisateur connecté depuis le token JWT
-     */
+    // Récupérer les informations de l'utilisateur connecté depuis le token JWT
     getCurrentUser() {
       try {
         const token = localStorage.getItem('token');
@@ -354,9 +121,7 @@ export default {
   margin-left: calc(var(--whidth-header) + var(--whidth-friendsList));
   height: 100vh;
   display: flex;
-  flex-direction: column-reverse;
-  justify-content: flex-end;
-  padding-bottom: 200px;
+  flex-direction: column;
   position: relative;
 }
 
@@ -373,7 +138,35 @@ export default {
   right: 0;
   left: calc(var(--whidth-header) + var(--whidth-friendsList));
   z-index: 10;
-  margin-bottom: 10px;
+}
+
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 60px; /* Pour laisser de l'espace pour l'en-tête */
+  height: calc(100vh - 60px);
+  position: relative;
+}
+
+.messages-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.welcome-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: var(--text-color);
+}
+
+.welcome-logo {
+  width: 150px;
+  margin-bottom: 20px;
 }
 
 .contact-info {
