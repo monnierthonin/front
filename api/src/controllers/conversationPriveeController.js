@@ -268,27 +268,30 @@ exports.leaveConversation = async (req, res, next) => {
         // Supprimer l'utilisateur des participants
         conversation.supprimerParticipant(req.user._id);
         
-        // Si c'est une conversation à 2 et qu'un participant quitte, supprimer la conversation
-        if (conversation.participants.length < 2) {
-            // Utiliser deleteOne pour déclencher le middleware de suppression en cascade
-            await ConversationPrivee.deleteOne({ _id: conversation._id });
-            
-            return res.status(204).json({
-                status: 'success',
-                data: null
-            });
-        }
+        // Nouvelle logique: Ne jamais supprimer la conversation quand un utilisateur la quitte
+        // Même si c'est une conversation à 2 personnes
+        // L'autre utilisateur pourra toujours voir la conversation et les messages
+        // Le premier utilisateur ne la verra plus tant qu'il n'y est pas rajouté
         
         // Si l'utilisateur qui quitte est le créateur, transférer le rôle au plus ancien participant
-        if (conversation.createur.toString() === req.user._id.toString()) {
+        if (conversation.createur.toString() === req.user._id.toString() && conversation.participants.length > 0) {
             // Trier les participants par date d'ajout
             const participants = conversation.participants.sort((a, b) => a.dateAjout - b.dateAjout);
-            if (participants.length > 0) {
-                conversation.createur = participants[0].utilisateur;
-            }
+            conversation.createur = participants[0].utilisateur;
+            console.log(`Nouveau créateur de la conversation: ${conversation.createur}`);
         }
         
         await conversation.save();
+        
+        // Notifier les autres participants que l'utilisateur a quitté la conversation
+        if (io) {
+            conversation.participants.forEach(participant => {
+                io.to(participant.utilisateur.toString()).emit('conversation-participant-left', {
+                    conversation: conversation._id,
+                    user: req.user._id
+                });
+            });
+        }
 
         res.status(204).json({
             status: 'success',
@@ -353,6 +356,20 @@ exports.getConversationMessages = async (req, res, next) => {
             return next(new AppError('Vous n\'êtes pas autorisé à accéder à cette conversation', 403));
         }
         
+        // Débogage: Afficher tous les messages dans la base de données
+        const allMessages = await MessagePrivate.find({});
+        console.log(`==== DÉBOGAGE: TOUS LES MESSAGES (${allMessages.length}) ====`);
+        allMessages.forEach((msg, index) => {
+            if (index < 5) { // Limiter l'affichage pour éviter de surcharger les logs
+                console.log(`\n[Message ${index + 1}]`);
+                console.log(`ID: ${msg._id}`);
+                console.log(`Contenu: "${msg.contenu}"`);
+                console.log(`Expéditeur: ${msg.expediteur}`);
+                console.log(`Conversation: ${msg.conversation || 'Non défini'}`);
+            }
+        });
+        console.log('==== FIN DÉBOGAGE ====');
+        
         // Récupérer les messages de la conversation
         const messages = await MessagePrivate.find({
             conversation: id
@@ -367,25 +384,58 @@ exports.getConversationMessages = async (req, res, next) => {
             }
         });
         
+        console.log(`Messages trouvés pour la conversation ${id}: ${messages.length}`);
+        
         // Marquer les messages non lus comme lus
-        const unreadMessages = messages.filter(msg => {
+        const unreadMessages = [];
+        
+        for (const msg of messages) {
             // Vérifier si l'utilisateur a déjà lu le message
-            if (!msg.lu) return false;
-            const userRead = msg.lu.find(read => read.utilisateur.toString() === req.user._id.toString());
-            return !userRead;
-        });
+            let dejaLu = false;
+            
+            if (Array.isArray(msg.lu)) {
+                // Nouveau format: tableau d'objets {utilisateur, dateLecture}
+                dejaLu = msg.lu.some(read => {
+                    return read && read.utilisateur && 
+                           read.utilisateur.toString && 
+                           read.utilisateur.toString() === req.user._id.toString();
+                });
+            } else if (msg.lu === true) {
+                // Ancien format: boolean
+                dejaLu = true;
+            }
+            
+            // Si l'expéditeur n'est pas l'utilisateur actuel et que le message n'est pas déjà lu
+            if (!dejaLu && msg.expediteur && msg.expediteur._id && 
+                msg.expediteur._id.toString() !== req.user._id.toString()) {
+                unreadMessages.push(msg);
+            }
+        }
         
         if (unreadMessages.length > 0) {
+            console.log(`Marquage de ${unreadMessages.length} messages comme lus`);
+            
             // Mettre à jour les messages non lus
             for (const msg of unreadMessages) {
-                msg.lu.push({
-                    utilisateur: req.user._id,
-                    date: new Date()
-                });
+                // Vérifier le format du champ lu
+                if (Array.isArray(msg.lu)) {
+                    // Nouveau format
+                    msg.lu.push({
+                        utilisateur: req.user._id,
+                        dateLecture: new Date()
+                    });
+                } else {
+                    // Ancien format ou non défini
+                    msg.lu = [{
+                        utilisateur: req.user._id,
+                        dateLecture: new Date()
+                    }];
+                }
+                
                 await msg.save();
                 
                 // Notifier l'expéditeur que ses messages ont été lus
-                if (io) {
+                if (io && msg.expediteur && msg.expediteur._id) {
                     io.to(msg.expediteur._id.toString()).emit('message-prive-lu', {
                         messageId: msg._id,
                         lu: true,
@@ -437,11 +487,8 @@ exports.sendMessageToConversation = async (req, res, next) => {
         const newMessage = await MessagePrivate.create({
             contenu,
             expediteur: req.user._id,
-            // Structure standardisée avec le champ contexte
-            contexte: {
-                type: 'conversation',  // Message dans une conversation de groupe
-                id: id
-            },
+            // Utiliser le champ conversation directement
+            conversation: id,
             reponseA: reponseA || null,
             horodatage: Date.now(),
             envoye: true,
@@ -628,7 +675,6 @@ exports.deleteMessage = async (req, res, next) => {
                 }
             });
         }
-        
         res.status(204).json({
             status: 'success',
             data: null
@@ -638,3 +684,225 @@ exports.deleteMessage = async (req, res, next) => {
         next(new AppError('Erreur lors de la suppression du message', 500));
     }
 };
+
+// Répondre à un message dans une conversation
+exports.replyToMessage = async (req, res, next) => {
+    try {
+        const { id, messageId } = req.params;
+        const { contenu, fichiers } = req.body;
+        
+        // Vérifier si le contenu ou les fichiers sont présents
+        if ((!contenu || contenu.trim() === '') && (!fichiers || fichiers.length === 0)) {
+            return next(new AppError('Le message doit contenir du texte ou des fichiers', 400));
+        }
+        
+        // Vérifier si la conversation existe
+        const conversation = await ConversationPrivee.findById(id);
+        if (!conversation) {
+            return next(new AppError('Conversation non trouvée', 404));
+        }
+        
+        // Vérifier si l'utilisateur est participant
+        if (!conversation.estParticipant(req.user._id)) {
+            return next(new AppError('Vous n\'êtes pas autorisé à envoyer des messages dans cette conversation', 403));
+        }
+        
+        // Vérifier si le message auquel on répond existe et appartient à cette conversation
+        const originalMessage = await MessagePrivate.findOne({ _id: messageId, conversation: id });
+        if (!originalMessage) {
+            return next(new AppError('Message original non trouvé', 404));
+        }
+        
+        // Créer le nouveau message avec référence au message original
+        const newMessage = await MessagePrivate.create({
+            contenu: contenu || '',
+            expediteur: req.user._id,
+            conversation: id,
+            reponseA: messageId,
+            fichiers: fichiers || []
+        });
+        
+        // Mettre à jour la date de la dernière activité de la conversation
+        conversation.dernierMessage = newMessage._id;
+        await conversation.save();
+        
+        // Peupler les références pour la réponse
+        const populatedMessage = await MessagePrivate.findById(newMessage._id)
+            .populate('expediteur', 'username firstName lastName profilePicture')
+            .populate({
+                path: 'reponseA',
+                populate: {
+                    path: 'expediteur',
+                    select: 'username firstName lastName profilePicture'
+                }
+            });
+        
+        // Notifier les autres participants
+        if (io) {
+            conversation.participants.forEach(participant => {
+                if (participant.utilisateur.toString() !== req.user._id.toString()) {
+                    io.to(participant.utilisateur.toString()).emit('nouveau-message-prive', {
+                        message: populatedMessage,
+                        conversation: id
+                    });
+                }
+            });
+        }
+        
+        res.status(201).json({
+            status: 'success',
+            data: {
+                message: populatedMessage
+            }
+        });
+    } catch (error) {
+        console.error('Erreur lors de la réponse au message:', error);
+        next(new AppError('Erreur lors de la réponse au message', 500));
+    }
+};
+
+// Ajouter une réaction à un message
+exports.addReaction = async (req, res, next) => {
+    try {
+        const { id, messageId } = req.params;
+        const { emoji } = req.body;
+        
+        if (!emoji) {
+            return next(new AppError('L\'emoji est requis', 400));
+        }
+        
+        // Vérifier si la conversation existe
+        const conversation = await ConversationPrivee.findById(id);
+        if (!conversation) {
+            return next(new AppError('Conversation non trouvée', 404));
+        }
+        
+        // Vérifier si l'utilisateur est participant
+        if (!conversation.estParticipant(req.user._id)) {
+            return next(new AppError('Vous n\'\u00eates pas autorisé à réagir aux messages dans cette conversation', 403));
+        }
+        
+        // Récupérer le message
+        const message = await MessagePrivate.findOne({ _id: messageId, conversation: id });
+        if (!message) {
+            return next(new AppError('Message non trouvé', 404));
+        }
+        
+        // Vérifier si l'utilisateur a déjà réagi avec cet emoji
+        const existingReaction = message.reactions.find(
+            r => r.utilisateur.toString() === req.user._id.toString() && r.emoji === emoji
+        );
+        
+        if (existingReaction) {
+            return next(new AppError('Vous avez déjà réagi avec cet emoji', 400));
+        }
+        
+        // Ajouter la réaction
+        message.reactions.push({
+            utilisateur: req.user._id,
+            emoji,
+            date: new Date()
+        });
+        
+        await message.save();
+        
+        // Notifier les autres participants en temps réel
+        if (io) {
+            conversation.participants.forEach(participant => {
+                if (participant.utilisateur.toString() !== req.user._id.toString()) {
+                    io.to(participant.utilisateur.toString()).emit('message-reaction-added', {
+                        conversationId: conversation._id,
+                        messageId: message._id,
+                        reaction: {
+                            utilisateur: req.user._id,
+                            emoji,
+                            date: new Date()
+                        }
+                    });
+                }
+            });
+        }
+        
+        res.status(200).json({
+            status: 'success',
+            data: {
+                reaction: {
+                    utilisateur: req.user._id,
+                    emoji,
+                    date: new Date()
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Erreur lors de l\'ajout d\'une réaction:', error);
+        next(new AppError('Erreur lors de l\'ajout d\'une réaction', 500));
+    }
+};
+
+// Supprimer une réaction d'un message
+exports.removeReaction = async (req, res, next) => {
+    try {
+        const { id, messageId } = req.params;
+        const { emoji } = req.body;
+        
+        if (!emoji) {
+            return next(new AppError('L\'emoji est requis', 400));
+        }
+        
+        // Vérifier si la conversation existe
+        const conversation = await ConversationPrivee.findById(id);
+        if (!conversation) {
+            return next(new AppError('Conversation non trouvée', 404));
+        }
+        
+        // Vérifier si l'utilisateur est participant
+        if (!conversation.estParticipant(req.user._id)) {
+            return next(new AppError('Vous n\'\u00eates pas autorisé à supprimer des réactions dans cette conversation', 403));
+        }
+        
+        // Récupérer le message
+        const message = await MessagePrivate.findOne({ _id: messageId, conversation: id });
+        if (!message) {
+            return next(new AppError('Message non trouvé', 404));
+        }
+        
+        // Vérifier si l'utilisateur a réagi avec cet emoji
+        const reactionIndex = message.reactions.findIndex(
+            r => r.utilisateur.toString() === req.user._id.toString() && r.emoji === emoji
+        );
+        
+        if (reactionIndex === -1) {
+            return next(new AppError('Vous n\'avez pas réagi avec cet emoji', 400));
+        }
+        
+        // Supprimer la réaction
+        message.reactions.splice(reactionIndex, 1);
+        await message.save();
+        
+        // Notifier les autres participants en temps réel
+        if (io) {
+            conversation.participants.forEach(participant => {
+                if (participant.utilisateur.toString() !== req.user._id.toString()) {
+                    io.to(participant.utilisateur.toString()).emit('message-reaction-removed', {
+                        conversationId: conversation._id,
+                        messageId: message._id,
+                        reaction: {
+                            utilisateur: req.user._id,
+                            emoji
+                        }
+                    });
+                }
+            });
+        }
+        
+        res.status(200).json({
+            status: 'success',
+            message: 'Réaction supprimée avec succès'
+        });
+    } catch (error) {
+        console.error('Erreur lors de la suppression d\'une réaction:', error);
+        next(new AppError('Erreur lors de la suppression d\'une réaction', 500));
+    }
+};
+
+module.exports = exports;

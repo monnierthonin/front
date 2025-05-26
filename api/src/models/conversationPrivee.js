@@ -63,6 +63,25 @@ conversationPriveeSchema.pre('deleteOne', async function(next) {
     }
 });
 
+// Middleware pour deleteMany qui peut être utilisé pour supprimer plusieurs conversations
+conversationPriveeSchema.pre('deleteMany', async function(next) {
+    try {
+        const MessagePrivate = require('./messagePrivate');
+        const query = this.getQuery();
+        const conversations = await mongoose.model('ConversationPrivee').find(query, '_id');
+        const conversationIds = conversations.map(conv => conv._id);
+        
+        if (conversationIds.length > 0) {
+            console.log(`Suppression des messages pour ${conversationIds.length} conversations`);
+            await MessagePrivate.deleteMany({ conversation: { $in: conversationIds } });
+        }
+        next();
+    } catch (error) {
+        console.error('Erreur lors de la suppression des messages associés:', error);
+        next(error);
+    }
+});
+
 // Méthode pour vérifier si un utilisateur est participant à la conversation
 conversationPriveeSchema.methods.estParticipant = function(userId) {
     console.log('Vérification si utilisateur est participant:', userId);

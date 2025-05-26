@@ -92,6 +92,8 @@ export default {
         const response = await messagePrivateService.getAllPrivateConversations();
         console.log('Réponse reçue dans le composant:', response);
         
+
+        
         // Utiliser les données reçues de l'API si disponibles
         if (response && Array.isArray(response)) {
           // Traiter les conversations pour extraire les contacts uniques
@@ -100,35 +102,61 @@ export default {
           // Si la réponse est un tableau d'objets conversations
           if (Array.isArray(response)) {
             response.forEach(conversation => {
-              // Si l'objet a une propriété 'user', c'est probablement une structure de la forme {user: {...}, lastMessage: {...}}
-              if (conversation.user && conversation.user._id && conversation.user._id.toString() !== currentUserId.value) {
-                contactsMap.set(conversation.user._id.toString(), {
-                  _id: conversation.user._id,
-                  username: conversation.user.username,
-                  prenom: conversation.user.prenom || conversation.user.firstName,
-                  nom: conversation.user.nom || conversation.user.lastName,
-                  profilePicture: conversation.user.profilePicture,
-                  status: 'online', // Status par défaut, à enrichir plus tard
-                  lastMessage: conversation.lastMessage
-                });
-                return;
+              // IMPORTANT: On récupère l'ID de la conversation elle-même
+              const conversationId = conversation._id || conversation.id;
+              console.log('Conversation ID:', conversationId);
+              
+              // S'assurer que chaque conversation a un ID valide
+              if (!conversationId) {
+                console.warn('Conversation sans ID détectée', conversation);
+                return; // Ignorer cette conversation
               }
               
-              // Vérifier les participants (si c'est une structure différente)
-              if (conversation.participants && Array.isArray(conversation.participants)) {
-                conversation.participants.forEach(participant => {
-                  if (participant._id && participant._id.toString() !== currentUserId.value) {
-                    contactsMap.set(participant._id.toString(), {
-                      _id: participant._id,
-                      username: participant.username,
-                      prenom: participant.prenom || participant.firstName,
-                      nom: participant.nom || participant.lastName,
-                      profilePicture: participant.profilePicture,
-                      status: participant.status || 'offline'
-                    });
-                  }
+              // Si l'objet a une propriété 'user', c'est probablement une structure de la forme {user: {...}, lastMessage: {...}}
+              if (conversation.user && conversation.user._id && conversation.user._id.toString() !== currentUserId.value) {
+                const userId = conversation.user._id.toString();
+                
+                // Stocker l'utilisateur avec son ID de conversation spécifique
+                contactsMap.set(userId, {
+                  ...conversation.user,
+                  lastMessage: conversation.lastMessage,
+                  conversationId: conversationId // Ajouter l'ID de la conversation spécifique à ce contact
                 });
-                return;
+                
+                console.log(`Contact ${userId} associé à la conversation ${conversationId}`);
+              }
+              // Si l'objet a une propriété 'participants', c'est probablement une conversation complète
+              else if (conversation.participants && Array.isArray(conversation.participants)) {
+                // Trouver l'autre participant (pas l'utilisateur courant)
+                const otherParticipant = conversation.participants.find(p => {
+                  const participantId = (p._id || p.id || (p.utilisateur && p.utilisateur._id));
+                  return participantId && participantId.toString() !== currentUserId.value;
+                });
+                
+                if (otherParticipant) {
+                  // Déterminer l'ID du participant de manière fiable
+                  const participantId = (
+                    otherParticipant._id || 
+                    otherParticipant.id || 
+                    (otherParticipant.utilisateur && otherParticipant.utilisateur._id)
+                  ).toString();
+                  
+                  // Récupérer les données du participant (soit directement, soit via la propriété utilisateur)
+                  const participantData = otherParticipant.utilisateur || otherParticipant;
+                  
+                  // Ajouter à la map avec l'ID de conversation
+                  contactsMap.set(participantId, {
+                    _id: participantId,
+                    username: participantData.username || 'Utilisateur',
+                    prenom: participantData.prenom || participantData.firstName,
+                    nom: participantData.nom || participantData.lastName,
+                    profilePicture: participantData.profilePicture,
+                    status: participantData.status || 'offline',
+                    conversationId: conversationId // Stocker l'ID de la conversation spécifique à ce contact
+                  });
+                  
+                  console.log(`Contact ${participantId} associé à la conversation ${conversationId}`);
+                }
               }
               
               // Vérifier expéditeur/destinataire
@@ -162,6 +190,11 @@ export default {
     
     // Fonction utilitaire pour traiter les expéditeurs et destinataires des messages
     const processMessageParticipants = (message, contactsMap, currentUserId) => {
+      // Récupérer l'ID de conversation si disponible
+      // Le message peut venir d'une conversation directement
+      const conversationId = message.conversation || message.conversationId || message._id;
+      console.log('processMessageParticipants - conversationId:', conversationId);
+      
       // Traiter l'expéditeur
       if (message.expediteur) {
         const expediteurId = typeof message.expediteur === 'object' ? 
@@ -177,7 +210,8 @@ export default {
             prenom: expediteur.prenom || expediteur.firstName,
             nom: expediteur.nom || expediteur.lastName,
             profilePicture: expediteur.profilePicture,
-            status: expediteur.status || 'offline'
+            status: expediteur.status || 'offline',
+            conversationId: conversationId // Ajout de l'ID de conversation
           });
         }
       }
@@ -197,7 +231,8 @@ export default {
             prenom: destinataire.prenom || destinataire.firstName,
             nom: destinataire.nom || destinataire.lastName,
             profilePicture: destinataire.profilePicture,
-            status: destinataire.status || 'offline'
+            status: destinataire.status || 'offline',
+            conversationId: conversationId // Ajout de l'ID de conversation
           });
         }
       }
@@ -215,9 +250,34 @@ export default {
 
     // Ouvrir une conversation avec un contact
     const openConversation = (contactId) => {
-      // Navigation vers la page de conversation privée
-      // À implémenter selon la structure de routage
-      console.log('Ouverture de la conversation avec:', contactId);
+      // Trouver le contact dans la liste
+      const contact = contacts.value.find(c => c._id === contactId);
+      if (!contact) {
+        console.error('Contact non trouvé:', contactId);
+        return;
+      }
+      
+      // Vérifier si ce contact est une conversation déjà existante
+      // Certains contacts dans la liste sont des conversations avec leur propre ID
+      const conversationId = contact.conversationId || contact._id;
+      
+      console.log('Détails de la conversation sélectionnée:', {
+        contactId: contactId,
+        conversationId: conversationId,
+        contactName: contact.username || contact.nom || 'Utilisateur',
+        isConversation: !!contact.conversationId
+      });
+      
+      // Émettre un événement personnalisé pour être capturé par le composant parent
+      const event = new CustomEvent('open-private-conversation', {
+        detail: {
+          userId: contactId,          // ID de l'utilisateur/contact
+          conversationId: conversationId, // ID de la conversation si disponible
+          targetUser: contact
+        },
+        bubbles: true
+      });
+      document.dispatchEvent(event);
     };
 
     // Afficher le modal pour créer une nouvelle conversation

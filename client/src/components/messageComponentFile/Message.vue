@@ -29,14 +29,14 @@
       <div 
         v-for="message in messages" 
         :key="message._id"
-        :class="['message-container', { 'current-user': isCurrentUser(message.auteur._id) }]"
+        :class="['message-container', { 'current-user': isCurrentUser(getAuthorId(message)) }]"
         :data-message-id="message._id">
         <div class="message-content">
           <!-- Profile picture -->
           <div class="profile-pic">
             <ProfilePicture 
-              :profilePicture="message.auteur.profilePicture" 
-              :altText="getUserName(message.auteur)" 
+              :profilePicture="getAuthorProfilePicture(message)" 
+              :altText="getAuthorName(message)" 
             />
           </div>
           
@@ -46,14 +46,14 @@
             <div v-if="message.reponseA" class="message-reply-reference" @click="scrollToParentMessage(message.reponseA)">
               <span class="reply-to-icon">↩</span>
               <span class="reply-to-text">Réponse à </span>
-              <span class="reply-to-author">{{ getMessageAuthorName(message.reponseA) }}:</span>
-              <span class="reply-to-content">{{ getMessagePreview(message.reponseA) }}</span>
+              <span class="reply-to-author">{{ getParentMessageAuthorName(message) }}:</span>
+              <span class="reply-to-content">{{ getParentMessagePreview(message) }}</span>
             </div>
             
             <!-- Username and timestamp -->
             <div class="message-header">
-              <span class="username">{{ getUserName(message.auteur) }}</span>
-              <span class="timestamp">{{ formatDate(message.createdAt) }}</span>
+              <span class="username">{{ getAuthorName(message) }}</span>
+              <span class="timestamp">{{ formatDate(message.horodatage || message.createdAt) }}</span>
             </div>
             
             <!-- Message text --><!-- ___________________________________________ecpace devant modifier-->
@@ -116,13 +116,13 @@
               <img src="../../assets/styles/image/react.png" alt="Emoji" />
             </button>
             <button 
-              v-if="isCurrentUser(message.auteur._id)" 
+              v-if="isCurrentUser(getAuthorId(message))" 
               class="action-btn" 
               @click="handleEdit(message)">
               <img src="../../assets/styles/image/modifier.png" alt="Edit" />
             </button>
             <button 
-              v-if="isCurrentUser(message.auteur._id)" 
+              v-if="isCurrentUser(getAuthorId(message))" 
               class="action-btn" 
               @click="handleDelete(message)">
               <img src="../../assets/styles/image/delet.png" alt="Delete" />
@@ -147,6 +147,7 @@ import messageService from '../../services/messageService.js';
 import fichierService from '../../services/fichierService.js';
 import ProfilePicture from '../common/ProfilePicture.vue';
 import SimpleEmojiPicker from '../common/SimpleEmojiPicker.vue';
+import { getCurrentUserId, isCurrentUser } from '../../utils/userUtils';
 
 export default {
   components: {
@@ -170,12 +171,11 @@ export default {
   },
   data() {
     return {
-      userId: null,
+      activeEmojiPickerMessageId: null,
       showEditModal: false,
-      editMessageId: null,
+      editingMessage: null,
       editContent: '',
-      parentMessages: {},
-      activeEmojiPickerMessageId: null
+      localCurrentUserId: this.currentUserId || getCurrentUserId() || ''
     };
   },
   created() {
@@ -192,12 +192,102 @@ export default {
   },
   methods: {
     /**
+     * Obtenir l'ID de l'auteur du message (compatible avec les deux structures)
+     * @param {Object} message - Le message
+     * @returns {String} ID de l'auteur
+     */
+    getAuthorId(message) {
+      // Vérifier les différentes structures possibles
+      if (message.expediteur && message.expediteur._id) {
+        return message.expediteur._id;
+      } else if (message.auteur && message.auteur._id) {
+        return message.auteur._id;
+      } else if (message.utilisateur && message.utilisateur._id) {
+        return message.utilisateur._id;
+      }
+      return null;
+    },
+    
+    /**
+     * Obtenir le nom de l'auteur du message (compatible avec les deux structures)
+     * @param {Object} message - Le message
+     * @returns {String} Nom de l'auteur
+     */
+    getAuthorName(message) {
+      if (message.expediteur) {
+        const author = message.expediteur;
+        return author.username || author.nom || author.prenom || 'Utilisateur';
+      } else if (message.auteur) {
+        const author = message.auteur;
+        return author.username || author.nom || author.prenom || 'Utilisateur';
+      }
+      return 'Utilisateur';
+    },
+    
+    /**
+     * Obtenir le nom de l'auteur d'un message parent
+     * @param {Object} message - Message qui répond à un autre
+     * @returns {String} Nom de l'auteur du message parent
+     */
+    getParentMessageAuthorName(message) {
+      // S'il n'y a pas de référence à un message parent
+      if (!message || !message.reponseA) return 'Utilisateur';
+      
+      // Si nous avons déjà récupéré les détails du message parent
+      if (message.reponseA.expediteur) {
+        const author = message.reponseA.expediteur;
+        return author.username || author.nom || author.prenom || 'Utilisateur';
+      } else if (message.reponseA.auteur) {
+        const author = message.reponseA.auteur;
+        return author.username || author.nom || author.prenom || 'Utilisateur';
+      }
+      
+      // Si nous n'avons que l'ID du message parent
+      return 'Utilisateur';
+    },
+    
+    /**
+     * Obtenir un aperçu du contenu d'un message parent
+     * @param {Object} message - Message qui répond à un autre
+     * @returns {String} Aperçu du contenu du message parent
+     */
+    getParentMessagePreview(message) {
+      if (!message || !message.reponseA) return '';
+      
+      // Si nous avons déjà récupéré les détails du message parent
+      if (message.reponseA.contenu) {
+        // Limiter la longueur du texte pour l'aperçu
+        const maxLength = 50;
+        const content = message.reponseA.contenu;
+        return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
+      }
+      
+      return 'Message';
+    },
+    
+    /**
+     * Obtenir l'image de profil de l'auteur (compatible avec les deux structures)
+     * @param {Object} message - Le message
+     * @returns {String} URL de l'image de profil
+     */
+    getAuthorProfilePicture(message) {
+      if (message.expediteur && message.expediteur.profilePicture) {
+        return message.expediteur.profilePicture;
+      } else if (message.auteur && message.auteur.profilePicture) {
+        return message.auteur.profilePicture;
+      }
+      return null; // Image par défaut gérée par le composant ProfilePicture
+    },
+    
+    /**
      * Vérifier si le message provient de l'utilisateur connecté
      * @param {String} authorId - ID de l'auteur du message
      * @returns {Boolean} true si c'est l'utilisateur actuel
      */
     isCurrentUser(authorId) {
-      return authorId === this.currentUserId;
+      // Utiliser la propriété reçue ou la valeur locale ou la fonction utilitaire
+      const currentUserId = this.currentUserId || this.localCurrentUserId || getCurrentUserId();
+      return authorId === currentUserId;
     },
     
     /**
