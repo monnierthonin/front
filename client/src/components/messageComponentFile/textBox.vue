@@ -78,10 +78,15 @@ export default {
         return;
       }
       
+      console.log('Envoi de message, canalActif:', this.canalActif);
+      
       // Si un fichier est sélectionné, l'envoyer avec le message
       if (this.selectedFile) {
         this.uploadingFile = true;
         try {
+          console.log('Fichier sélectionné pour upload:', this.selectedFile.name, 'taille:', this.selectedFile.size);
+          console.log('Type de canal:', this.canalActif.type, 'ID:', this.canalActif._id);
+          
           // Déterminer si c'est une réponse ou un message normal avec fichier
           if (this.replyingToMessage) {
             // Pas encore implémenté: réponse avec fichier
@@ -89,7 +94,8 @@ export default {
             return;
           } else {
             // Message normal avec fichier
-            if (this.canalActif.type === 'conversation') {
+            if (this.canalActif.type === 'conversation' || this.canalActif.type === 'user') {
+              console.log('Upload de fichier pour une conversation privée');
               await fichierService.uploadFichierConversation(
                 this.selectedFile, 
                 this.canalActif._id, 
@@ -97,6 +103,7 @@ export default {
                 this.messageText.trim()
               );
             } else {
+              console.log('Upload de fichier pour un canal');
               await fichierService.uploadFichierCanal(
                 this.selectedFile, 
                 this.canalActif._id, 
@@ -105,12 +112,14 @@ export default {
               );
             }
             
+            console.log('Fichier envoyé avec succès');
             // Émettre un événement pour rafraîchir les messages
             this.$emit('refresh-messages');
           }
           
-          // Réinitialiser le fichier sélectionné
+          // Réinitialiser le fichier sélectionné et le texte du message
           this.selectedFile = null;
+          this.messageText = '';
         } catch (error) {
           console.error('Erreur lors de l\'upload avec message:', error);
           alert('Erreur lors de l\'envoi du fichier. Vérifiez que le type et la taille sont autorisés.');
@@ -120,33 +129,33 @@ export default {
         }
       } else {
         // Message sans fichier - comportement standard
+        // Si on répond à un message, envoyer une réponse
         if (this.replyingToMessage) {
-          // C'est une réponse à un message existant
+          console.log('Envoi d\'une réponse au message:', this.replyingToMessage._id);
+          // Émettre un événement pour la réponse avec le nom correct attendu par le parent
           this.$emit('reply-to-message', {
-            contenu: this.messageText.trim(),
             parentMessageId: this.replyingToMessage._id,
-            canalId: this.canalActif._id,
-            workspaceId: this.workspaceId
+            contenu: this.messageText.trim()
           });
-          
-          // Annuler le mode réponse après l'envoi
-          this.$emit('cancel-reply');
         } else {
+          console.log('Envoi d\'un message normal');
           // Message normal
-          this.$emit('envoyer-message', {
-            contenu: this.messageText.trim(),
-            canalId: this.canalActif._id,
-            workspaceId: this.workspaceId
-          });
+          this.$emit('envoyer-message', { contenu: this.messageText.trim() });
         }
       }
       
-      // Réinitialiser le champ de texte
+      // Réinitialiser le formulaire
       this.messageText = '';
+      this.selectedFile = null;
+      
+      // Vider le mode réponse s'il était actif
+      if (this.replyingToMessage) {
+        this.$emit('cancel-reply');
+      }
       
       // Réinitialiser la hauteur du textarea
       if (this.$refs.inputText) {
-        this.$refs.inputText.style.height = '50px';
+        this.$refs.inputText.style.height = 'auto';
       }
     },
     
@@ -154,52 +163,55 @@ export default {
      * Gérer l'upload de fichier
      */
     handleFileUpload() {
-      if (!this.canalActif) return;
+      if (!this.canalActif) {
+        console.log('Aucun canal actif, impossible de télécharger un fichier');
+        return;
+      }
       
-      // Créer un input file invisible et le déclencher
+      console.log('Ouverture du sélecteur de fichier pour', this.canalActif.type, this.canalActif._id);
+      
+      // Créer un élément input de type file invisible
       const fileInput = document.createElement('input');
       fileInput.type = 'file';
-      fileInput.style.display = 'none';
+      fileInput.accept = 'image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt';
       
       // Ajouter un écouteur d'événement pour le changement de fichier
-      fileInput.addEventListener('change', async (e) => {
-        if (e.target.files && e.target.files[0]) {
-          const file = e.target.files[0];
-          this.selectedFile = file;
+      fileInput.addEventListener('change', (event) => {
+        if (event.target.files.length > 0) {
+          const file = event.target.files[0];
+          console.log('Fichier sélectionné:', file.name, 'type:', file.type, 'taille:', file.size);
           
-          // Si on a du texte, envoyer le message avec le fichier
-          if (this.messageText.trim()) {
-            this.envoyerMessage();
-          } else {
-            // Sinon, envoyer juste le fichier
-            this.uploadingFile = true;
-            try {
-              // Upload du fichier selon le type de canal (canal ou conversation)
-              if (this.canalActif.type === 'conversation') {
-                await fichierService.uploadFichierConversation(
-                  file, 
-                  this.canalActif._id,
-                  null, // pas de messageId car nouveau message
-                  ''
-                );
-              } else {
-                await fichierService.uploadFichierCanal(
-                  file, 
-                  this.canalActif._id,
-                  null, // pas de messageId car nouveau message
-                  ''
-                );
-              }
-              
-              // Émettre un événement pour rafraîchir les messages
-              this.$emit('refresh-messages');
-              this.selectedFile = null;
-            } catch (error) {
-              console.error('Erreur lors de l\'upload:', error);
-              alert('Erreur lors de l\'envoi du fichier. Vérifiez que le type et la taille sont autorisés.');
-            } finally {
-              this.uploadingFile = false;
-            }
+          // Vérifier la taille du fichier (max 5MB)
+          if (file.size > 5 * 1024 * 1024) {
+            alert('Le fichier est trop volumineux. Taille maximum: 5MB');
+            return;
+          }
+          
+          // Accepter uniquement certains types de fichiers
+          const allowedTypes = [
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'text/plain'
+          ];
+          
+          if (!allowedTypes.includes(file.type)) {
+            alert('Type de fichier non autorisé. Types acceptés: images, PDF, DOC, DOCX, XLS, XLSX, TXT');
+            return;
+          }
+          
+          // Stocker le fichier sélectionné
+          this.selectedFile = file;
+          console.log('Fichier prêt pour envoi:', this.selectedFile.name);
+          
+          // Si le message ne contient pas déjà du texte, ajouter une description du fichier
+          if (!this.messageText.trim()) {
+            this.messageText = `Fichier: ${file.name}`;
           }
         }
       });
