@@ -254,42 +254,69 @@ export default {
         console.log('Envoi du message:', { targetId, type: this.conversationId ? 'conversation' : 'user', contenu: messageData.contenu });
         
         // Envoyer le message via le service
-        const newMessage = await messagePrivateService.sendPrivateMessage(
+        const response = await messagePrivateService.sendPrivateMessage(
           targetId,
           messageData.contenu,
           this.conversationId ? 'conversation' : 'user'
         );
         
-        console.log('Nouveau message créé:', newMessage);
+        console.log('Réponse du serveur:', response);
         
-        // S'assurer que le message a un ID valide
-        if (!newMessage || !newMessage._id) {
+        // Extraire le message de la réponse en tenant compte des différentes structures possibles
+        let newMessage;
+        if (response && response.data && response.data.message) {
+          newMessage = response.data.message;
+        } else if (response && response.message) {
+          newMessage = response.message;
+        } else if (response && response.data) {
+          newMessage = response.data;
+        } else {
+          newMessage = response;
+        }
+        
+        console.log('Message extrait:', newMessage);
+        
+        // Vérifier que le message a un ID (sous n'importe quelle forme)
+        const messageId = newMessage._id || newMessage.id;
+        if (!messageId) {
           console.error('Message reçu sans ID:', newMessage);
           throw new Error('Message invalide reçu du serveur');
         }
         
-        // Formater le message avec les IDs en string
+        // Normaliser la structure du message pour garantir la compatibilité
         const formattedMessage = {
           ...newMessage,
-          _id: newMessage._id.toString(),
-          expediteur: {
-            ...newMessage.expediteur,
-            _id: newMessage.expediteur._id.toString()
-          }
+          _id: messageId.toString(), // Assurer la présence de _id
+          id: messageId.toString()   // Assurer la présence de id également
         };
+        
+        // Normaliser la structure de l'expéditeur
+        if (formattedMessage.expediteur) {
+          const expediteurId = formattedMessage.expediteur._id || formattedMessage.expediteur.id;
+          if (expediteurId) {
+            formattedMessage.expediteur = {
+              ...formattedMessage.expediteur,
+              _id: expediteurId.toString(),
+              id: expediteurId.toString()
+            };
+          }
+        }
         
         // Ajouter le nouveau message à la liste
         this.messagesData.push(formattedMessage);
         
         // Mettre à jour l'ID de conversation si nécessaire
-        if (newMessage.conversation && !this.conversationId) {
-          const conversationId = newMessage.conversation.toString();
-          console.log('Mise à jour de l\'ID de conversation:', conversationId);
-          this.$emit('update:conversationId', conversationId);
+        const conversationId = newMessage.conversation || newMessage.conversationId;
+        if (conversationId && !this.conversationId) {
+          const convId = conversationId.toString();
+          console.log('Mise à jour de l\'ID de conversation:', convId);
+          this.$emit('update:conversationId', convId);
         }
         
-        // Réinitialiser le champ de message
-        this.messageContent = '';
+        // Réinitialiser le champ de message si nécessaire
+        if (this.messageContent) {
+          this.messageContent = '';
+        }
         
         // Afficher une notification de succès
         this.$toast.success('Message envoyé avec succès');
@@ -305,63 +332,98 @@ export default {
      */
     async replyToMessage(message) {
       try {
-        // Vérifier si nous avons un ID de conversation valide
         if (!this.conversationId) {
-          console.error('Pas d\'ID de conversation pour répondre au message');
-          return;
+          throw new Error('ID de conversation manquant');
         }
 
-        if (!message || !message._id) {
-          console.error('ID du message manquant');
-          return;
+        // Récupérer l'ID du message en tenant compte des différentes structures possibles
+        const messageId = message._id || message.id;
+        if (!messageId) {
+          console.error('Message sans ID pour la réponse:', message);
+          throw new Error('Message invalide pour la réponse');
         }
-        
-        console.log('Réponse au message:', { messageId: message._id, conversationId: this.conversationId });
-        
-        // Appeler le service pour répondre au message
-        const newMessage = await messagePrivateService.sendPrivateReply(
-          this.conversationId,
-          message._id,
-          this.messageContent
+
+        const replyContent = this.replyingToMessage.content;
+
+        if (!replyContent || replyContent.trim() === '') {
+          throw new Error('Le contenu de la réponse ne peut pas être vide');
+        }
+
+        console.log('Réponse au message:', { 
+          conversationId: this.conversationId, 
+          messageId, 
+          content: replyContent 
+        });
+
+        // Envoyer la réponse via le service
+        const response = await messagePrivateService.sendPrivateReply(
+          this.conversationId, 
+          messageId,
+          replyContent
         );
-        
-        console.log('Nouvelle réponse créée:', newMessage);
-        
-        // S'assurer que le message a un ID valide
-        if (!newMessage || !newMessage._id) {
-          console.error('Réponse reçue sans ID:', newMessage);
-          throw new Error('Message invalide reçu du serveur');
+
+        console.log('Réponse du serveur:', response);
+
+        if (!response) {
+          throw new Error('Aucune réponse reçue du serveur');
         }
-        
-        // Formater le message avec les IDs en string
+
+        // Extraire le message de la réponse en tenant compte des différentes structures possibles
+        let newMessage;
+        if (response.data && response.data.message) {
+          newMessage = response.data.message;
+        } else if (response.message) {
+          newMessage = response.message;
+        } else if (response.data) {
+          newMessage = response.data;
+        } else {
+          newMessage = response;
+        }
+
+        console.log('Message extrait:', newMessage);
+
+        // Vérifier que le message a un ID (sous n'importe quelle forme)
+        const newMessageId = newMessage._id || newMessage.id;
+        if (!newMessageId) {
+          console.error('Réponse reçue sans ID:', newMessage);
+          throw new Error('Réponse invalide reçue du serveur');
+        }
+
+        // Normaliser la structure du message pour garantir la compatibilité
         const formattedMessage = {
           ...newMessage,
-          _id: newMessage._id.toString(),
-          expediteur: {
-            ...newMessage.expediteur,
-            _id: newMessage.expediteur._id.toString()
-          },
-          reponseA: newMessage.reponseA ? {
-            ...newMessage.reponseA,
-            _id: newMessage.reponseA._id.toString(),
-            expediteur: {
-              ...newMessage.reponseA.expediteur,
-              _id: newMessage.reponseA.expediteur._id.toString()
-            }
-          } : null
+          _id: newMessageId.toString(),   // Assurer la présence de _id
+          id: newMessageId.toString()     // Assurer la présence de id également
         };
-        
+
+        // Normaliser la structure de l'expéditeur
+        if (formattedMessage.expediteur) {
+          const expediteurId = formattedMessage.expediteur._id || formattedMessage.expediteur.id;
+          if (expediteurId) {
+            formattedMessage.expediteur = {
+              ...formattedMessage.expediteur,
+              _id: expediteurId.toString(),
+              id: expediteurId.toString()
+            };
+          }
+        }
+
+        // S'assurer que la référence au message parent est correctement formatée
+        if (formattedMessage.reponseA) {
+          formattedMessage.reponseA = messageId.toString();
+        }
+
         // Ajouter le nouveau message à la liste
         this.messagesData.push(formattedMessage);
-        
-        // Réinitialiser le message en cours de réponse
-        this.messageEnReponse = null;
-        
+
+        // Réinitialiser l'état de réponse
+        this.replyingToMessage = null;
+
         // Afficher une notification de succès
         this.$toast.success('Réponse envoyée avec succès');
       } catch (error) {
-        console.error('Erreur lors de l\'envoi de la réponse:', error);
-        this.$toast.error(error.message || 'Erreur lors de l\'envoi de la réponse');
+        console.error('Erreur lors de la réponse au message:', error);
+        this.$toast.error(error.message || 'Erreur lors de la réponse au message');
       }
     },
 

@@ -237,6 +237,5 @@ export default {
   display: flex;
   flex-direction: column-reverse;
   justify-content: flex-end;
-  padding-bottom: 200px;
 }
 </style>

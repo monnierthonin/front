@@ -28,9 +28,9 @@
     <template v-else>
       <div 
         v-for="message in messages" 
-        :key="message._id"
+        :key="getMessageId(message)"
         :class="['message-container', { 'current-user': isCurrentUser(getAuthorId(message)) }]"
-        :data-message-id="message._id">
+        :data-message-id="getMessageId(message)">
         <div class="message-content">
           <!-- Profile picture -->
           <div class="profile-pic">
@@ -109,24 +109,30 @@
     
           <!-- Action buttons -->
           <div class="message-actions">
-            <button class="action-btn" @click="handleReply(message)">
-              <img src="../../assets/styles/image/repondre.png" alt="Reply" />
-            </button>
-            <button class="action-btn" @click="handleEmoji(message)">
-              <img src="../../assets/styles/image/react.png" alt="Emoji" />
-            </button>
-            <button 
-              v-if="isCurrentUser(getAuthorId(message))" 
-              class="action-btn" 
-              @click="handleEdit(message)">
-              <img src="../../assets/styles/image/modifier.png" alt="Edit" />
-            </button>
-            <button 
-              v-if="isCurrentUser(getAuthorId(message))" 
-              class="action-btn" 
-              @click="handleDelete(message)">
-              <img src="../../assets/styles/image/delet.png" alt="Delete" />
-            </button>
+            <MessageReplyButton
+              :message="message"
+              :is-private="isPrivateMessage"
+              @reply-started="handleReplyStarted"
+              @reply-sent="handleReplySent"
+            />
+            <MessageEditButton
+              v-if="isCurrentUser(getAuthorId(message))"
+              :message="message"
+              :is-private="isPrivateMessage"
+              @edit-started="handleEditStarted"
+              @message-updated="handleMessageUpdated"
+            />
+            <MessageDeleteButton
+              v-if="isCurrentUser(getAuthorId(message))"
+              :message="message"
+              :is-private="isPrivateMessage"
+              @message-deleted="handleMessageDeleted"
+            />
+            <MessageReactionButton
+              :message="message"
+              :is-private="isPrivateMessage"
+              @reaction-added="handleReactionAdded"
+            />
           </div>
           
           <!-- Emoji Picker -->
@@ -143,16 +149,23 @@
 </template>
 
 <script>
-import messageService from '../../services/messageService.js';
 import fichierService from '../../services/fichierService.js';
 import ProfilePicture from '../common/ProfilePicture.vue';
-import SimpleEmojiPicker from '../common/SimpleEmojiPicker.vue';
 import { getCurrentUserId, isCurrentUser } from '../../utils/userUtils';
+import messageService from '../../services/messageService';
+import messagePrivateService from '../../services/messagePrivateService';
+import MessageReplyButton from './buttons/MessageReplyButton.vue';
+import MessageEditButton from './buttons/MessageEditButton.vue';
+import MessageDeleteButton from './buttons/MessageDeleteButton.vue';
+import MessageReactionButton from './buttons/MessageReactionButton.vue';
 
 export default {
   components: {
     ProfilePicture,
-    SimpleEmojiPicker
+    MessageReplyButton,
+    MessageEditButton,
+    MessageDeleteButton,
+    MessageReactionButton
   },
   name: 'Message',
   props: {
@@ -167,6 +180,10 @@ export default {
     currentUserId: {
       type: String,
       default: ''
+    },
+    isPrivateMessage: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -175,6 +192,7 @@ export default {
       showEditModal: false,
       editingMessage: null,
       editContent: '',
+      replyingTo: null,
       localCurrentUserId: this.currentUserId || getCurrentUserId() || ''
     };
   },
@@ -197,7 +215,9 @@ export default {
      * @returns {String} ID de l'auteur
      */
     getAuthorId(message) {
-      // Vérifier les différentes structures possibles
+      if (this.isPrivateMessage) {
+        return message.auteur._id || message.auteur;
+      }
       if (message.expediteur && message.expediteur._id) {
         return message.expediteur._id;
       } else if (message.auteur && message.auteur._id) {
@@ -271,6 +291,9 @@ export default {
      * @returns {String} URL de l'image de profil
      */
     getAuthorProfilePicture(message) {
+      if (this.isPrivateMessage) {
+        return message.auteur.profilePicture || null;
+      }
       if (message.expediteur && message.expediteur.profilePicture) {
         return message.expediteur.profilePicture;
       } else if (message.auteur && message.auteur.profilePicture) {
@@ -679,6 +702,120 @@ export default {
     /**
      * Fermer le modal d'édition
      */
+    closeEditModal() {
+      this.showEditModal = false;
+      this.editingMessage = null;
+      this.editContent = '';
+    },
+    
+    /**
+     * Obtenir l'ID du message quelle que soit sa structure
+     * @param {Object} message - Le message
+     * @returns {String} ID du message
+     */
+    getMessageId(message) {
+      return message._id || message.id || '';
+    },
+    
+    /**
+     * Obtenir l'ID de l'auteur du message quelle que soit sa structure
+     * @param {Object} message - Le message
+     * @returns {String} ID de l'auteur
+     */
+    getAuthorId(message) {
+      if (message.expediteur && message.expediteur._id) {
+        return message.expediteur._id;
+      } else if (message.auteur && message.auteur._id) {
+        return message.auteur._id;
+      } else if (typeof message.auteur === 'string') {
+        return message.auteur;
+      } else if (typeof message.expediteur === 'string') {
+        return message.expediteur;
+      }
+      return '';
+    },
+    
+    /**
+     * Obtenir le nom de l'auteur du message quelle que soit sa structure
+     * @param {Object} message - Le message
+     * @returns {String} Nom de l'auteur
+     */
+    getAuthorName(message) {
+      if (message.expediteur) {
+        const author = message.expediteur;
+        return author.username || author.nom || author.prenom || 'Utilisateur';
+      } else if (message.auteur) {
+        const author = message.auteur;
+        return author.username || author.nom || author.prenom || 'Utilisateur';
+      }
+      return 'Utilisateur inconnu';
+    },
+    
+    /**
+     * Obtenir la photo de profil de l'auteur du message quelle que soit sa structure
+     * @param {Object} message - Le message
+     * @returns {String} URL de la photo de profil
+     */
+    getAuthorProfilePicture(message) {
+      if (message.expediteur) {
+        return message.expediteur.profilePicture || message.expediteur.photoProfil || null;
+      } else if (message.auteur) {
+        return message.auteur.profilePicture || message.auteur.photoProfil || null;
+      }
+      return null;
+    },
+
+    formatDate(date) {
+      if (!date) return '';
+      return new Date(date).toLocaleString();
+    },
+
+    handleReplyStarted(message) {
+      if (!message || !message._id) {
+        console.error('Message invalide pour la réponse:', message);
+        return;
+      }
+      this.replyingTo = message;
+      this.$emit('reply-to-message', {
+        messageId: message._id,
+        channelId: message.canal,
+        content: ''
+      });
+    },
+
+    handleReplySent(response) {
+      this.replyingTo = null;
+      if (response) {
+        this.$emit('message-added', response);
+      }
+    },
+
+    handleEditStarted(message) {
+      this.editingMessage = message;
+      this.editContent = message.contenu;
+      this.showEditModal = true;
+    },
+
+    handleMessageUpdated({ messageId, newContent }) {
+      const index = this.messages.findIndex(m => m._id === messageId);
+      if (index !== -1) {
+        this.messages[index].contenu = newContent;
+        this.messages[index].modifie = true;
+      }
+      this.closeEditModal();
+    },
+
+    handleMessageDeleted(messageId) {
+      const index = this.messages.findIndex(m => m._id === messageId);
+      if (index !== -1) {
+        this.messages.splice(index, 1);
+      }
+    },
+
+    handleReactionAdded({ messageId, emoji }) {
+      this.$emit('reaction-added', { messageId, emoji });
+    },
+
     closeEditModal() {
       this.showEditModal = false;
       this.editingMessage = null;
