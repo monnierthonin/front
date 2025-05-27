@@ -427,17 +427,38 @@ const messagePrivateService = {
         throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
       }
 
-      // Convertir la réponse en JSON
+      // Récupérer le texte de la réponse
       const responseText = await response.text();
       console.log('Réponse de modification:', responseText);
       
+      // Si la réponse est vide ou juste des espaces blancs, construire une réponse par défaut
+      if (!responseText || responseText.trim() === '') {
+        console.log('Modification réussie avec réponse vide');
+        // Créer un objet avec le nouveau contenu pour simuler la réponse attendue
+        return {
+          _id: messageId,
+          id: messageId,
+          contenu: contenu,
+          modifie: true,
+          success: true
+        };
+      }
+      
+      // Sinon, essayer de parser la réponse JSON
       let data;
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('Erreur de parsing JSON:', parseError);
-        throw new Error('Impossible de parser la réponse du serveur');
-      }
+        console.log('Réponse non-JSON mais modification réussie:', responseText);
+        // Même si ce n'est pas du JSON, la modification a réussi car response.ok est true
+        return {
+          _id: messageId,
+          id: messageId,
+          contenu: contenu,
+          modifie: true,
+          success: true
+        };
+      } 
       
       // Vérifier la structure de la réponse et extraire le message modifié
       if (data && data.data && data.data.message) {
@@ -491,29 +512,36 @@ const messagePrivateService = {
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         
-        const responseText = await response.text();
-        console.error('Erreur de réponse lors de la suppression:', response.status, responseText);
-        throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
+        const errorText = await response.text();
+        console.error('Erreur de réponse lors de la suppression:', response.status, errorText);
+        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
       }
 
-      // Convertir la réponse en JSON
+      // Récupérer le texte de la réponse
       const responseText = await response.text();
       console.log('Réponse de suppression:', responseText);
       
-      let data;
+      // Si la réponse est vide ou juste des espaces blancs, c'est normal pour une suppression
+      if (!responseText || responseText.trim() === '') {
+        console.log('Suppression réussie avec réponse vide');
+        return { success: true, message: 'Message supprimé avec succès' };
+      }
+      
+      // Sinon, essayer de parser la réponse JSON
       try {
-        data = JSON.parse(responseText);
+        const data = JSON.parse(responseText);
+        
+        // Vérifier la structure de la réponse
+        if (data && data.data) {
+          return data.data;
+        }
+        
+        return data;
       } catch (parseError) {
-        console.error('Erreur de parsing JSON:', parseError);
-        throw new Error('Impossible de parser la réponse du serveur');
+        console.log('Réponse non-JSON mais suppression réussie:', responseText);
+        // Même si ce n'est pas du JSON, la suppression a réussi car response.ok est true
+        return { success: true, message: 'Message supprimé avec succès' };
       }
-      
-      // Vérifier la structure de la réponse
-      if (data && data.data) {
-        return data.data;
-      }
-      
-      return data;
     } catch (error) {
       console.error('Erreur lors de la suppression du message privé:', error);
       throw error;

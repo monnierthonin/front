@@ -7,6 +7,7 @@
         :isLoading="isLoading"
         :currentUserId="currentUserId"
         :isPrivate="true"
+        :conversationId="privateMessageTarget && privateMessageTarget._id ? privateMessageTarget._id : conversationId"
         @reply-to-message="handleReplyToMessage"
         @edit-message="handleEditMessage"
         @delete-message="handleDeleteMessage"

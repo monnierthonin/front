@@ -112,13 +112,21 @@
             <MessageReplyButton
               :message="message"
               :is-private="isPrivate"
+              :conversation-id="conversationId"
               @reply-started="handleReplyStarted"
               @reply-sent="handleReplySent"
+            />
+            <MessageReactionButton
+              :message="message"
+              :is-private="isPrivate"
+              :conversation-id="conversationId"
+              @reaction-added="handleReactionAdded"
             />
             <MessageEditButton
               v-if="isCurrentUser(getAuthorId(message))"
               :message="message"
               :is-private="isPrivate"
+              :conversation-id="conversationId"
               @edit-started="handleEditStarted"
               @message-updated="handleMessageUpdated"
             />
@@ -126,12 +134,8 @@
               v-if="isCurrentUser(getAuthorId(message))"
               :message="message"
               :is-private="isPrivate"
+              :conversation-id="conversationId"
               @message-deleted="handleMessageDeleted"
-            />
-            <MessageReactionButton
-              :message="message"
-              :is-private="isPrivate"
-              @reaction-added="handleReactionAdded"
             />
           </div>
           
@@ -184,6 +188,10 @@ export default {
     isPrivate: {
       type: Boolean,
       default: false
+    },
+    conversationId: {
+      type: String,
+      default: ''
     }
   },
   data() {
@@ -692,15 +700,45 @@ export default {
       }
       
       try {
-        const workspaceId = this.$route.params.id; // ID du workspace depuis l'URL
-        const canalId = this.editingMessage.canal; // ID du canal depuis le message
+        let updatedMessage;
         
-        const updatedMessage = await messageService.updateMessage(
-          workspaceId,
-          canalId,
-          this.editingMessage._id,
-          this.editContent.trim()
-        );
+        // Déterminer si nous sommes dans un contexte de message privé ou de canal
+        if (this.isPrivate) {
+          // Contexte de message privé
+          console.log('Modification d\'un message privé:', {
+            conversationId: this.conversationId,
+            messageId: this.editingMessage._id || this.editingMessage.id
+          });
+          
+          if (!this.conversationId) {
+            throw new Error('ID de conversation manquant pour la modification du message privé');
+          }
+          
+          // Utiliser messagePrivateService pour les messages privés
+          updatedMessage = await messagePrivateService.updatePrivateMessage(
+            this.conversationId,
+            this.editingMessage._id || this.editingMessage.id,
+            this.editContent.trim()
+          );
+        } else {
+          // Contexte de message de canal
+          const workspaceId = this.$route.params.id; // ID du workspace depuis l'URL
+          const canalId = this.editingMessage.canal; // ID du canal depuis le message
+          
+          console.log('Modification d\'un message de canal:', {
+            workspaceId,
+            canalId,
+            messageId: this.editingMessage._id
+          });
+          
+          // Utiliser messageService pour les messages de canal
+          updatedMessage = await messageService.updateMessage(
+            workspaceId,
+            canalId,
+            this.editingMessage._id,
+            this.editContent.trim()
+          );
+        }
         
         // Mettre à jour le message dans la liste locale
         const index = this.messages.findIndex(m => m._id === this.editingMessage._id);

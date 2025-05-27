@@ -18,6 +18,10 @@ export default {
     isPrivate: {
       type: Boolean,
       default: false
+    },
+    conversationId: {
+      type: String,
+      default: ''
     }
   },
   methods: {
@@ -28,16 +32,38 @@ export default {
     async saveEdit(newContent) {
       try {
         if (!this.isPrivate) {
+          // Message d'un canal standard
+          const workspaceId = this.$route.params.id;
+          const canalId = this.message.canal;
+          const messageId = this.message._id || this.message.id;
+          
+          console.log('Modification de message de canal:', { workspaceId, canalId, messageId });
+          
           await messageService.updateMessage(
-            this.$route.params.id,
-            this.message.canal,
-            this.message._id,
+            workspaceId,
+            canalId,
+            messageId,
             newContent.trim()
           );
         } else {
+          // Message privé
+          // Utiliser la propriété conversationId au lieu de dépendre des paramètres de route
+          const messageId = this.message._id || this.message.id;
+          
+          // Vérifier que conversationId est défini
+          if (!this.conversationId) {
+            console.error('Impossible de modifier le message privé: ID de conversation manquant');
+            throw new Error('ID de conversation manquant. Impossible de modifier le message.');
+          }
+          
+          console.log('Modification de message privé:', { 
+            conversationId: this.conversationId, 
+            messageId: messageId 
+          });
+          
           await messagePrivateService.updatePrivateMessage(
-            this.$route.params.conversationId,
-            this.message._id,
+            this.conversationId,
+            messageId,
             newContent.trim()
           );
         }

@@ -18,6 +18,10 @@ export default {
     isPrivate: {
       type: Boolean,
       default: false
+    },
+    conversationId: {
+      type: String,
+      default: ''
     }
   },
   methods: {
@@ -52,23 +56,44 @@ export default {
         const messageId = this.message._id || this.message.id;
         
         if (!this.isPrivate) {
-          if (!messageId || !this.message.canal) {
-            console.error('Message invalide pour la réponse:', this.message);
+          // Message d'un canal standard
+          const workspaceId = this.$route.params.id;
+          const canalId = this.message.canal;
+          
+          if (!messageId || !canalId) {
+            console.error('Message invalide pour la réponse:', { messageId, canalId, message: this.message });
             return;
           }
+          
+          console.log('Réponse à un message de canal:', { workspaceId, canalId, messageId });
+          
           response = await messageService.replyToMessage(
-            this.$route.params.id,
-            this.message.canal,
+            workspaceId,
+            canalId,
             messageId,
             content.trim()
           );
         } else {
+          // Message privé
+          // Utiliser la propriété conversationId au lieu de dépendre des paramètres de route
           if (!messageId) {
             console.error('Message invalide pour la réponse privée:', this.message);
             return;
           }
+          
+          // Vérifier que conversationId est défini
+          if (!this.conversationId) {
+            console.error('Impossible de répondre au message privé: ID de conversation manquant');
+            throw new Error('ID de conversation manquant. Impossible de répondre au message.');
+          }
+          
+          console.log('Réponse à un message privé:', { 
+            conversationId: this.conversationId, 
+            messageId: messageId 
+          });
+          
           response = await messagePrivateService.replyToPrivateMessage(
-            this.$route.params.conversationId,
+            this.conversationId,
             messageId,
             content.trim()
           );
