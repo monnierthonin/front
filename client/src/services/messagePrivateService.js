@@ -564,7 +564,7 @@ const messagePrivateService = {
       }
       
       // Construire l'URL - URL pour les réponses aux messages privés
-      const url = `${API_URL}/conversations/${conversationId}/messages/${messageId}/replies`;
+      const url = `${API_URL}/conversations/${conversationId}/messages/${messageId}/reply`;
       
       console.log('Répondre à un message privé, URL:', url);
       
