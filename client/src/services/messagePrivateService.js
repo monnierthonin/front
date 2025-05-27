@@ -18,8 +18,8 @@ const messagePrivateService = {
         throw new Error('Vous devez être connecté pour accéder aux conversations');
       }
       
-      // Construire l'URL pour l'endpoint des messages privés - le premier endpoint route '/' dans le contrôleur
-      const url = `${API_URL}/messages/private/`;
+      // Construire l'URL pour l'endpoint des conversations privées
+      const url = `${API_URL}/conversations/`;
       
       console.log('Appel API:', url);
       
@@ -61,7 +61,9 @@ const messagePrivateService = {
       console.log('Données reçues de l\'API:', data);
       
       // Vérifier que les données reçues ont la structure attendue
-      if (data && data.success && data.data) {
+      if (data && data.status === 'success' && data.data && data.data.conversations) {
+        return data.data.conversations;
+      } else if (data && data.success && data.data) {
         return data.data;
       } else if (data && Array.isArray(data)) {
         // Si la réponse est directement un tableau
@@ -94,7 +96,7 @@ const messagePrivateService = {
       }
       
       // Construire l'URL
-      const url = `${API_URL}/messages/private/${userId}`;
+      const url = `${API_URL}/conversations/user/${userId}/messages`;
       
       const response = await fetch(url, {
         method: 'GET',
@@ -155,10 +157,10 @@ const messagePrivateService = {
       let url;
       if (targetType === 'conversation') {
         // Si c'est une conversation existante
-        url = `${API_URL}/messages/private/conversation/${targetId}`;
+        url = `${API_URL}/conversations/${targetId}/messages`;
       } else {
         // Si c'est un nouvel utilisateur
-        url = `${API_URL}/messages/private/user/${targetId}`;
+        url = `${API_URL}/conversations/user/${targetId}/messages`;
       }
       
       console.log(`Envoi de message privé à ${targetType} (ID: ${targetId}) via URL: ${url}`);
@@ -219,7 +221,7 @@ const messagePrivateService = {
       }
       
       // Construire l'URL
-      const url = `${API_URL}/messages/private/${messageId}/read`;
+      const url = `${API_URL}/conversations/messages/${messageId}/read`;
       
       const response = await fetch(url, {
         method: 'PATCH',
@@ -351,16 +353,20 @@ const messagePrivateService = {
         throw new Error('Vous devez être connecté pour modifier un message');
       }
       
-      // Construire l'URL - URL correcte pour la modification de message privé
-      const url = `${API_URL}/messages/private/${conversationId}/message/${messageId}`;
+      if (!messageId) {
+        throw new Error('ID du message manquant');
+      }
       
-      console.log('Modification de message privé, URL:', url);
+      // Construire l'URL selon l'API
+      const url = `${API_URL}/conversations/${conversationId}/messages/${messageId}`;
+      
+      console.log('Modification du message:', { conversationId, messageId, contenu });
       
       // Construire le corps de la requête
       const requestBody = JSON.stringify({ contenu });
       
       const response = await fetch(url, {
-        method: 'PATCH', // Utiliser PATCH au lieu de PUT
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -382,7 +388,7 @@ const messagePrivateService = {
 
       // Convertir la réponse en JSON
       const responseText = await response.text();
-      console.log('Réponse pour la modification de message privé:', responseText);
+      console.log('Réponse de modification:', responseText);
       
       let data;
       try {
@@ -420,10 +426,14 @@ const messagePrivateService = {
         throw new Error('Vous devez être connecté pour supprimer un message');
       }
       
-      // Construire l'URL - URL correcte pour la suppression de message privé
-      const url = `${API_URL}/messages/private/${conversationId}/message/${messageId}`;
+      if (!messageId) {
+        throw new Error('ID du message manquant');
+      }
       
-      console.log('Suppression de message privé, URL:', url);
+      // Construire l'URL selon l'API
+      const url = `${API_URL}/conversations/${conversationId}/messages/${messageId}`;
+      
+      console.log('Suppression du message:', { conversationId, messageId });
       
       const response = await fetch(url, {
         method: 'DELETE',
@@ -447,7 +457,7 @@ const messagePrivateService = {
 
       // Convertir la réponse en JSON
       const responseText = await response.text();
-      console.log('Réponse pour la suppression de message privé:', responseText);
+      console.log('Réponse de suppression:', responseText);
       
       let data;
       try {
@@ -455,6 +465,11 @@ const messagePrivateService = {
       } catch (parseError) {
         console.error('Erreur de parsing JSON:', parseError);
         throw new Error('Impossible de parser la réponse du serveur');
+      }
+      
+      // Vérifier la structure de la réponse
+      if (data && data.data) {
+        return data.data;
       }
       
       return data;
@@ -480,7 +495,7 @@ const messagePrivateService = {
       }
       
       // Construire l'URL - URL pour les réponses aux messages privés
-      const url = `${API_URL}/messages/private/${conversationId}/message/${messageId}/replies`;
+      const url = `${API_URL}/conversations/${conversationId}/messages/${messageId}/replies`;
       
       console.log('Répondre à un message privé, URL:', url);
       
