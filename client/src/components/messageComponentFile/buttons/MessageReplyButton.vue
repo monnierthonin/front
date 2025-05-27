@@ -22,7 +22,21 @@ export default {
   },
   methods: {
     handleReply() {
-      this.$emit('reply-started', this.message);
+      // Vérification que le message a un ID valide avant d'envoyer l'événement
+      const messageId = this.message._id || this.message.id;
+      if (!messageId) {
+        console.error('Impossible de répondre : le message n\'a pas d\'ID valide', this.message);
+        return;
+      }
+      
+      // S'assurer que le message a un format d'ID cohérent avant de l'envoyer
+      const normalizedMessage = {
+        ...this.message,
+        _id: messageId,
+        id: messageId
+      };
+      
+      this.$emit('reply-started', normalizedMessage);
     },
     
     async sendReply(content) {
@@ -34,25 +48,28 @@ export default {
       try {
         let response;
         
+        // Récupérer l'ID du message en tenant compte des deux formats possibles
+        const messageId = this.message._id || this.message.id;
+        
         if (!this.isPrivate) {
-          if (!this.message._id || !this.message.canal) {
+          if (!messageId || !this.message.canal) {
             console.error('Message invalide pour la réponse:', this.message);
             return;
           }
           response = await messageService.replyToMessage(
             this.$route.params.id,
             this.message.canal,
-            this.message._id,
+            messageId,
             content.trim()
           );
         } else {
-          if (!this.message._id) {
+          if (!messageId) {
             console.error('Message invalide pour la réponse privée:', this.message);
             return;
           }
           response = await messagePrivateService.replyToPrivateMessage(
             this.$route.params.conversationId,
-            this.message._id,
+            messageId,
             content.trim()
           );
         }

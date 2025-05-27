@@ -131,10 +131,35 @@ export default {
         // Message sans fichier - comportement standard
         // Si on répond à un message, envoyer une réponse
         if (this.replyingToMessage) {
-          console.log('Envoi d\'une réponse au message:', this.replyingToMessage._id);
+          console.log('Préparation de la réponse avec les données:', this.replyingToMessage);
+          
+          // Déterminer l'ID du message parent, quels que soient son format et sa structure
+          let parentId = null;
+          
+          // Vérifier différentes structures possibles pour trouver l'ID
+          if (typeof this.replyingToMessage === 'object') {
+            // Récupérer directement l'ID s'il est disponible
+            if (this.replyingToMessage._id) {
+              parentId = this.replyingToMessage._id;
+            } else if (this.replyingToMessage.id) {
+              parentId = this.replyingToMessage.id;
+            }
+          } else if (typeof this.replyingToMessage === 'string') {
+            // Si replyingToMessage est directement l'ID
+            parentId = this.replyingToMessage;
+          }
+          
+          console.log('ID du message parent identifié:', parentId);
+          
+          if (!parentId) {
+            console.error('ID du message parent manquant ou invalide:', this.replyingToMessage);
+            this.$emit('cancel-reply');
+            return;
+          }
+          
           // Émettre un événement pour la réponse avec le nom correct attendu par le parent
           this.$emit('reply-to-message', {
-            parentMessageId: this.replyingToMessage._id,
+            parentMessageId: parentId,
             contenu: this.messageText.trim()
           });
         } else {

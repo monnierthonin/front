@@ -274,8 +274,40 @@ export default {
      * @param {Object} message - Le message auquel répondre
      */
     handleReplyToMessage(message) {
-      console.log('Préparation de la réponse au message:', message);
-      this.replyingToMessage = message;
+      console.log('Workspace.vue a reçu une demande de réponse au message:', message);
+      
+      // Récupérer l'ID du message auquel répondre
+      let messageId = null;
+      
+      // Traiter différentes structures de message possibles
+      if (typeof message === 'object') {
+        if (message._id) {
+          messageId = message._id;
+        } else if (message.id) {
+          messageId = message.id;
+        } else if (message.messageId) {
+          // Dans certains cas, l'ID peut être dans une propriété messageId
+          messageId = message.messageId;
+        }
+      } else if (typeof message === 'string') {
+        // Si on reçoit directement un ID de message
+        messageId = message;
+      }
+      
+      if (!messageId) {
+        console.error('Impossible de répondre : ID du message parent invalide ou manquant', message);
+        return;
+      }
+      
+      // Pour une compatibilité maximale, stocker juste l'ID du message
+      // Cette approche est plus simple et fonctionne avec tous les composants
+      this.replyingToMessage = messageId;
+      
+      console.log('Préparation de la réponse au message:', {
+        messageId: messageId,
+        channelId: this.canalActif ? this.canalActif._id : '',
+        content: ''
+      });
     },
     
     /**

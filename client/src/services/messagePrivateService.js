@@ -200,7 +200,48 @@ const messagePrivateService = {
         throw new Error('Impossible de parser la réponse du serveur');
       }
       
-      return data;
+      // Extraire le message de la réponse selon différentes structures possibles
+      let message;
+      if (data && data.data && data.data.message) {
+        message = data.data.message;
+      } else if (data && data.message) {
+        message = data.message;
+      } else if (data && data.data) {
+        message = data.data;
+      } else {
+        message = data;
+      }
+      
+      // Normaliser la structure du message avant de le retourner
+      if (message) {
+        // S'assurer que les IDs sont présents en format string
+        const messageId = message._id || message.id;
+        if (messageId) {
+          message._id = messageId.toString();
+          message.id = messageId.toString();
+        }
+        
+        // Normaliser l'expéditeur
+        if (message.expediteur) {
+          const expediteurId = message.expediteur._id || message.expediteur.id;
+          if (expediteurId) {
+            message.expediteur._id = expediteurId.toString();
+            message.expediteur.id = expediteurId.toString();
+          }
+        }
+        
+        // Normaliser la conversation
+        if (message.conversation && typeof message.conversation !== 'string') {
+          message.conversation = message.conversation.toString();
+        } else if (message.conversationId && typeof message.conversationId !== 'string') {
+          message.conversationId = message.conversationId.toString();
+          // Assurer la compatibilité
+          message.conversation = message.conversationId;
+        }
+      }
+      
+      console.log('Message normalisé:', message);
+      return message;
     } catch (error) {
       console.error('Erreur lors de l\'envoi du message privé:', error);
       throw error;
@@ -535,14 +576,60 @@ const messagePrivateService = {
         throw new Error('Impossible de parser la réponse du serveur');
       }
       
-      // Vérifier la structure de la réponse et extraire le message créé
+      // Extraire le message de la réponse selon différentes structures possibles
+      let message;
       if (data && data.data && data.data.message) {
-        return data.data.message;
+        message = data.data.message;
       } else if (data && data.message) {
-        return data.message;
+        message = data.message;
+      } else if (data && data.data) {
+        message = data.data;
+      } else {
+        message = data;
       }
       
-      return data;
+      // Normaliser la structure du message avant de le retourner
+      if (message) {
+        // S'assurer que les IDs sont présents en format string
+        const messageId = message._id || message.id;
+        if (messageId) {
+          message._id = messageId.toString();
+          message.id = messageId.toString();
+        }
+        
+        // Normaliser l'expéditeur
+        if (message.expediteur) {
+          const expediteurId = message.expediteur._id || message.expediteur.id;
+          if (expediteurId) {
+            message.expediteur._id = expediteurId.toString();
+            message.expediteur.id = expediteurId.toString();
+          }
+        }
+        
+        // Normaliser la référence au message parent (reponseA)
+        if (message.reponseA) {
+          if (typeof message.reponseA === 'string') {
+            // Déjà au bon format
+          } else {
+            const reponseId = message.reponseA._id || message.reponseA.id;
+            if (reponseId) {
+              message.reponseA = reponseId.toString();
+            }
+          }
+        }
+        
+        // Normaliser la conversation
+        if (message.conversation && typeof message.conversation !== 'string') {
+          message.conversation = message.conversation.toString();
+        } else if (message.conversationId && typeof message.conversationId !== 'string') {
+          message.conversationId = message.conversationId.toString();
+          // Assurer la compatibilité
+          message.conversation = message.conversationId;
+        }
+      }
+      
+      console.log('Message normalisé:', message);
+      return message;
     } catch (error) {
       console.error('Erreur lors de la réponse au message privé:', error);
       throw error;

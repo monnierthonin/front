@@ -516,12 +516,30 @@ export default {
     },
     
     /**
-     * Gérer la réponse à un message
+     * Gérer le début d'une réponse à un message (déclenché par le bouton de réponse)
+     * @param {Object} message - Message normalisé auquel répondre
+     */
+    handleReplyStarted(message) {
+      console.log('Message.vue: handleReplyStarted reçu le message', message);
+      
+      // Vérifier que le message a un ID valide
+      const messageId = message._id || message.id;
+      if (!messageId) {
+        console.error('handleReplyStarted: Message sans ID valide', message);
+        return;
+      }
+      
+      // Émettre l'événement reply-to-message vers le composant parent (Workspace.vue)
+      this.$emit('reply-to-message', message);
+    },
+    
+    /**
+     * Gérer la réponse à un message (méthode de compatibilité)
      * @param {Object} message - Message auquel répondre
      */
     handleReply(message) {
-      // Émettre un événement pour informer le composant parent
-      this.$emit('reply-to-message', message);
+      // Appeler la nouvelle méthode avec le message
+      this.handleReplyStarted(message);
     },
     
     /**
