@@ -6,6 +6,7 @@
         :messages="messagesData" 
         :isLoading="isLoading"
         :currentUserId="currentUserId"
+        :isPrivate="true"
         @reply-to-message="handleReplyToMessage"
         @edit-message="handleEditMessage"
         @delete-message="handleDeleteMessage"
@@ -442,7 +443,35 @@ export default {
      * @param {Object} message - Message auquel répondre
      */
     handleReplyToMessage(message) {
-      this.replyingToMessage = message;
+      console.log('PrivateMessage.vue a reçu une demande de réponse au message:', message);
+      
+      // Récupérer l'ID du message auquel répondre
+      let messageId = null;
+      
+      // Traiter différentes structures de message possibles
+      if (typeof message === 'object') {
+        if (message._id) {
+          messageId = message._id;
+        } else if (message.id) {
+          messageId = message.id;
+        } else if (message.messageId) {
+          // Dans certains cas, l'ID peut être dans une propriété messageId
+          messageId = message.messageId;
+        }
+      } else if (typeof message === 'string') {
+        // Si on reçoit directement un ID de message
+        messageId = message;
+      }
+      
+      if (!messageId) {
+        console.error('Impossible de répondre : ID du message parent invalide ou manquant', message);
+        return;
+      }
+      
+      // Pour une compatibilité maximale, stocker juste l'ID du message
+      this.replyingToMessage = messageId;
+      
+      console.log('Préparation de la réponse au message privé. ID:', messageId);
     },
 
     /**

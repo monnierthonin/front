@@ -111,26 +111,26 @@
           <div class="message-actions">
             <MessageReplyButton
               :message="message"
-              :is-private="isPrivateMessage"
+              :is-private="isPrivate"
               @reply-started="handleReplyStarted"
               @reply-sent="handleReplySent"
             />
             <MessageEditButton
               v-if="isCurrentUser(getAuthorId(message))"
               :message="message"
-              :is-private="isPrivateMessage"
+              :is-private="isPrivate"
               @edit-started="handleEditStarted"
               @message-updated="handleMessageUpdated"
             />
             <MessageDeleteButton
               v-if="isCurrentUser(getAuthorId(message))"
               :message="message"
-              :is-private="isPrivateMessage"
+              :is-private="isPrivate"
               @message-deleted="handleMessageDeleted"
             />
             <MessageReactionButton
               :message="message"
-              :is-private="isPrivateMessage"
+              :is-private="isPrivate"
               @reaction-added="handleReactionAdded"
             />
           </div>
@@ -181,7 +181,7 @@ export default {
       type: String,
       default: ''
     },
-    isPrivateMessage: {
+    isPrivate: {
       type: Boolean,
       default: false
     }
