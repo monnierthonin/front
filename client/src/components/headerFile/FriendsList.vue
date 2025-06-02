@@ -96,94 +96,121 @@ export default {
         const response = await messagePrivateService.getAllPrivateConversations();
         console.log('Réponse reçue dans le composant:', response);
         
-
+        // Initialisation du tableau pour stocker les contacts uniques
+        const uniqueContacts = [];
         
-        // Utiliser les données reçues de l'API si disponibles
-        if (response && Array.isArray(response)) {
-          // Traiter les conversations pour extraire les contacts uniques
-          const contactsMap = new Map();
+        // Traiter les données reçues de l'API
+        if (!response || !Array.isArray(response)) {
+          console.warn('Format de réponse invalide:', response);
+          error.value = 'Format de réponse invalide';
+          loading.value = false;
+          return;
+        }
+        
+        console.log(`Traitement de ${response.length} conversations`);
+        
+        // Parcourir chaque conversation
+        response.forEach(conversation => {
+          // Vérifier que nous avons un ID de conversation valide
+          const conversationId = conversation._id || conversation.id;
+          if (!conversationId) {
+            console.warn('Conversation sans ID détectée', conversation);
+            return; // Ignorer cette conversation
+          }
           
-          // Si la réponse est un tableau d'objets conversations
-          if (Array.isArray(response)) {
-            response.forEach(conversation => {
-              // IMPORTANT: On récupère l'ID de la conversation elle-même
-              const conversationId = conversation._id || conversation.id;
-              console.log('Conversation ID:', conversationId);
-              
-              // S'assurer que chaque conversation a un ID valide
-              if (!conversationId) {
-                console.warn('Conversation sans ID détectée', conversation);
-                return; // Ignorer cette conversation
-              }
-              
-              // Si l'objet a une propriété 'user', c'est probablement une structure de la forme {user: {...}, lastMessage: {...}}
-              if (conversation.user && conversation.user._id && conversation.user._id.toString() !== currentUserId.value) {
-                const userId = conversation.user._id.toString();
-                
-                // Stocker l'utilisateur avec son ID de conversation spécifique
-                contactsMap.set(userId, {
-                  ...conversation.user,
-                  lastMessage: conversation.lastMessage,
-                  conversationId: conversationId // Ajouter l'ID de la conversation spécifique à ce contact
-                });
-                
-                console.log(`Contact ${userId} associé à la conversation ${conversationId}`);
-              }
-              // Si l'objet a une propriété 'participants', c'est probablement une conversation complète
-              else if (conversation.participants && Array.isArray(conversation.participants)) {
-                // Trouver l'autre participant (pas l'utilisateur courant)
-                const otherParticipant = conversation.participants.find(p => {
-                  const participantId = (p._id || p.id || (p.utilisateur && p.utilisateur._id));
-                  return participantId && participantId.toString() !== currentUserId.value;
-                });
-                
-                if (otherParticipant) {
-                  // Déterminer l'ID du participant de manière fiable
-                  const participantId = (
-                    otherParticipant._id || 
-                    otherParticipant.id || 
-                    (otherParticipant.utilisateur && otherParticipant.utilisateur._id)
-                  ).toString();
-                  
-                  // Récupérer les données du participant (soit directement, soit via la propriété utilisateur)
-                  const participantData = otherParticipant.utilisateur || otherParticipant;
-                  
-                  // Ajouter à la map avec l'ID de conversation
-                  contactsMap.set(participantId, {
-                    _id: participantId,
-                    username: participantData.username || 'Utilisateur',
-                    prenom: participantData.prenom || participantData.firstName,
-                    nom: participantData.nom || participantData.lastName,
-                    profilePicture: participantData.profilePicture,
-                    status: participantData.status || 'offline',
-                    conversationId: conversationId // Stocker l'ID de la conversation spécifique à ce contact
-                  });
-                  
-                  console.log(`Contact ${participantId} associé à la conversation ${conversationId}`);
-                }
-              }
-              
-              // Vérifier expéditeur/destinataire
-              processMessageParticipants(conversation, contactsMap, currentUserId.value);
+          // Initialiser les utilisateurs de la conversation
+          let users = [];
+          
+          // Extraire les utilisateurs selon la structure de la conversation
+          if (conversation.participants && Array.isArray(conversation.participants)) {
+            // Structure avec participants
+            users = conversation.participants.map(p => {
+              // Normaliser la structure de l'utilisateur
+              const user = p.utilisateur || p;
+              return {
+                id: (user._id || user.id).toString(),
+                username: user.username,
+                firstName: user.prenom || user.firstName,
+                lastName: user.nom || user.lastName,
+                profilePicture: user.profilePicture,
+                status: user.status || 'offline'
+              };
             });
-          } 
-          else if (typeof response === 'object') {
-            // Si c'est un seul objet, on le traite comme un message
-            processMessageParticipants(response, contactsMap, currentUserId.value);
+          } else {
+            // Structure alternative: vérifier la présence d'utilisateurs directs
+            if (conversation.user) {
+              users.push({
+                id: (conversation.user._id || conversation.user.id).toString(),
+                username: conversation.user.username,
+                firstName: conversation.user.prenom || conversation.user.firstName,
+                lastName: conversation.user.nom || conversation.user.lastName,
+                profilePicture: conversation.user.profilePicture,
+                status: conversation.user.status || 'offline'
+              });
+            }
+            
+            if (conversation.otherUser) {
+              users.push({
+                id: (conversation.otherUser._id || conversation.otherUser.id).toString(),
+                username: conversation.otherUser.username,
+                firstName: conversation.otherUser.prenom || conversation.otherUser.firstName,
+                lastName: conversation.otherUser.nom || conversation.otherUser.lastName,
+                profilePicture: conversation.otherUser.profilePicture,
+                status: conversation.otherUser.status || 'offline'
+              });
+            }
           }
           
-          // Convertir la Map en tableau
-          contacts.value = Array.from(contactsMap.values());
-          console.log('Contacts extraits:', contacts.value);
+          console.log(`Conversation ${conversationId} contient ${users.length} utilisateurs:`, users);
           
-          // Ouvrir automatiquement la conversation avec le premier ami si des contacts existent
-          if (contacts.value.length > 0) {
-            // On utilise setTimeout pour s'assurer que ce code s'exécute une fois que Vue a fini de rendre la liste
-            setTimeout(() => {
-              openConversation(contacts.value[0]._id);
-              console.log('Ouverture automatique de la conversation avec le premier contact:', contacts.value[0].username || contacts.value[0].prenom);
-            }, 100);
+          // Filtrer pour trouver l'interlocuteur (l'autre utilisateur)
+          const otherUsers = users.filter(user => user.id !== currentUserId.value);
+          
+          // Si on a trouvé un interlocuteur, l'ajouter à notre liste de contacts
+          if (otherUsers.length > 0) {
+            const otherUser = otherUsers[0]; // Prendre le premier interlocuteur trouvé
+            
+            console.log(`Interlocuteur trouvé: ${otherUser.username} (${otherUser.id})`);
+            
+            // Créer l'objet contact à ajouter à la liste
+            const contact = {
+              _id: otherUser.id,
+              username: otherUser.username,
+              prenom: otherUser.firstName,
+              nom: otherUser.lastName,
+              profilePicture: otherUser.profilePicture,
+              status: otherUser.status,
+              conversationId: conversationId
+            };
+            
+            // Ajouter des infos supplémentaires si disponibles
+            if (conversation.lastMessage) {
+              contact.lastMessage = conversation.lastMessage;
+            }
+            
+            // Vérifier que ce contact n'existe pas déjà
+            const exists = uniqueContacts.some(c => c._id === contact._id);
+            if (!exists) {
+              uniqueContacts.push(contact);
+              console.log(`Contact ajouté: ${contact.username || contact._id}`);
+            }
+          } else {
+            console.warn('Aucun interlocuteur trouvé dans la conversation', conversation);
           }
+        });
+        
+        // Mettre à jour la liste des contacts
+        contacts.value = uniqueContacts;
+        console.log('Liste finale des contacts:', contacts.value);
+        console.log('Contacts extraits:', contacts.value);
+        
+        // Ouvrir automatiquement la conversation avec le premier ami si des contacts existent
+        if (contacts.value.length > 0) {
+          // On utilise setTimeout pour s'assurer que ce code s'exécute une fois que Vue a fini de rendre la liste
+          setTimeout(() => {
+            openConversation(contacts.value[0]._id);
+            console.log('Ouverture automatique de la conversation avec le premier contact:', contacts.value[0].username || contacts.value[0].prenom);
+          }, 100);   
         }
         
       } catch (err) {
@@ -208,15 +235,28 @@ export default {
       const conversationId = message.conversation || message.conversationId || message._id;
       console.log('processMessageParticipants - conversationId:', conversationId);
       
+      // Pour stocker temporairement les informations sur l'utilisateur courant (pour les cas où nous avons besoin de ses données)
+      let currentUserInfo = null;
+      
       // Traiter l'expéditeur
       if (message.expediteur) {
         const expediteurId = typeof message.expediteur === 'object' ? 
           message.expediteur._id : message.expediteur;
         
-        if (expediteurId && expediteurId.toString() !== currentUserId) {
-          const expediteur = typeof message.expediteur === 'object' ? 
-            message.expediteur : { _id: expediteurId };
-          
+        const expediteur = typeof message.expediteur === 'object' ? 
+          message.expediteur : { _id: expediteurId };
+        
+        // Si c'est l'utilisateur actuel, stocker ses informations mais ne pas l'ajouter à la liste des contacts
+        if (expediteurId && expediteurId.toString() === currentUserId) {
+          currentUserInfo = {
+            _id: expediteurId,
+            username: expediteur.username || 'Moi',
+            prenom: expediteur.prenom || expediteur.firstName,
+            nom: expediteur.nom || expediteur.lastName
+          };
+        }
+        // Si c'est un autre utilisateur, l'ajouter normalement
+        else if (expediteurId) {
           contactsMap.set(expediteurId.toString(), {
             _id: expediteurId,
             username: expediteur.username || 'Utilisateur',
@@ -234,10 +274,20 @@ export default {
         const destinataireId = typeof message.destinataire === 'object' ? 
           message.destinataire._id : message.destinataire;
           
-        if (destinataireId && destinataireId.toString() !== currentUserId) {
-          const destinataire = typeof message.destinataire === 'object' ? 
-            message.destinataire : { _id: destinataireId };
-          
+        const destinataire = typeof message.destinataire === 'object' ? 
+          message.destinataire : { _id: destinataireId };
+        
+        // Si c'est l'utilisateur actuel, stocker ses informations mais ne pas l'ajouter à la liste des contacts
+        if (destinataireId && destinataireId.toString() === currentUserId) {
+          currentUserInfo = {
+            _id: destinataireId,
+            username: destinataire.username || 'Moi',
+            prenom: destinataire.prenom || destinataire.firstName,
+            nom: destinataire.nom || destinataire.lastName
+          };
+        }
+        // Si c'est un autre utilisateur, l'ajouter normalement
+        else if (destinataireId) {
           contactsMap.set(destinataireId.toString(), {
             _id: destinataireId,
             username: destinataire.username || 'Utilisateur',
@@ -249,16 +299,45 @@ export default {
           });
         }
       }
+      
+      // Lorsque nous avons à la fois l'utilisateur courant et une conversation, nous devons créer une entrée spéciale
+      // qui représente la conversation elle-même plutôt que l'utilisateur
+      if (message.conversation && (message.expediteur || message.destinataire)) {
+        // Vérifier si nous avons un expéditeur ou un destinataire qui n'est pas l'utilisateur courant
+        const otherUser = contactsMap.get(
+          message.expediteur && message.expediteur._id && message.expediteur._id.toString() !== currentUserId ? 
+            message.expediteur._id.toString() : 
+            (message.destinataire && message.destinataire._id ? message.destinataire._id.toString() : null)
+        );
+        
+        if (otherUser) {
+          // Nous pouvons enrichir cette entrée avec des informations supplémentaires
+          otherUser.conversationId = message.conversation;
+        }
+      }
     };
 
     // Obtenir le nom d'affichage du contact (prénom + nom ou username)
     const getContactName = (contact) => {
-      if (contact.firstName && contact.lastName) {
+      // Vérification de sécurité: si le contact est l'utilisateur actuel (ne devrait jamais arriver)
+      if (contact._id === currentUserId.value) {
+        console.warn('Tentative d\'affichage de l\'utilisateur actuel comme contact', contact);
+        return 'Moi';
+      }
+      
+      // Préférence pour prénom + nom si disponibles
+      if (contact.prenom && contact.nom) {
+        return `${contact.prenom} ${contact.nom}`;
+      } else if (contact.firstName && contact.lastName) {
         return `${contact.firstName} ${contact.lastName}`;
       } else if (contact.username) {
         return contact.username;
+      } else if (contact.otherUserName) {
+        return contact.otherUserName;
       }
-      return 'Utilisateur inconnu';
+      
+      // Dernier recours: utiliser l'ID de l'utilisateur
+      return `User-${contact._id.substring(0, 6)}`;
     };
 
     // Ouvrir une conversation avec un contact
