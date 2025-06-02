@@ -18,10 +18,12 @@
         @click="openConversation(contact._id)"
       >
         <div class="friend-avatar">
-          <img 
-            :src="contact.profilePicture ? `http://localhost:3000/uploads/profiles/${contact.profilePicture}` : defaultProfileImg" 
-            :alt="getContactName(contact)"
-          >
+          <ProfilePicture 
+            :userId="contact._id" 
+            :profilePicture="contact.profilePicture" 
+            :altText="getContactName(contact)"
+            imageClass="profile-image"
+          />
           <div class="status-indicator" :class="contact.status || 'offline'"></div>
         </div>
         <div class="friend-name">{{ getContactName(contact) }}</div>
@@ -40,11 +42,13 @@ import messagePrivateService from '../../services/messagePrivateService';
 import { ref, onMounted } from 'vue';
 import defaultProfileImg from '../../assets/styles/image/profilDelault.png';
 import SearchBar from '../common/SearchBar.vue';
+import ProfilePicture from '../common/ProfilePicture.vue';
 
 export default {
   name: 'FriendsList',
   components: {
-    SearchBar
+    SearchBar,
+    ProfilePicture
   },
   setup() {
     const contacts = ref([]);
@@ -171,6 +175,15 @@ export default {
           // Convertir la Map en tableau
           contacts.value = Array.from(contactsMap.values());
           console.log('Contacts extraits:', contacts.value);
+          
+          // Ouvrir automatiquement la conversation avec le premier ami si des contacts existent
+          if (contacts.value.length > 0) {
+            // On utilise setTimeout pour s'assurer que ce code s'exécute une fois que Vue a fini de rendre la liste
+            setTimeout(() => {
+              openConversation(contacts.value[0]._id);
+              console.log('Ouverture automatique de la conversation avec le premier contact:', contacts.value[0].username || contacts.value[0].prenom);
+            }, 100);
+          }
         }
         
       } catch (err) {
@@ -312,6 +325,11 @@ export default {
     onMounted(() => {
       loadContacts();
     });
+    
+    // Réexposer loadContacts pour pouvoir le rappeler si nécessaire depuis l'extérieur
+    const refreshContacts = () => {
+      loadContacts();
+    };
 
     return {
       contacts,
@@ -320,7 +338,8 @@ export default {
       getContactName,
       openConversation,
       showNewMessageModal,
-      startConversation
+      startConversation,
+      refreshContacts
     };
   }
 }
@@ -360,6 +379,8 @@ export default {
   cursor: pointer;
   background-color:var(--secondary-color);
   transition: background-color 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .friend-item:hover {
@@ -368,15 +389,25 @@ export default {
 
 .friend-avatar {
   position: relative;
-  width: 32px;
-  height: 32px;
+  min-width: 40px;
+  width: 40px;
+  height: 40px;
   margin-right: 12px;
+  overflow: hidden;
+  border-radius: 50%;
+  background-color: #2f3136;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .friend-avatar img {
   width: 100%;
   height: 100%;
   border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .status-indicator {
@@ -411,7 +442,8 @@ export default {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100px;
+  max-width: calc(100% - 8px);
+  flex: 1;
 }
 
 .loading-message, .error-message, .empty-message {

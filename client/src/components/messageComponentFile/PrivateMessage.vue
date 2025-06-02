@@ -609,6 +609,50 @@ export default {
      */
     cancelReply() {
       this.replyingToMessage = null;
+    },
+    
+    /**
+     * Charge automatiquement la première conversation disponible
+     */
+    async loadFirstConversation() {
+      try {
+        console.log('Chargement de la première conversation disponible...');
+        this.isLoading = true;
+        
+        // Récupérer toutes les conversations
+        const conversations = await messagePrivateService.getAllPrivateConversations();
+        
+        if (conversations && conversations.length > 0) {
+          const firstConversation = conversations[0];
+          console.log('Première conversation trouvée:', firstConversation);
+          
+          // Trouver l'utilisateur cible (celui qui n'est pas l'utilisateur courant)
+          const targetParticipant = firstConversation.participants.find(
+            p => p._id !== this.currentUserId
+          );
+          
+          if (targetParticipant) {
+            // Mettre à jour les propriétés nécessaires
+            this.privateMessageTarget = {
+              _id: firstConversation._id,
+              nom: this.getAuthorName(targetParticipant),
+              type: 'conversation'
+            };
+            
+            // Émettre l'ID de conversation au parent
+            this.$emit('update:conversationId', firstConversation._id);
+            
+            // Charger les messages de cette conversation
+            this.loadPrivateMessages(firstConversation._id);
+          }
+        } else {
+          console.log('Aucune conversation disponible');
+          this.isLoading = false;
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement de la première conversation:', error);
+        this.isLoading = false;
+      }
     }
   },
 
@@ -620,6 +664,11 @@ export default {
           this.loadMoreMessages();
         }
       });
+    }
+    
+    // Si aucune conversation n'est sélectionnée, charger la première de la liste
+    if (!this.userId && !this.conversationId) {
+      this.loadFirstConversation();
     }
   },
 
