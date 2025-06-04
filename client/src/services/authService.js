@@ -14,6 +14,21 @@ import userService from './userService.js';
  * Service d'authentification
  */
 const authService = {
+  // Méthodes pour OAuth
+  /**
+   * Initialise l'authentification OAuth en redirigeant vers le service approprié
+   * @param {string} provider - Le fournisseur OAuth (google, microsoft, facebook)
+   */
+  initiateOAuthLogin(provider) {
+    if (!['google', 'microsoft', 'facebook'].includes(provider)) {
+      throw new Error('Fournisseur OAuth non supporté');
+    }
+    
+    // Redirection vers l'endpoint d'authentification OAuth
+    // Nous utilisons directement l'URL du backend pour éviter tout problème de proxy
+    const baseUrl = 'http://localhost:3000';
+    window.location.href = `${baseUrl}/api/v1/auth/${provider}`;
+  },
   /**
    * Inscription d'un nouvel utilisateur
    * @param {Object} userData - Données de l'utilisateur (username, email, password, confirmPassword)
@@ -182,6 +197,51 @@ const authService = {
    */
   getToken() {
     return localStorage.getItem('token');
+  },
+  
+  /**
+   * Définir le token d'authentification
+   * @param {String} token - Le token JWT à stocker
+   */
+  setToken(token) {
+    if (token) {
+      localStorage.setItem('token', token);
+      return true;
+    }
+    return false;
+  },
+  
+  /**
+   * Vérifie le statut de l'authentification depuis le serveur
+   * Utile après une redirection OAuth pour obtenir les informations utilisateur
+   * @returns {Promise} Promesse avec les données utilisateur
+   */
+  async checkAuthStatus() {
+    try {
+      const response = await fetch(`${API_URL}/auth/me`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Non authentifié');
+      }
+      
+      const data = await response.json();
+      
+      // Si on a un token dans la réponse, on le stocke
+      if (data.token) {
+        this.setToken(data.token);
+      }
+      
+      // Émettre l'événement de connexion réussie
+      eventBus.emit(APP_EVENTS.USER_LOGGED_IN);
+      
+      return data;
+    } catch (error) {
+      console.error('Erreur lors de la vérification du statut d\'authentification:', error);
+      throw error;
+    }
   }
 };
 

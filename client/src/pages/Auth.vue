@@ -112,16 +112,16 @@ export default {
       this.successMessage = ''
     },
     loginWithGoogle() {
-      // Rediriger vers la route d'authentification Google
-      window.location.href = 'http://localhost:3000/api/v1/auth/google'
+      // Utiliser le service d'authentification pour l'OAuth Google
+      authService.initiateOAuthLogin('google');
     },
     loginWithMicrosoft() {
-      // Rediriger vers la route d'authentification Microsoft
-      window.location.href = 'http://localhost:3000/api/v1/auth/microsoft'
+      // Utiliser le service d'authentification pour l'OAuth Microsoft
+      authService.initiateOAuthLogin('microsoft');
     },
     loginWithFacebook() {
-      // Rediriger vers la route d'authentification Facebook
-      window.location.href = 'http://localhost:3000/api/v1/auth/facebook'
+      // Utiliser le service d'authentification pour l'OAuth Facebook
+      authService.initiateOAuthLogin('facebook');
     },
     
     /**
