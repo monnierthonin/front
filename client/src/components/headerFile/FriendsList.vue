@@ -379,24 +379,62 @@ export default {
     };
     
     // Démarrer une conversation avec un utilisateur trouvé via la barre de recherche
-    const startConversation = (user) => {
-      console.log('Démarrage d\'une conversation avec l\'utilisateur:', user);
-      // Si l'utilisateur existe déjà dans les contacts, ouvrir sa conversation
-      const existingContact = contacts.value.find(contact => contact._id === user._id);
-      
-      if (existingContact) {
-        openConversation(user._id);
-      } else {
-        // Ajouter temporairement l'utilisateur aux contacts et ouvrir la conversation
-        contacts.value.push({
-          _id: user._id,
-          username: user.username,
-          prenom: user.firstName,
-          nom: user.lastName,
-          profilePicture: user.profilePicture,
-          status: user.status || 'online'
-        });
-        openConversation(user._id);
+    const startConversation = async (user) => { // Rendre la méthode asynchrone
+      console.log('Démarrage d\'une conversation avec l\'utilisateur (depuis SearchBar):', user);
+      try {
+        // Appeler le service pour créer ou récupérer la conversation
+        // user._id est l'ID de l'utilisateur sélectionné dans la barre de recherche
+        const conversation = await messagePrivateService.createOrGetConversation(user._id);
+        console.log('Conversation créée ou récupérée par le service:', conversation);
+
+        if (conversation && conversation._id && conversation.participants) {
+          // Trouver l'autre participant dans la conversation retournée par le backend
+          // currentUserId.value est l'ID de l'utilisateur actuellement connecté
+          const otherParticipantEntry = conversation.participants.find(
+            p => p.utilisateur && p.utilisateur._id && p.utilisateur._id.toString() !== currentUserId.value
+          );
+
+          if (!otherParticipantEntry || !otherParticipantEntry.utilisateur) {
+            console.error("Impossible de trouver l'autre participant dans les données de la conversation:", conversation);
+            error.value = "Erreur lors de l'initialisation de la conversation.";
+            return;
+          }
+          
+          const otherUserDetails = otherParticipantEntry.utilisateur; // Contient _id, username, firstName, lastName, profilePicture
+
+          // Vérifier si ce contact (l'autre utilisateur) est déjà dans notre liste `contacts.value`
+          let contactInList = contacts.value.find(c => c._id === otherUserDetails._id);
+
+          if (contactInList) {
+            // Le contact existe, s'assurer que son conversationId est à jour
+            console.log('Contact existant trouvé:', contactInList.username, 'Mise à jour de conversationId.');
+            contactInList.conversationId = conversation._id;
+          } else {
+            // Le contact n'est pas dans la liste, l'ajouter
+            console.log('Nouveau contact à ajouter à la liste:', otherUserDetails.username);
+            contactInList = {
+              _id: otherUserDetails._id,
+              username: otherUserDetails.username,
+              prenom: otherUserDetails.firstName, // S'aligner sur la population du backend (firstName)
+              nom: otherUserDetails.lastName,   // S'aligner sur la population du backend (lastName)
+              profilePicture: otherUserDetails.profilePicture,
+              status: otherUserDetails.status || 'online', // 'status' pourrait ne pas être dans la population standard
+              conversationId: conversation._id
+            };
+            contacts.value.unshift(contactInList); // Ajouter au début pour une meilleure visibilité
+          }
+          
+          // Appeler openConversation avec l'ID de l'autre utilisateur
+          // openConversation s'attend à l'ID de l'utilisateur contact, pas l'ID de la conversation
+          openConversation(otherUserDetails._id);
+
+        } else {
+          console.error('Réponse invalide du service createOrGetConversation:', conversation);
+          error.value = "Impossible de démarrer la conversation: réponse invalide du serveur.";
+        }
+      } catch (err) {
+        console.error('Erreur détaillée lors du démarrage de la conversation:', err);
+        error.value = err.message || 'Une erreur est survenue lors du démarrage de la conversation.';
       }
     };
 

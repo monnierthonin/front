@@ -1,7 +1,7 @@
 /**
  * @swagger
  * tags:
- *   - name: Réactions aux Messages dans une Conversation Privée
+ *   - name: Réactions aux Messages
  *     description: Gestion des réactions et réponses aux messages dans les conversations privées
  */
 

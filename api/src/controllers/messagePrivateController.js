@@ -1,6 +1,7 @@
 const MessagePrivate = require('../models/messagePrivate');
 const User = require('../models/user');
 const AppError = require('../utils/appError');
+const notificationService = require('../services/notificationService');
 // Éviter la dépendance circulaire en utilisant une référence dynamique à io
 let io;
 setTimeout(() => {
@@ -312,6 +313,15 @@ const messagePrivateController = {
             select: 'username firstName lastName profilePicture'
           }
         });
+      
+      // Créer une notification pour le destinataire
+      try {
+        await notificationService.creerNotificationMessagePrive(populatedMessage);
+        console.log('Notification créée avec succès pour le message privé');
+      } catch (notifError) {
+        console.error('Erreur lors de la création de la notification:', notifError);
+        // Ne pas bloquer l'envoi du message si la création de la notification échoue
+      }
       
       // Notifier le destinataire en temps réel via le service Socket
       // Note: La notification en temps réel est gérée par le service Socket

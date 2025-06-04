@@ -97,38 +97,47 @@
 - Protection contre les injections et les attaques XSS
 
 ### Workspaces API
-- [ ] Endpoints CRUD des workspaces
-- [ ] Gestion des membres
-  - [ ] Rôles et permissions
-  - [ ] Invitation de membres
-  - [ ] Gestion des accès
-- [ ] Paramètres du workspace
-- [ ] Tests unitaires
+- [x] Endpoints CRUD des workspaces
+- [x] Gestion des membres
+  - [x] Rôles et permissions
+  - [x] Invitation de membres
+  - [x] Gestion des accès
+- [x] Paramètres du workspace
+- [x] Tests unitaires
 
 ### Canaux API
-- [ ] Endpoints CRUD des canaux
-- [ ] Gestion des permissions par canal
-- [ ] Catégorisation des canaux
-- [ ] Paramètres des canaux
-- [ ] Tests unitaires
+- [x] Endpoints CRUD des canaux
+  - [x] Création de canaux (texte/vocal)
+  - [x] Modification des paramètres
+  - [x] Suppression de canaux
+- [x] Gestion des permissions par canal
+  - [x] Canaux publics/privés
+  - [x] Rôles des membres
+  - [x] Contrôle d'accès
+- [x] Paramètres des canaux
+  - [x] Nom et description
+  - [x] Type (texte/vocal)
+  - [x] Visibilité (public/privé)
+- [x] Tests unitaires
 
 ### Messages API
 - [ ] Chat en temps réel
-  - [ ] Configuration WebSocket
-  - [ ] Messages privés
-  - [ ] Messages de groupe
+  - [x] Configuration WebSocket
+  - [x] Messages privés
+  - [x] Messages de groupe
   - [ ] Indicateurs de présence
-- [ ] Gestion des messages
-  - [ ] CRUD des messages
-  - [ ] Formatage markdown
-  - [ ] Mentions (@user)
-  - [ ] Réactions aux messages
-- [ ] Gestion des fichiers
-  - [ ] Upload de fichiers
-  - [ ] Partage de fichiers
-  - [ ] Prévisualisation des médias
-  - [ ] Stockage sécurisé
-- [ ] Tests unitaires
+- [x] Gestion des messages
+  - [x] CRUD des messages
+  - [-] Formatage markdown (retiré, a faire en frontend)
+  - [x] Mentions (@user)
+  - [x] Réactions aux messages
+  - [x] Réponses aux messages
+- [x] Gestion des fichiers
+  - [x] Upload de fichiers
+  - [x] Partage de fichiers
+  - [x] Prévisualisation des médias
+  - [x] Stockage sécurisé
+- [x] Tests unitaires
 
 ### Notifications API
 - [ ] Système de notifications
@@ -142,14 +151,14 @@
 - [ ] Tests unitaires
 
 ### Recherche API
-- [ ] Recherche globale
-  - [ ] Messages
-  - [ ] Fichiers
-  - [ ] Utilisateurs
-- [ ] Recherche par workspace
-- [ ] Recherche par canal
-- [ ] Filtres avancés
-- [ ] Tests unitaires
+- [x] Recherche globale
+  - [x] Messages
+  - [x] Fichiers
+  - [x] Utilisateurs
+- [x] Recherche par workspace
+- [x] Recherche par canal
+- [x] Filtres avancés
+- [x] Tests unitaires
 
 ## Documentation API
 
@@ -209,6 +218,79 @@ Routes disponibles :
 Les scopes utilisés :
 - `email`
 - `public_profile`
+
+### Canaux
+
+#### Routes Disponibles
+
+- `POST /api/v1/workspaces/:workspaceId/canaux` : Créer un nouveau canal
+- `GET /api/v1/workspaces/:workspaceId/canaux` : Lister les canaux du workspace
+- `GET /api/v1/workspaces/:workspaceId/canaux/:id` : Obtenir les détails d'un canal
+- `PUT /api/v1/workspaces/:workspaceId/canaux/:id` : Mettre à jour un canal
+- `DELETE /api/v1/workspaces/:workspaceId/canaux/:id` : Supprimer un canal
+
+#### Modèle de Canal
+
+```javascript
+{
+  nom: String,          // Nom du canal
+  description: String,  // Description optionnelle
+  type: String,        // 'texte' ou 'vocal'
+  visibilite: String,  // 'public' ou 'prive'
+  workspace: ObjectId,  // Référence au workspace parent
+  createur: ObjectId,  // Utilisateur qui a créé le canal
+  membres: [{          // Liste des membres du canal
+    utilisateur: ObjectId,
+    role: String       // 'admin' ou 'membre'
+  }],
+  fichiers: [{         // Fichiers partagés dans le canal
+    nom: String,
+    type: String,
+    url: String,
+    taille: Number
+  }]
+}
+```
+
+### Messages
+
+#### Routes Disponibles
+
+- `POST /api/v1/workspaces/:workspaceId/canaux/:canalId/messages` : Envoyer un message
+- `GET /api/v1/workspaces/:workspaceId/canaux/:canalId/messages` : Lister les messages d'un canal
+- `PUT /api/v1/workspaces/:workspaceId/canaux/:canalId/messages/:id` : Modifier un message
+- `DELETE /api/v1/workspaces/:workspaceId/canaux/:canalId/messages/:id` : Supprimer un message
+- `POST /api/v1/workspaces/:workspaceId/canaux/:canalId/messages/:id/reactions` : Réagir à un message
+
+#### Modèle de Message
+
+```javascript
+{
+  contenu: String,     // Contenu du message
+  auteur: ObjectId,    // Référence à l'utilisateur
+  canal: ObjectId,     // Référence au canal
+  mentions: [{         // Utilisateurs mentionnés
+    type: ObjectId,
+    ref: 'User'
+  }],
+  fichiers: [{         // Fichiers attachés
+    nom: String,
+    type: String,
+    url: String,
+    taille: Number
+  }],
+  reactions: [{        // Réactions au message
+    emoji: String,
+    utilisateurs: [{
+      type: ObjectId,
+      ref: 'User'
+    }]
+  }],
+  modifie: Boolean,    // Indique si le message a été modifié
+  createdAt: Date,     // Date de création
+  updatedAt: Date      // Date de dernière modification
+}
+```
 
 ## Phase 3: Développement Frontend Web (Vue.js)
 - [ ] Configuration du projet Vue.js

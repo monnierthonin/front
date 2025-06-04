@@ -2,6 +2,11 @@ const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
 const configJWT = require('../config/jwt');
 const MessagePrivate = require('../models/messagePrivate');
+const Message = require('../models/message');
+const Canal = require('../models/canal');
+const User = require('../models/user');
+const Notification = require('../models/notification');
+const notificationService = require('./notificationService');
 
 class ServiceSocket {
     constructor() {
@@ -323,6 +328,140 @@ class ServiceSocket {
                         message: 'Erreur lors de la suppression du message',
                         error: error.message,
                         messageId
+                    });
+                }
+            });
+            
+            // Gérer les notifications
+            socket.on('notification:marquer-lue', async ({ notificationId }) => {
+                try {
+                    console.log(`Marquage de la notification ${notificationId} comme lue par ${socket.idUtilisateur}`);
+                    await notificationService.marquerCommeLue(notificationId, socket.idUtilisateur);
+                    
+                    // Confirmer la lecture de la notification
+                    socket.emit('notification:lue', { notificationId });
+                } catch (error) {
+                    console.error('Erreur lors du marquage de la notification comme lue:', error);
+                    socket.emit('erreur', {
+                        message: 'Erreur lors du marquage de la notification comme lue',
+                        error: error.message
+                    });
+                }
+            });
+            
+            socket.on('notification:marquer-toutes-lues-canal', async ({ canalId }) => {
+                try {
+                    console.log(`Marquage de toutes les notifications du canal ${canalId} comme lues par ${socket.idUtilisateur}`);
+                    const resultat = await notificationService.marquerToutesCommeLues(canalId, socket.idUtilisateur);
+                    
+                    // Confirmer la lecture des notifications
+                    socket.emit('notification:toutes-lues', { canalId, count: resultat.count });
+                } catch (error) {
+                    console.error('Erreur lors du marquage de toutes les notifications comme lues:', error);
+                    socket.emit('erreur', {
+                        message: 'Erreur lors du marquage de toutes les notifications comme lues',
+                        error: error.message
+                    });
+                }
+            });
+            
+            socket.on('notification:marquer-toutes-lues-conversation', async ({ conversationId }) => {
+                try {
+                    console.log(`Marquage de toutes les notifications de la conversation ${conversationId} comme lues par ${socket.idUtilisateur}`);
+                    const resultat = await notificationService.marquerToutesConversationCommeLues(conversationId, socket.idUtilisateur);
+                    
+                    // Confirmer la lecture des notifications
+                    socket.emit('notification:toutes-lues', { conversationId, count: resultat.count });
+                } catch (error) {
+                    console.error('Erreur lors du marquage de toutes les notifications de conversation comme lues:', error);
+                    socket.emit('erreur', {
+                        message: 'Erreur lors du marquage de toutes les notifications de conversation comme lues',
+                        error: error.message
+                    });
+                }
+            });
+            
+            socket.on('notification:get-preferences', async () => {
+                try {
+                    console.log(`Récupération des préférences de notification pour ${socket.idUtilisateur}`);
+                    const user = await User.findById(socket.idUtilisateur).select('preferences.notifications');
+                    
+                    if (!user) {
+                        throw new Error('Utilisateur non trouvé');
+                    }
+                    
+                    // Valeurs par défaut si les préférences n'existent pas encore
+                    const preferences = user.preferences?.notifications || {
+                        mentionsOnly: false,
+                        soundEnabled: true,
+                        desktopEnabled: true
+                    };
+                    
+                    // Envoyer les préférences à l'utilisateur
+                    socket.emit('notification:preferences-updated', preferences);
+                } catch (error) {
+                    console.error('Erreur lors de la récupération des préférences de notification:', error);
+                    socket.emit('erreur', {
+                        message: 'Erreur lors de la récupération des préférences de notification',
+                        error: error.message
+                    });
+                }
+            });
+            
+            socket.on('notification:update-preferences', async (preferences) => {
+                try {
+                    console.log(`Mise à jour des préférences de notification pour ${socket.idUtilisateur}:`, preferences);
+                    
+                    // Vérifier que les valeurs sont bien des booléens
+                    const { mentionsOnly, soundEnabled, desktopEnabled } = preferences;
+                    const updateObj = {};
+                    
+                    if (mentionsOnly !== undefined && typeof mentionsOnly === 'boolean') {
+                        updateObj['preferences.notifications.mentionsOnly'] = mentionsOnly;
+                    }
+                    
+                    if (soundEnabled !== undefined && typeof soundEnabled === 'boolean') {
+                        updateObj['preferences.notifications.soundEnabled'] = soundEnabled;
+                    }
+                    
+                    if (desktopEnabled !== undefined && typeof desktopEnabled === 'boolean') {
+                        updateObj['preferences.notifications.desktopEnabled'] = desktopEnabled;
+                    }
+                    
+                    // Mettre à jour l'utilisateur
+                    const user = await User.findByIdAndUpdate(
+                        socket.idUtilisateur,
+                        { $set: updateObj },
+                        { new: true, runValidators: true }
+                    ).select('preferences.notifications');
+                    
+                    if (!user) {
+                        throw new Error('Utilisateur non trouvé');
+                    }
+                    
+                    // Envoyer les préférences mises à jour à l'utilisateur
+                    socket.emit('notification:preferences-updated', user.preferences?.notifications);
+                } catch (error) {
+                    console.error('Erreur lors de la mise à jour des préférences de notification:', error);
+                    socket.emit('erreur', {
+                        message: 'Erreur lors de la mise à jour des préférences de notification',
+                        error: error.message
+                    });
+                }
+            });
+            
+            socket.on('notification:charger', async () => {
+                try {
+                    console.log(`Chargement des notifications pour ${socket.idUtilisateur}`);
+                    const notifications = await notificationService.getNonLues(socket.idUtilisateur);
+                    
+                    // Envoyer les notifications à l'utilisateur
+                    socket.emit('notification:liste', { notifications });
+                } catch (error) {
+                    console.error('Erreur lors du chargement des notifications:', error);
+                    socket.emit('erreur', {
+                        message: 'Erreur lors du chargement des notifications',
+                        error: error.message
                     });
                 }
             });

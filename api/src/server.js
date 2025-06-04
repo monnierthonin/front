@@ -13,6 +13,7 @@ const port = process.env.PORT || 3000;
 initialiserBaseDeDonnees();
 
 // Démarrage du serveur
-serveur.listen(port, () => {
-  console.log(`Serveur démarré sur le port ${port}`);
+serveur.listen(port, '0.0.0.0', () => {
+  console.log(`Serveur démarré sur http://0.0.0.0:${port}`);
+  console.log(`Pour accéder depuis un émulateur Android, utilisez http://10.0.2.2:${port}`);
 });

@@ -118,7 +118,26 @@ const canalSchema = new mongoose.Schema({
             type: Number,
             default: 5 * 1024 * 1024 // 5MB par défaut
         }
-    }
+    },
+    // Suivi des messages non lus par utilisateur
+    messagesNonLus: [{
+        utilisateur: {
+            type: mongoose.Schema.ObjectId,
+            ref: 'User',
+            required: true
+        },
+        count: {
+            type: Number,
+            default: 0
+        },
+        dernierMessageLu: {
+            type: mongoose.Schema.ObjectId,
+            ref: 'Message'
+        },
+        derniereLecture: {
+            type: Date
+        }
+    }]
 }, {
     timestamps: true,
     toJSON: { virtuals: true },
@@ -244,6 +263,93 @@ canalSchema.methods.estMembre = function(userId) {
 canalSchema.methods.verifierExtensionFichier = function(nomFichier) {
     const extension = '.' + nomFichier.split('.').pop().toLowerCase();
     return this.parametres.extensionsAutorisees.includes(extension);
+};
+
+// Méthodes pour gérer les messages non lus
+
+// Incrémenter le compteur de messages non lus pour un utilisateur
+canalSchema.methods.incrementerMessagesNonLus = function(userId, messageId) {
+    // Ne pas incrémenter pour l'auteur du message
+    if (messageId && messageId.auteur && messageId.auteur.toString() === userId.toString()) {
+        return Promise.resolve(this);
+    }
+    
+    const userIdStr = userId.toString();
+    const index = this.messagesNonLus.findIndex(m => 
+        m.utilisateur && m.utilisateur.toString() === userIdStr
+    );
+    
+    if (index >= 0) {
+        // Incrémenter le compteur existant
+        this.messagesNonLus[index].count += 1;
+    } else {
+        // Créer une nouvelle entrée pour l'utilisateur
+        this.messagesNonLus.push({
+            utilisateur: userId,
+            count: 1
+        });
+    }
+    
+    return this.save();
+};
+
+// Réinitialiser le compteur de messages non lus pour un utilisateur
+canalSchema.methods.resetMessagesNonLus = function(userId, messageId) {
+    const userIdStr = userId.toString();
+    const index = this.messagesNonLus.findIndex(m => 
+        m.utilisateur && m.utilisateur.toString() === userIdStr
+    );
+    
+    if (index >= 0) {
+        // Réinitialiser le compteur
+        this.messagesNonLus[index].count = 0;
+        
+        // Mettre à jour le dernier message lu et la date de lecture
+        if (messageId) {
+            this.messagesNonLus[index].dernierMessageLu = messageId;
+        }
+        this.messagesNonLus[index].derniereLecture = Date.now();
+    } else {
+        // Créer une nouvelle entrée pour l'utilisateur avec un compteur à 0
+        this.messagesNonLus.push({
+            utilisateur: userId,
+            count: 0,
+            dernierMessageLu: messageId,
+            derniereLecture: Date.now()
+        });
+    }
+    
+    return this.save();
+};
+
+// Obtenir le nombre de messages non lus pour un utilisateur
+canalSchema.methods.getMessagesNonLusCount = function(userId) {
+    const userIdStr = userId.toString();
+    const nonLus = this.messagesNonLus.find(m => 
+        m.utilisateur && m.utilisateur.toString() === userIdStr
+    );
+    
+    return nonLus ? nonLus.count : 0;
+};
+
+// Méthode statique pour récupérer tous les canaux avec des messages non lus pour un utilisateur
+canalSchema.statics.getAvecMessagesNonLus = async function(userId, workspaceId) {
+    const query = {
+        'membres.utilisateur': userId,
+        'messagesNonLus.utilisateur': userId,
+        'messagesNonLus.count': { $gt: 0 }
+    };
+    
+    if (workspaceId) {
+        query.workspace = workspaceId;
+    }
+    
+    return this.find(query)
+        .select('nom messagesNonLus workspace')
+        .populate({
+            path: 'messagesNonLus',
+            match: { 'utilisateur': userId }
+        });
 };
 
 // Index pour la recherche

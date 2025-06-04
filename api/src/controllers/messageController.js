@@ -3,6 +3,7 @@ const Canal = require('../models/canal');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const { nettoyerDonnees } = require('../middleware/validateur');
+const notificationService = require('../services/notificationService');
 
 // Messages de groupe
 exports.envoyerMessageGroupe = catchAsync(async (req, res, next) => {
@@ -56,6 +57,14 @@ exports.envoyerMessageGroupe = catchAsync(async (req, res, next) => {
             select: 'nom email username photo'
         }
     ]);
+
+    // Créer des notifications pour les membres du canal
+    try {
+        await notificationService.creerNotificationMessageCanal(messagePopule, canalExiste);
+    } catch (error) {
+        console.error('Erreur lors de la création des notifications:', error);
+        // Ne pas bloquer l'envoi du message si la création des notifications échoue
+    }
 
     // Notifier les utilisateurs mentionnés
     if (messagePopule.mentions && messagePopule.mentions.length > 0) {

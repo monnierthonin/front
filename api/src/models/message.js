@@ -72,7 +72,22 @@ const messageSchema = new mongoose.Schema({
     modifie: {
         type: Boolean,
         default: false
-    }
+    },
+    // Suivi des lectures de messages par utilisateur
+    lecteurs: [{
+        utilisateur: {
+            type: mongoose.Schema.ObjectId,
+            ref: 'User'
+        },
+        lu: {
+            type: Boolean,
+            default: true
+        },
+        luAt: {
+            type: Date,
+            default: Date.now
+        }
+    }]
 }, {
     timestamps: true,
     toJSON: { virtuals: true },
@@ -123,6 +138,63 @@ messageSchema.methods.ajouterReaction = function(emoji, userId) {
             utilisateurs: [userId]
         });
     }
+};
+
+// Méthode pour marquer un message comme lu par un utilisateur
+messageSchema.methods.marquerCommeLu = function(userId) {
+    // Vérifier si l'utilisateur a déjà lu ce message
+    const lecteurIndex = this.lecteurs.findIndex(l => 
+        l.utilisateur && l.utilisateur.toString() === userId.toString()
+    );
+    
+    if (lecteurIndex >= 0) {
+        // Mettre à jour la date de lecture
+        this.lecteurs[lecteurIndex].lu = true;
+        this.lecteurs[lecteurIndex].luAt = Date.now();
+    } else {
+        // Ajouter un nouveau lecteur
+        this.lecteurs.push({
+            utilisateur: userId,
+            lu: true,
+            luAt: Date.now()
+        });
+    }
+    
+    return this.save();
+};
+
+// Méthode pour vérifier si un message a été lu par un utilisateur
+messageSchema.methods.estLuPar = function(userId) {
+    return this.lecteurs.some(l => 
+        l.utilisateur && 
+        l.utilisateur.toString() === userId.toString() && 
+        l.lu === true
+    );
+};
+
+// Méthode statique pour marquer plusieurs messages comme lus
+messageSchema.statics.marquerPlusieursCommeLus = async function(messageIds, userId) {
+    return this.updateMany(
+        { _id: { $in: messageIds } },
+        { 
+            $addToSet: { 
+                lecteurs: { 
+                    utilisateur: userId, 
+                    lu: true, 
+                    luAt: Date.now() 
+                } 
+            } 
+        }
+    );
+};
+
+// Méthode statique pour compter les messages non lus dans un canal pour un utilisateur
+messageSchema.statics.compterNonLusDansCanal = async function(canalId, userId) {
+    return this.countDocuments({
+        canal: canalId,
+        'lecteurs.utilisateur': { $ne: userId },
+        auteur: { $ne: userId } // Ne pas compter les messages envoyés par l'utilisateur lui-même
+    });
 };
 
 // Middleware pour extraire les mentions et références de canaux

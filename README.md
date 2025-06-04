@@ -25,82 +25,97 @@ git clone https://github.com/alexandre-juillard/3proj_SUPCHAT.git
 cd 3proj_SUPCHAT
 ```
 
-### 2. Configuration de l'environnement
-
-#### API (Backend)
+2. Configurez les variables d'environnement :
 ```bash
-cd api
-
-# Installer les dépendances
-npm install
-
-# Copier le fichier d'environnement exemple
-cp .env.example .env
-
-# Éditer le fichier .env avec vos configurations
-# Notamment :
-# - MONGODB_URI
-# - JWT_SECRET
-# - SMTP_USER et SMTP_PASS (depuis Mailtrap)
-```
-
-#### Web (Frontend)
-```bash
-cd web
-
-# Installer les dépendances
-npm install
-
-# Copier le fichier d'environnement exemple
 cp .env.example .env
 ```
 
-## Démarrage
+## Démarrage Rapide avec Docker
 
-### Mode Développement
+La méthode la plus simple pour lancer l'application est d'utiliser Docker :
 
-#### Démarrer l'API (Node.js)
+1. Assurez-vous d'avoir [Docker](https://www.docker.com/products/docker-desktop) et [Docker Compose](https://docs.docker.com/compose/install/) installés
+2. Clonez le repository
+3. Lancez l'application :
 ```bash
-cd api
-npm run dev
+docker-compose up --build
 ```
 
-L'API sera accessible sur `http://localhost:3000`
+L'application sera accessible sur :
+- Frontend : http://localhost:3001
+- API : http://localhost:3000
+- MongoDB : localhost:27017
 
-#### Démarrer le Frontend (Vue.js)
-```bash
-cd web
-npm run serve
-```
-
-Le frontend sera accessible sur `http://localhost:8080`
-
-### Mode Production avec Docker
-
-#### 1. Builder et démarrer les conteneurs
-```bash
-# À la racine du projet
-docker-compose build
-docker-compose up -d
-```
-
-Les services seront accessibles sur :
-- API : `http://localhost:3000`
-- Frontend : `http://localhost:8080`
-
-#### 2. Vérifier les logs
-```bash
-# Tous les services
-docker-compose logs -f
-
-# Service spécifique
-docker-compose logs -f api
-docker-compose logs -f web
-```
-
-#### 3. Arrêter les conteneurs
+Pour arrêter l'application :
 ```bash
 docker-compose down
+```
+
+Pour supprimer les volumes (réinitialiser la base de données) :
+```bash
+docker-compose down -v
+```
+
+## Développement Local
+
+Si vous préférez développer sans Docker, voici les commandes disponibles :
+
+### API (dans le dossier `/api`)
+- `npm install` : Installe les dépendances
+- `npm run dev` : Démarre le serveur en mode développement
+- `npm start` : Démarre le serveur en mode production
+- `npm test` : Lance les tests
+- `npm run lint` : Vérifie le style du code
+
+### Web (dans le dossier `/web/supchat-web`)
+- `npm install` : Installe les dépendances
+- `npm run serve` : Démarre le serveur de développement
+- `npm run build` : Compile pour la production
+- `npm run test:unit` : Lance les tests unitaires
+- `npm run lint` : Vérifie le style du code
+
+## Commandes Docker Utiles
+
+### Gestion des Conteneurs
+```bash
+# Voir les conteneurs en cours d'exécution
+docker ps
+
+# Voir les logs d'un conteneur spécifique
+docker logs supchat-api
+docker logs supchat-web
+
+# Redémarrer un conteneur
+docker-compose restart api
+docker-compose restart web
+
+# Reconstruire un service spécifique
+docker-compose up --build api
+docker-compose up --build web
+```
+
+### Maintenance
+```bash
+# Nettoyer les images non utilisées
+docker image prune -a
+
+# Nettoyer les volumes non utilisés
+docker volume prune
+
+# Voir l'utilisation des ressources
+docker stats
+```
+
+### Base de Données
+```bash
+# Accéder au shell MongoDB
+docker-compose exec mongodb mongosh
+
+# Sauvegarder la base de données
+docker-compose exec mongodb mongodump --out /backup
+
+# Restaurer la base de données
+docker-compose exec mongodb mongorestore /backup
 ```
 
 ## Structure du Projet
@@ -113,28 +128,16 @@ supchat/
 │   ├── Dockerfile     # Configuration Docker
 │   └── package.json   # Dépendances
 ├── web/               # Application Vue.js
+│   └── supchat-web/   # Frontend Vue.js
+│       ├── src/       # Code source
+│       ├── Dockerfile # Configuration Docker
+│       └── nginx.conf # Configuration Nginx
 ├── mobile/            # Application Kotlin
 ├── docker-compose.yml # Configuration Docker Compose
 ├── CDC.md            # Cahier des charges
 ├── DEVBOOK.md        # Suivi du développement
 └── README.md         # Documentation
 ```
-
-## Scripts Disponibles
-
-### API (dans le dossier `/api`)
-- `npm install` : Installe les dépendances
-- `npm run dev` : Démarre le serveur en mode développement
-- `npm start` : Démarre le serveur en mode production
-- `npm test` : Lance les tests
-- `npm run lint` : Vérifie le style du code
-
-### Web (dans le dossier `/web`)
-- `npm install` : Installe les dépendances
-- `npm run serve` : Démarre le serveur de développement
-- `npm run build` : Compile pour la production
-- `npm run test:unit` : Lance les tests unitaires
-- `npm run lint` : Vérifie le style du code
 
 ## Résolution des problèmes courants
 

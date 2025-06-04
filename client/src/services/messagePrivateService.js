@@ -727,6 +727,73 @@ const messagePrivateService = {
       console.error('Erreur lors de la réaction au message privé:', error);
       throw error;
     }
+  },
+
+  /**
+   * Créer une nouvelle conversation privée avec un utilisateur ou la récupérer si elle existe déjà.
+   * @param {String} participantId - L'ID de l'autre utilisateur participant à la conversation.
+   * @returns {Promise} Promesse avec les données de la conversation.
+   */
+  async createOrGetConversation(participantId) {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Vous devez être connecté pour créer une conversation');
+      }
+
+      const url = `${API_URL}/conversations/`;
+      const body = JSON.stringify({ participants: [participantId] });
+
+      console.log('Appel API pour créer/récupérer conversation:', url, 'avec body:', body);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: body
+      });
+
+      console.log('Statut de la réponse API (createOrGetConversation):', response.status);
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          throw new Error('Session expirée, veuillez vous reconnecter');
+        }
+        const responseText = await response.text();
+        console.error('Contenu de l\'erreur (createOrGetConversation):', responseText);
+        throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
+      }
+
+      const responseText = await response.text();
+      console.log('Réponse brute API (createOrGetConversation):', responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Erreur de parsing JSON (createOrGetConversation):', parseError);
+        throw new Error('Impossible de parser la réponse du serveur');
+      }
+
+      console.log('Données reçues de l\'API (createOrGetConversation):', data);
+
+      if (data && data.status === 'success' && data.data && data.data.conversation) {
+        return data.data.conversation;
+      }
+      // Gérer le cas où la conversation existante est retournée directement dans data
+      if (data && data.status === 'success' && data.data) { 
+        return data.data;
+      }
+
+      throw new Error('Réponse invalide du serveur lors de la création/récupération de la conversation');
+    } catch (error) {
+      console.error('Erreur dans createOrGetConversation:', error);
+      throw error;
+    }
   }
 };
 

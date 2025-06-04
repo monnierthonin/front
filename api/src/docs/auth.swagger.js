@@ -24,7 +24,7 @@
  *           description: Mot de passe (optionnel pour les comptes OAuth)
  *         profilePicture:
  *           type: string
- *           description: URL de la photo de profil (formats acceptés: JPG, JPEG, PNG, WEBP, SVG)
+ *           description: "URL de la photo de profil (formats acceptés - JPG, JPEG, PNG, WEBP, SVG)"
  *         role:
  *           type: string
  *           enum: [user, admin]

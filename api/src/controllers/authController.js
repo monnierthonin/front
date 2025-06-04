@@ -521,6 +521,49 @@ exports.getCurrentUser = async (req, res) => {
     }
 };
 
+// Middleware de protection des routes (authentification)
+exports.protect = async (req, res, next) => {
+    try {
+        // 1) Vérifier si le token existe
+        let token;
+        
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            token = req.headers.authorization.split(' ')[1];
+        } else if (req.cookies.jwt) {
+            token = req.cookies.jwt;
+        }
+        
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                message: 'Vous n\'êtes pas connecté. Veuillez vous connecter pour accéder à cette ressource.'
+            });
+        }
+        
+        // 2) Vérifier si le token est valide
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supchat_secret_dev');
+        
+        // 3) Vérifier si l'utilisateur existe toujours
+        const utilisateur = await User.findById(decoded.id);
+        if (!utilisateur) {
+            return res.status(401).json({
+                success: false,
+                message: 'L\'utilisateur associé à ce token n\'existe plus.'
+            });
+        }
+        
+        // 4) Stocker l'utilisateur dans req.user
+        req.user = utilisateur;
+        next();
+    } catch (erreur) {
+        console.error('Erreur d\'authentification:', erreur);
+        return res.status(401).json({
+            success: false,
+            message: 'Non autorisé. Veuillez vous reconnecter.'
+        });
+    }
+};
+
 // Récupérer le token JWT du cookie
 exports.getToken = async (req, res) => {
     try {
@@ -613,5 +656,6 @@ module.exports = {
     microsoftCallback: exports.microsoftCallback,
     facebookCallback: exports.facebookCallback,
     getCurrentUser: exports.getCurrentUser,
-    getToken: exports.getToken
+    getToken: exports.getToken,
+    protect: exports.protect
 };

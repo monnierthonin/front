@@ -133,6 +133,22 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['clair', 'sombre'],
     default: 'sombre'
+  },
+  preferences: {
+    notifications: {
+      mentionsOnly: {
+        type: Boolean,
+        default: false
+      },
+      soundEnabled: {
+        type: Boolean,
+        default: true
+      },
+      desktopEnabled: {
+        type: Boolean,
+        default: true
+      }
+    }
   }
 }, {
   timestamps: true,
