@@ -4,7 +4,7 @@
         <img src="../../assets/styles/image/baniere.png" alt="baniere">
       </div>
       <div class="chanel-parametre">
-        <router-link to="/paramworkspace">
+        <router-link to="/paramworkspace" @click.native="saveWorkspaceId">
           <button class="parametre-button">
             <img src="../../assets/styles/image/parametre.png" alt="parametre">
           </button>
@@ -42,6 +42,10 @@
       canalActifId: {
         type: String,
         default: ''
+      },
+      workspaceId: {
+        type: String,
+        required: true
       }
     },
     data() {
@@ -62,6 +66,16 @@
        */
       selectionnerCanal(canal) {
         this.$emit('canal-selectionne', canal);
+      },
+      
+      /**
+       * Enregistre l'ID du workspace actuel dans le localStorage
+       * pour que ParamWorkspace puisse l'utiliser
+       */
+      saveWorkspaceId() {
+        if (this.workspaceId) {
+          localStorage.setItem('currentWorkspaceId', this.workspaceId);
+        }
       }
     },
     watch: {

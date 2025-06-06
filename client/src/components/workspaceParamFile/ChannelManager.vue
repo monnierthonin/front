@@ -1,30 +1,55 @@
 <template>
   <div class="containerSettingUserChanel">
     <div class="search-header">
-      <h3>Gestionnaire canal</h3>
+      <h3>Gestionnaire canaux</h3>
       <div class="search-controls">
-        <input type="text" v-model="channelSearchQuery" placeholder="Rechercher un canal..." class="search-input"/>
+        <input 
+          type="text" 
+          v-model="channelSearchQuery" 
+          placeholder="Rechercher un canal..." 
+          class="search-input"
+        />
         <select v-model="channelFilter" class="filter-select">
-          <option value="all">Tout</option>
-          <option value="admin">Admin</option>
-          <option value="user">User</option>
-          <option value="guest">Invité</option>
+          <option value="all">Tous les statuts</option>
+          <option value="public">Public</option>
+          <option value="prive">Privé</option>
         </select>
       </div>
-      <div class="channels-list">
-        <div v-for="channel in channels" :key="channel.id" class="channel-item">
-          <img :src="channel.channelImage" :alt="channel.name" class="channel-avatar">
-          <span class="channel-name">{{ channel.name }}</span>
-          <select v-model="channel.status" class="status-select">
+      
+      <!-- Loading state -->
+      <div v-if="loading" class="loading-message">
+        Chargement des canaux...
+      </div>
+      
+      <!-- Error state -->
+      <div v-else-if="error" class="error-message">
+        {{ error }}
+      </div>
+      
+      <!-- Empty state -->
+      <div v-else-if="filteredChannels.length === 0" class="empty-message">
+        <p v-if="channelSearchQuery || channelFilter !== 'all'">
+          Aucun canal ne correspond aux critères de recherche.
+        </p>
+        <p v-else>Aucun canal dans ce workspace.</p>
+      </div>
+      
+      <!-- Channels list -->
+      <div v-else class="channels-list">
+        <div v-for="channel in filteredChannels" :key="channel.id" class="channel-item">
+          <span class="channel-name"># {{ channel.nom }}</span>
+          <select v-model="channel.visibilite" class="status-select">
             <option value="public">Public</option>
-            <option value="private">Privé</option>
+            <option value="prive">Privé</option>
           </select>
-          <select v-model="channel.access" class="access-select">
-            <option value="all">Tous</option>
+          <select v-model="channel.acces" class="access-select">
+            <option value="tous">Tous</option>
             <option value="admin">Admin</option>
-            <option value="user">User</option>
+            <option value="member">Member</option>
           </select>
-          <button class="delete-channel-button"><img src="../../assets/styles/image/ban.png" alt="delete" class="delete"></button>
+          <button class="delete-channel-button" title="Supprimer le canal">
+            <img src="../../assets/styles/image/ban.png" alt="delete" class="delete">
+          </button>
         </div>
       </div>
     </div>
@@ -34,68 +59,112 @@
 <script>
 export default {
   name: 'ChannelManager',
+  props: {
+    workspaceId: {
+      type: String,
+      required: true
+    }
+  },
   data() {
     return {
       channelSearchQuery: '',
       channelFilter: 'all',
-      channels: [
-        {
-          id: 1,
-          name: 'Général',
-          channelImage: "../../assets/styles/image/profilDelault.png",
-          status: 'public',
-          access: 'all'
-        },
-        {
-          id: 2,
-          name: 'Annonces',
-          channelImage: "../../assets/styles/image/profilDelault.png",
-          status: 'private',
-          access: 'admin'
-        },
-        {
-          id: 3,
-          name: 'Discussion',
-          channelImage: "../../assets/styles/image/profilDelault.png",
-          status: 'public',
-          access: 'user'
-        },
-        {
-          id: 4,
-          name: 'Discussion',
-          channelImage: "../../assets/styles/image/profilDelault.png",
-          status: 'public',
-          access: 'user'
-        },
-        {
-          id: 5,
-          name: 'Discussion',
-          channelImage: "../../assets/styles/image/profilDelault.png",
-          status: 'public',
-          access: 'user'
-        },
-        {
-          id: 6,
-          name: 'Discussion',
-          channelImage: "../../assets/styles/image/profilDelault.png",
-          status: 'public',
-          access: 'user'
-        },
-        {
-          id: 7,
-          name: 'Discussion',
-          channelImage: "../../assets/styles/image/profilDelault.png",
-          status: 'public',
-          access: 'user'
-        },
-        {
-          id: 8,
-          name: 'Discussion',
-          channelImage: "../../assets/styles/image/profilDelault.png",
-          status: 'public',
-          access: 'user'
+      channels: [],
+      loading: true,
+      error: null
+    }
+  },
+  computed: {
+    /**
+     * Filtre et trie les canaux selon les critères de recherche
+     */
+    filteredChannels() {
+      let result = [...this.channels];
+      
+      // Filtrer par terme de recherche
+      if (this.channelSearchQuery) {
+        const searchTerm = this.channelSearchQuery.toLowerCase();
+        result = result.filter(channel => {
+          const channelName = channel.nom.toLowerCase();
+          return channelName.includes(searchTerm);
+        });
+      }
+      
+      // Filtrer par statut
+      if (this.channelFilter !== 'all') {
+        result = result.filter(channel => channel.visibilite === this.channelFilter);
+      }
+      
+      // Trier par nom
+      return result.sort((a, b) => {
+        // Canal général toujours en premier
+        if (a.nom.toLowerCase() === 'général' || a.nom.toLowerCase() === 'general') return -1;
+        if (b.nom.toLowerCase() === 'général' || b.nom.toLowerCase() === 'general') return 1;
+        
+        // Ensuite par ordre alphabétique
+        return a.nom.localeCompare(b.nom);
+      });
+    }
+  },
+  created() {
+    this.loadChannels();
+  },
+  methods: {
+    /**
+     * Charge les canaux du workspace depuis l'API
+     */
+    async loadChannels() {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        // Récupérer le token depuis le localStorage
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          throw new Error('Aucun token d\'authentification trouvé');
         }
-      ]
+        
+        // Appeler l'endpoint spécifique pour récupérer les canaux
+        const response = await fetch(`http://localhost:3000/api/v1/workspaces/${this.workspaceId}/canaux`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('Session expirée, veuillez vous reconnecter');
+          }
+          throw new Error(`Erreur lors de la récupération des canaux: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Vérifier que les données reçues ont la structure attendue
+        if (data && data.status === 'success') {
+          // Récupérer les canaux depuis la structure de réponse
+          const canaux = data.data && data.data.canaux ? data.data.canaux : [];
+          
+          this.channels = canaux.map(canal => ({
+            id: canal._id || canal.id,
+            nom: canal.nom || 'Sans nom',
+            visibilite: canal.visibilite || 'public', // défaut à 'public' si non spécifié
+            acces: canal.acces || 'tous' // défaut à 'tous' si non spécifié
+          }));
+        } else {
+          this.channels = [];
+          console.warn('Format de réponse inattendu:', data);
+        }
+      } catch (err) {
+        console.error('Erreur lors du chargement des canaux:', err);
+        this.error = err.message || "Impossible de charger la liste des canaux";
+      } finally {
+        this.loading = false;
+      }
     }
   }
 }
@@ -174,6 +243,23 @@ export default {
   scrollbar-color: #7D7D7D #D9D9D9;
 }
 
+.loading-message, .error-message, .empty-message {
+  padding: 1rem;
+  margin-top: 1rem;
+  text-align: center;
+  color: #ffffff;
+  background-color: #36393f;
+  border-radius: 5px;
+}
+
+.error-message {
+  color: #ff6b6b;
+}
+
+.empty-message {
+  color: #aaaaaa;
+}
+
 .channels-list::-webkit-scrollbar {
   width: 8px;
 }
@@ -191,18 +277,13 @@ export default {
 .channel-item {
   display: flex;
   align-items: center;
-  padding: 0.5rem;
+  padding: 0.5rem 1rem;
   background: #443E3E;
   gap: 1rem;
   border-radius: 10px;
 }
 
-.channel-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-}
+
 
 .channel-name {
   color: #fff;

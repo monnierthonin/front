@@ -1,29 +1,56 @@
 <template>
   <div class="containerSettingUserChanel">
     <div class="search-header">
-      <h3>Gestionnaire utilisateur</h3>
+      <h3>Gestionnaire utilisateurs</h3>
       <div class="search-controls">
-        <input type="text" v-model="userSearchQuery" placeholder="Rechercher un utilisateur..." class="search-input"/>
+        <input 
+          type="text" 
+          v-model="userSearchQuery" 
+          placeholder="Rechercher un utilisateur..." 
+          class="search-input"
+        />
         <select v-model="userFilter" class="filter-select">
-          <option value="all">Tout</option>
+          <option value="all">Tous les rôles</option>
           <option value="admin">Admin</option>
-          <option value="user">User</option>
-          <option value="guest">Invité</option>
+          <option value="member">Member</option>
         </select>
       </div>
-      <div class="users-list">
-        <div v-for="user in users" :key="user.id" class="user-item">
-          <img :src="user.profileImage" :alt="user.username" class="user-avatar">
-          <span class="username">{{ user.username }}</span>
-          <select v-model="user.role" class="role-select">
+      
+      <!-- Loading state -->
+      <div v-if="loading" class="loading-message">
+        Chargement des utilisateurs...
+      </div>
+      
+      <!-- Error state -->
+      <div v-else-if="error" class="error-message">
+        {{ error }}
+      </div>
+      
+      <!-- Empty state -->
+      <div v-else-if="filteredUsers.length === 0" class="empty-message">
+        <p v-if="userSearchQuery || userFilter !== 'all'">
+          Aucun utilisateur ne correspond aux critères de recherche.
+        </p>
+        <p v-else>Aucun utilisateur dans ce workspace.</p>
+      </div>
+      
+      <!-- Users list -->
+      <div v-else class="users-list">
+        <div v-for="user in filteredUsers" :key="user.id" class="user-item">
+          <img :src="getUserAvatar(user)" :alt="getUserName(user)" class="user-avatar">
+          <span class="username">{{ getUserName(user) }}</span>
+          <select v-model="user.role" class="role-select" :disabled="isOwner(user)">
             <option value="admin">Admin</option>
-            <option value="user">User</option>
-            <option value="guest">Invité</option>
+            <option value="member">Member</option>
           </select>
           <button class="role-button">Rôle canal</button>
           <div class="action-buttons">
-            <button class="exit-button"><img src="../../assets/styles/image/exclution.png" alt="exit" class="exit"></button>
-            <button class="bann-button"><img src="../../assets/styles/image/ban.png" alt="bann" class="bann"></button>
+            <button class="exit-button" :disabled="isOwner(user)" title="Exclure du workspace">
+              <img src="../../assets/styles/image/exclution.png" alt="exit" class="exit">
+            </button>
+            <button class="bann-button" :disabled="isOwner(user)" title="Bannir l'utilisateur">
+              <img src="../../assets/styles/image/ban.png" alt="bann" class="bann">
+            </button>
           </div>
         </div>
       </div>
@@ -34,54 +61,125 @@
 <script>
 export default {
   name: 'UserManager',
+  props: {
+    workspace: {
+      type: Object,
+      required: true
+    }
+  },
   data() {
     return {
       userSearchQuery: '',
       userFilter: 'all',
-      users: [
-        {
-          id: 1,
-          username: 'JohnDoe',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'admin'
-        },
-        {
-          id: 2,
-          username: 'JaneSmith',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'user'
-        },
-        {
-          id: 3,
-          username: 'GuestUser',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'guest'
-        },
-        {
-          id: 4,
-          username: 'GuestUser',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'guest'
-        },
-        {
-          id: 5,
-          username: 'GuestUser',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'guest'
-        },
-        {
-          id: 6,
-          username: 'GuestUser',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'guest'
-        },
-        {
-          id: 7,
-          username: 'GuestUser',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'guest'
+      users: [],
+      loading: true,
+      error: null,
+      ownerId: null,
+      defaultAvatar: '../../assets/styles/image/profilDelault.png'
+    }
+  },
+  computed: {
+    /**
+     * Filtre et trie les utilisateurs selon les critères de recherche
+     */
+    filteredUsers() {
+      let result = [...this.users];
+      
+      // Filtrer par terme de recherche
+      if (this.userSearchQuery) {
+        const searchTerm = this.userSearchQuery.toLowerCase();
+        result = result.filter(user => {
+          const username = this.getUserName(user).toLowerCase();
+          return username.includes(searchTerm);
+        });
+      }
+      
+      // Filtrer par rôle
+      if (this.userFilter !== 'all') {
+        result = result.filter(user => user.role === this.userFilter);
+      }
+      
+      // Trier par rôle (admins first) puis par nom
+      return result.sort((a, b) => {
+        // Le propriétaire toujours en premier
+        if (this.isOwner(a)) return -1;
+        if (this.isOwner(b)) return 1;
+        
+        // Ensuite par rôle
+        if (a.role === 'admin' && b.role !== 'admin') return -1;
+        if (a.role !== 'admin' && b.role === 'admin') return 1;
+        
+        // Enfin par nom
+        return this.getUserName(a).localeCompare(this.getUserName(b));
+      });
+    }
+  },
+  created() {
+    // Récupérer l'ID du propriétaire
+    if (this.workspace && this.workspace.proprietaire) {
+      if (typeof this.workspace.proprietaire === 'object') {
+        this.ownerId = this.workspace.proprietaire._id || this.workspace.proprietaire.id;
+      } else {
+        this.ownerId = this.workspace.proprietaire;
+      }
+    }
+    
+    this.loadUsers();
+  },
+  methods: {
+    /**
+     * Charge les utilisateurs du workspace
+     */
+    loadUsers() {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        // Vérifier si les membres sont disponibles dans le workspace
+        if (this.workspace && this.workspace.membres) {
+          this.users = this.workspace.membres.map(membre => ({
+            id: typeof membre.utilisateur === 'object' 
+              ? membre.utilisateur._id || membre.utilisateur.id 
+              : membre.utilisateur,
+            utilisateur: membre.utilisateur, // garde l'objet utilisateur complet si disponible
+            role: membre.role || 'member' // défaut à 'member' si le rôle n'est pas spécifié
+          }));
+        } else {
+          this.users = [];
         }
-      ]
+      } catch (err) {
+        console.error('Erreur lors du chargement des utilisateurs:', err);
+        this.error = "Impossible de charger la liste des utilisateurs";
+      } finally {
+        this.loading = false;
+      }
+    },
+    
+    /**
+     * Récupère l'avatar d'un utilisateur
+     */
+    getUserAvatar(user) {
+      if (user.utilisateur && typeof user.utilisateur === 'object') {
+        return user.utilisateur.profilpicture || this.defaultAvatar;
+      }
+      return this.defaultAvatar;
+    },
+    
+    /**
+     * Récupère le nom d'un utilisateur
+     */
+    getUserName(user) {
+      if (user.utilisateur && typeof user.utilisateur === 'object') {
+        return user.utilisateur.username || user.utilisateur.nom || 'Utilisateur';
+      }
+      return `Utilisateur ${user.id.substring(0, 6)}`;
+    },
+    
+    /**
+     * Vérifie si l'utilisateur est le propriétaire du workspace
+     */
+    isOwner(user) {
+      return user.id === this.ownerId;
     }
   }
 }
@@ -158,6 +256,23 @@ export default {
   gap: 10px;
   scrollbar-width: thin;
   scrollbar-color: #7D7D7D #D9D9D9;
+}
+
+.loading-message, .error-message, .empty-message {
+  padding: 1rem;
+  margin-top: 1rem;
+  text-align: center;
+  color: #ffffff;
+  background-color: #36393f;
+  border-radius: 5px;
+}
+
+.error-message {
+  color: #ff6b6b;
+}
+
+.empty-message {
+  color: #aaaaaa;
 }
 
 .users-list::-webkit-scrollbar {

@@ -2,6 +2,7 @@
   <chanelWorkspace 
     :canaux="canaux" 
     :canalActifId="canalActif ? canalActif._id : ''" 
+    :workspaceId="workspaceId"
     @canal-selectionne="changerCanalActif" 
   />
   <UserList :membres="membres" />

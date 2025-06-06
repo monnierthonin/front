@@ -181,6 +181,51 @@ const workspaceService = {
     }
   },
   
+  /**
+   * Mettre à jour le statut (public/privé) d'un workspace
+   * @param {String} id - ID du workspace
+   * @param {Boolean} isPublic - True pour rendre le workspace public, false pour le rendre privé
+   * @returns {Promise} Promesse avec les données du workspace mis à jour
+   */
+  async updateWorkspaceStatus(id, isPublic) {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Vous devez être connecté pour modifier un workspace');
+      }
+      
+      // Appel à l'API pour mettre à jour le statut du workspace
+      // Utiliser le champ 'visibilite' au lieu de 'estPublic'
+      const response = await fetch(`${API_URL}/workspaces/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          visibilite: isPublic ? 'public' : 'prive' // Valeur correcte attendue par l'API
+        })
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          throw new Error('Session expirée, veuillez vous reconnecter');
+        }
+        
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Erreur lors de la mise à jour du workspace: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.data.workspace;
+    } catch (error) {
+      throw error;
+    }
+  },
+  
   // Extraire l'ID utilisateur à partir du token JWT
   getUserIdFromToken(token) {
     try {
