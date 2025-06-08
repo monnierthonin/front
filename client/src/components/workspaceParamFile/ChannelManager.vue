@@ -42,11 +42,7 @@
             <option value="public">Public</option>
             <option value="prive">Privé</option>
           </select>
-          <select v-model="channel.acces" class="access-select">
-            <option value="tous">Tous</option>
-            <option value="admin">Admin</option>
-            <option value="member">Member</option>
-          </select>
+          <button class="add-user-button">ajout user</button>
           <button class="delete-channel-button" title="Supprimer le canal">
             <img src="../../assets/styles/image/ban.png" alt="delete" class="delete">
           </button>
@@ -290,12 +286,25 @@ export default {
   flex: 1;
 }
 
-.status-select, .access-select {
+.status-select {
   padding: 0.3rem;
   border-radius: 4px;
   background: #333;
   color: #fff;
   border: 1px solid #555;
+}
+
+.add-user-button {
+  padding: 0.3rem 1rem;
+  background: #444;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.add-user-button:hover {
+  background: #555;
 }
 
 .delete-channel-button {

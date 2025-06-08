@@ -12,7 +12,8 @@
         <select v-model="userFilter" class="filter-select">
           <option value="all">Tous les rôles</option>
           <option value="admin">Admin</option>
-          <option value="member">Member</option>
+          <option value="moderator">Modérateur</option>
+          <option value="member">Membre</option>
         </select>
       </div>
       
@@ -39,16 +40,13 @@
         <div v-for="user in filteredUsers" :key="user.id" class="user-item">
           <img :src="getUserAvatar(user)" :alt="getUserName(user)" class="user-avatar">
           <span class="username">{{ getUserName(user) }}</span>
-          <select v-model="user.role" class="role-select" :disabled="isOwner(user)">
+          <select v-model="user.role" class="role-select" :disabled="isOwner(user)" @change="updateUserRole(user)">
             <option value="admin">Admin</option>
-            <option value="member">Member</option>
+            <option value="moderator">Modérateur</option>
+            <option value="member">Membre</option>
           </select>
-          <button class="role-button">Rôle canal</button>
           <div class="action-buttons">
-            <button class="exit-button" :disabled="isOwner(user)" title="Exclure du workspace">
-              <img src="../../assets/styles/image/exclution.png" alt="exit" class="exit">
-            </button>
-            <button class="bann-button" :disabled="isOwner(user)" title="Bannir l'utilisateur">
+            <button v-if="!isOwner(user)" class="bann-button" @click="banUser(user)" title="Bannir l'utilisateur">
               <img src="../../assets/styles/image/ban.png" alt="bann" class="bann">
             </button>
           </div>
@@ -75,7 +73,8 @@ export default {
       loading: true,
       error: null,
       ownerId: null,
-      defaultAvatar: '../../assets/styles/image/profilDelault.png'
+      defaultAvatar: '../../assets/styles/image/profilDelault.png',
+      roleUpdateLoading: {}
     }
   },
   computed: {
@@ -180,6 +179,124 @@ export default {
      */
     isOwner(user) {
       return user.id === this.ownerId;
+    },
+
+    /**
+     * Met à jour le rôle d'un utilisateur dans le workspace
+     */
+    async updateUserRole(user) {
+      // Éviter les requêtes multiples si une mise à jour est déjà en cours pour cet utilisateur
+      if (this.roleUpdateLoading[user.id]) {
+        return;
+      }
+      
+      this.roleUpdateLoading[user.id] = true;
+      const originalRole = user.role; // Sauvegarde du rôle original en cas d'échec
+      
+      try {
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          throw new Error('Aucun token d\'authentification trouvé');
+        }
+        
+        // Construction de l'URL selon le format de l'API
+        const url = `http://localhost:3000/api/v1/workspaces/${this.workspace._id}/membres/${user.id}/role`;
+        
+        // Format du corps pour une requête PATCH conforme aux standards REST
+        const response = await fetch(url, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ role: user.role }), // Utiliser un objet JSON avec la propriété role
+          credentials: 'include'
+        });
+        
+        // Vérification de la réponse
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('Session expirée, veuillez vous reconnecter');
+          }
+          
+          // Tentative de récupération du message d'erreur du serveur
+          let errorMessage;
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || `Erreur lors de la mise à jour du rôle: ${response.status}`;
+          } catch (e) {
+            errorMessage = `Erreur lors de la mise à jour du rôle: ${response.status}`;
+          }
+          
+          throw new Error(errorMessage);
+        }
+        
+        // Si tout s'est bien passé, on peut afficher un message de succès
+        console.log(`Rôle de l'utilisateur ${user.id} mis à jour avec succès à ${user.role}`);
+        
+        // Récupérer la réponse du serveur pour confirmer
+        try {
+          const data = await response.json();
+          console.log('Réponse du serveur:', data);
+        } catch (e) {
+          // Ignorer l'erreur de parsing si la réponse n'est pas du JSON valide
+        }
+      } catch (err) {
+        console.error('Erreur lors de la mise à jour du rôle de l\'utilisateur:', err);
+        
+        // Restaurer le rôle original dans l'interface
+        user.role = originalRole;
+        
+        // Afficher l'erreur à l'utilisateur
+        this.error = err.message || "Impossible de modifier le rôle de l'utilisateur";
+      } finally {
+        this.roleUpdateLoading[user.id] = false;
+      }
+    },
+
+    /**
+     * Bannir/supprimer un utilisateur du workspace
+     */
+    async banUser(user) {
+      if (this.isOwner(user)) {
+        console.error('Impossible de bannir le propriétaire du workspace');
+        return;
+      }
+      
+      if (!confirm(`Êtes-vous sûr de vouloir bannir ${this.getUserName(user)} du workspace ?`)) {
+        return;
+      }
+      
+      try {
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          throw new Error('Aucun token d\'authentification trouvé');
+        }
+        
+        const response = await fetch(`http://localhost:3000/api/v1/workspaces/${this.workspace._id}/membres/${user.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('Session expirée, veuillez vous reconnecter');
+          }
+          throw new Error(`Erreur lors du bannissement: ${response.status}`);
+        }
+        
+        // Supprimer l'utilisateur de la liste sans avoir à recharger tous les utilisateurs
+        this.users = this.users.filter(u => u.id !== user.id);
+        console.log(`Utilisateur ${user.id} banni avec succès`);
+      } catch (err) {
+        console.error('Erreur lors du bannissement de l\'utilisateur:', err);
+        this.error = err.message || "Impossible de bannir l'utilisateur";
+      }
     }
   }
 }
@@ -318,36 +435,9 @@ export default {
   border: 1px solid #555;
 }
 
-.role-button {
-  padding: 0.3rem 1rem;
-  background: #444;
-  color: #fff;
-  border: 1px solid #555;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.role-button:hover {
-  background: #555;
-}
-
 .action-buttons {
   display: flex;
   gap: 0.5rem;
-}
-
-.exit-button img {
-  width: 40px;
-}
-
-.exit-button {
-  height: 40px;
-  width: 40px;
-  background: none;
-  border: none;
-  align-items: center;
-  justify-content: center;
-  display: flex;
 }
 
 .bann-button img {
