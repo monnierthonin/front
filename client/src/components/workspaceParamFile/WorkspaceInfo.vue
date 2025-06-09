@@ -24,13 +24,13 @@
         <button 
           class="status-button" 
           @click="toggleStatusMenu" 
-          :disabled="!isOwner || !isEditing"
+          :disabled="!(isOwner || isAdmin) || !isEditing"
         >
           <span class="status-indicator" :class="statusColor"></span>
           {{ statusLabel }}
         </button>
       
-        <ul v-if="showStatusMenu && isOwner" class="status-menu">
+        <ul v-if="showStatusMenu && (isOwner || isAdmin)" class="status-menu">
           <li @click="setStatus('prive')">
             <span class="status-indicator orange"></span> Privé
           </li>
@@ -42,7 +42,7 @@
       
       <!-- Description éditable pour le propriétaire, sinon affichage simple -->
       <div class="editable-field">
-        <p v-if="!isEditing || !isOwner" class="description">
+        <p v-if="!isEditing || !(isOwner || isAdmin)" class="description">
           Description : {{ workspace.description || 'Aucune description disponible' }}
         </p>
         <textarea 
@@ -56,8 +56,8 @@
       <!-- Note: Utiliser le bouton status-button existant pour changer le statut -->
     </div>
     
-    <!-- Bouton d'édition et d'enregistrement uniquement pour le propriétaire -->
-    <div v-if="isOwner" class="edit-controls">
+    <!-- Bouton d'édition et d'enregistrement pour le propriétaire et les admins -->
+    <div v-if="isOwner || isAdmin" class="edit-controls">
       <button 
         v-if="!isEditing" 
         @click="startEditing" 
@@ -165,6 +165,30 @@ export default {
       
       // Si proprietaire est directement l'ID
       return userId === this.workspace.proprietaire;
+    },
+    isAdmin() {
+      // Vérifier si l'utilisateur a le rôle admin dans ce workspace
+      if (!this.workspace) return false;
+      
+      const userId = this.getUserId();
+      if (!userId) return false;
+      
+      // Si l'utilisateur est déjà identifié comme propriétaire, il a aussi les droits admin
+      if (this.isOwner) return true;
+      
+      // Vérifier si l'utilisateur a le rôle admin dans ce workspace
+  // Via l'API, cela peut être retourné dans workspace.membres ou workspace.users
+  const membres = this.workspace.membres || this.workspace.users || [];
+  const currentUser = membres.find(membre => {
+    const membreId = membre._id || membre.id || membre.userId;
+    return membreId === userId;
+  });
+  
+  if (!currentUser) return false;
+  
+  // Vérifier les différentes possibilités de nommage du champ rôle
+  const userRole = currentUser.role || currentUser.rôle || currentUser.Role || currentUser.Rôle;
+  return userRole === 'admin';
     }
   },
   methods: {

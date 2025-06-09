@@ -50,13 +50,28 @@
     },
     data() {
       return {
-        isLoading: true
+        isLoading: true,
+        userId: null,
+        userRole: null,
+        workspace: null
       }
     },
     computed: {
       canauxAffichage() {
-        // Utiliser les canaux de l'API ou une liste vide si indisponible
-        return this.canaux || []
+        // Si aucun canal n'est disponible, retourner une liste vide
+        if (!this.canaux || this.canaux.length === 0) return [];
+        
+        // Filtrer les canaux selon les règles d'accès
+        return this.canaux.filter(canal => {
+          // Si le canal n'est pas privé, tout le monde peut y accéder
+          if (!canal.estPrive) return true;
+          
+          // Si l'utilisateur est propriétaire, admin ou modérateur, il a accès à tous les canaux privés
+          if (this.hasAdminAccess()) return true;
+          
+          // Vérifier si l'utilisateur est dans la liste des membres du canal privé
+          return this.isUserInChannelMembers(canal);
+        });
       }
     },
     methods: {
@@ -76,7 +91,121 @@
         if (this.workspaceId) {
           localStorage.setItem('currentWorkspaceId', this.workspaceId);
         }
+      },
+      
+      /**
+       * Vérifie si l'utilisateur courant est dans la liste des membres d'un canal privé
+       * @param {Object} canal - Le canal à vérifier
+       * @returns {Boolean} - True si l'utilisateur est membre du canal, false sinon
+       */
+      isUserInChannelMembers(canal) {
+        if (!canal.membres || !Array.isArray(canal.membres) || !this.userId) return false;
+        
+        return canal.membres.some(membre => {
+          // Gérer le cas où membre est un objet ou directement l'ID
+          const membreId = (typeof membre === 'object') ? (membre._id || membre.id) : membre;
+          return membreId === this.userId;
+        });
+      },
+      
+      /**
+       * Vérifie si l'utilisateur actuel a des droits d'administration (propriétaire, admin ou modérateur)
+       * @returns {Boolean} - True si l'utilisateur est propriétaire, admin ou modérateur
+       */
+      hasAdminAccess() {
+        // Si on n'a pas l'utilisateur ou le workspace, impossible de vérifier
+        if (!this.userId || !this.workspace) return false;
+        
+        // Si l'utilisateur est le propriétaire du workspace
+        if (this.isUserWorkspaceOwner()) return true;
+        
+        // Si userRole est déjà défini, l'utiliser
+        if (this.userRole) {
+          return ['admin', 'moderateur'].includes(this.userRole);
+        }
+        
+        // Sinon, vérifier si l'utilisateur est admin ou modérateur dans la liste des membres
+        const membres = this.workspace.membres || this.workspace.users || [];
+        const currentUser = membres.find(membre => {
+          const membreId = typeof membre === 'object' ? (membre._id || membre.id || membre.userId) : membre;
+          return membreId === this.userId;
+        });
+        
+        if (!currentUser) return false;
+        
+        // Récupérer le rôle en tenant compte des différentes possibilités de nommage
+        const userRole = currentUser.role || currentUser.rôle || currentUser.Role || currentUser.Rôle;
+        this.userRole = userRole;
+        
+        // Vérifier si le rôle est admin ou modérateur
+        return userRole && ['admin', 'moderateur'].includes(userRole);
+      },
+      
+      /**
+       * Vérifie si l'utilisateur actuel est le propriétaire du workspace
+       * @returns {Boolean} - True si l'utilisateur est le propriétaire
+       */
+      isUserWorkspaceOwner() {
+        if (!this.userId || !this.workspace || !this.workspace.proprietaire) return false;
+        
+        // Si propriétaire est un objet
+        if (typeof this.workspace.proprietaire === 'object') {
+          const ownerId = this.workspace.proprietaire._id || this.workspace.proprietaire.id;
+          return this.userId === ownerId;
+        }
+        
+        // Si propriétaire est directement l'ID
+        return this.userId === this.workspace.proprietaire;
+      },
+      
+      /**
+       * Décode le token JWT pour récupérer l'ID utilisateur
+       */
+      getUserIdFromToken() {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        try {
+          const tokenPayload = token.split('.')[1];
+          const decodedPayload = JSON.parse(atob(tokenPayload));
+          this.userId = decodedPayload.userId || decodedPayload.id || decodedPayload.sub;
+        } catch (error) {
+          console.error('Erreur lors du décodage du token:', error);
+        }
+      },
+      
+      /**
+       * Récupère les informations du workspace actuel
+       */
+      fetchWorkspaceInfo() {
+        if (!this.workspaceId) return;
+        
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        fetch(`http://localhost:3000/api/v1/workspaces/${this.workspaceId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        .then(response => {
+          if (!response.ok) throw new Error('Erreur lors de la récupération du workspace');
+          return response.json();
+        })
+        .then(data => {
+          this.workspace = data;
+        })
+        .catch(error => {
+          console.error('Erreur:', error);
+        });
       }
+    },
+    created() {
+      // Récupérer l'ID de l'utilisateur du token
+      this.getUserIdFromToken();
+      
+      // Récupérer les informations du workspace
+      this.fetchWorkspaceInfo();
     },
     watch: {
       canaux: {

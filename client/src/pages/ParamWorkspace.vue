@@ -7,14 +7,14 @@
         :workspace="workspace" 
         @update:workspace="updateWorkspace" 
       />
-      <!-- Composants visibles uniquement pour le propriétaire -->
-      <template v-if="isOwner">
+      <!-- Composants visibles pour le propriétaire et les admins -->
+      <template v-if="isOwner || isAdmin">
         <UserManager :workspace="workspace" />
         <ChannelManager :workspaceId="workspaceId" />
       </template>
       
-      <!-- Bouton pour quitter le workspace (pour les non propriétaires) -->
-      <div v-else class="leave-workspace-container">
+      <!-- Bouton pour quitter le workspace (pour tous les membres et admins sauf le propriétaire) -->
+      <div v-if="!isOwner" class="leave-workspace-container">
         <button class="leave-button" @click="leaveWorkspace">
           Quitter le workspace
         </button>
@@ -65,6 +65,66 @@ export default {
       
       // Si proprietaire est directement l'ID
       return this.userId === this.workspace.proprietaire;
+    },
+    /**
+     * Vérifie si l'utilisateur connecté a le rôle admin dans ce workspace
+     * @returns {Boolean}
+     */
+    isAdmin() {
+      // Vérifier si l'utilisateur a le rôle admin dans ce workspace
+      if (!this.workspace) return false;
+      if (!this.userId) return false;
+      
+      // Si l'utilisateur est déjà identifié comme propriétaire, il a aussi les droits admin
+      if (this.isOwner) return true;
+      
+      // Vérifier si l'utilisateur a le rôle admin dans ce workspace
+      const membres = this.workspace.membres || this.workspace.users || [];
+      const currentUser = membres.find(membre => {
+        const membreId = membre._id || membre.id || membre.userId;
+        return membreId === this.userId;
+      });
+  
+      if (currentUser) {
+        console.log('Utilisateur trouvé dans le workspace:', currentUser);
+        // Debug pour voir le rôle exact
+        console.log('Rôle de l\'utilisateur:', currentUser.role);
+        return currentUser.role === 'admin';
+      }
+  
+      // Si on n'a pas trouvé l'utilisateur, vérifier une autre structure possible
+      // Dans certains cas, les membres peuvent être dans un format différent
+      if (this.workspace.membres) {
+        for (const membre of this.workspace.membres) {
+          if (membre && typeof membre === 'object') {
+            // Vérifier si l'ID de l'utilisateur correspond
+            if (membre.utilisateur && membre.utilisateur._id === this.userId) {
+              console.log('Membre trouvé avec structure alternative:', membre);
+              return membre.role === 'admin';
+            }
+          }
+        }
+      }
+  
+      return false;
+    },
+    /**
+     * Vérifie si l'utilisateur est un simple membre du workspace (ni propriétaire, ni admin)
+     * @returns {Boolean}
+     */
+    isMember() {
+      if (!this.workspace) return false;
+      if (!this.userId) return false;
+      
+      // Si l'utilisateur est propriétaire ou admin, il n'est pas un simple membre
+      if (this.isOwner || this.isAdmin) return false;
+      
+      // Vérifier si l'utilisateur est membre du workspace
+      const membres = this.workspace.membres || this.workspace.users || [];
+      return membres.some(membre => {
+        const membreId = membre._id || membre.id || membre.userId;
+        return membreId === this.userId;
+      });
     }
   },
   created() {

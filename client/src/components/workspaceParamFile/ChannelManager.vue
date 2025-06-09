@@ -14,6 +14,9 @@
           <option value="public">Public</option>
           <option value="prive">Privé</option>
         </select>
+        <button class="add-channel-button" @click="openCreateChannelModal">
+          Ajouter un canal
+        </button>
       </div>
       
       <!-- Loading state -->
@@ -58,15 +61,25 @@
     @close="closeUserModal"
     @saved="handleUserPermissionsSaved"
   />
+  
+  <!-- Modal pour créer un nouveau canal -->
+  <CreateChannelModal
+    :show="showCreateChannelModal"
+    :workspaceId="workspaceId"
+    @close="closeCreateChannelModal"
+    @channel-created="handleChannelCreated"
+  />
 </template>
 
 <script>
 import ChannelUsersModal from './ChannelUsersModal.vue';
+import CreateChannelModal from './CreateChannelModal.vue';
 
 export default {
   name: 'ChannelManager',
   components: {
-    ChannelUsersModal
+    ChannelUsersModal,
+    CreateChannelModal
   },
   props: {
     workspaceId: {
@@ -83,7 +96,9 @@ export default {
       error: null,
       // Données pour le modal d'utilisateurs
       showUserModal: false,
-      selectedChannel: null
+      selectedChannel: null,
+      // Données pour le modal de création de canal
+      showCreateChannelModal: false
     }
   },
   computed: {
@@ -288,6 +303,30 @@ export default {
       console.log('Permissions mises à jour avec succès');
       // Ici on pourrait ajouter un toast ou notification de succès
       this.closeUserModal();
+    },
+    
+    /**
+     * Ouvrir le modal pour créer un nouveau canal
+     */
+    openCreateChannelModal() {
+      this.showCreateChannelModal = true;
+    },
+    
+    /**
+     * Fermer le modal de création de canal
+     */
+    closeCreateChannelModal() {
+      this.showCreateChannelModal = false;
+    },
+    
+    /**
+     * Gestion de la création réussie d'un canal
+     * @param {Object} newChannel - Le nouveau canal créé
+     */
+    handleChannelCreated(newChannel) {
+      console.log('Canal créé avec succès:', newChannel);
+      // Ajouter le nouveau canal à la liste sans avoir à recharger tous les canaux
+      this.channels.push(newChannel);
     }
   }
 }
@@ -448,5 +487,18 @@ export default {
   width: 40px;
 }
 
+.add-channel-button {
+  padding: 0.5rem 1rem;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.add-channel-button:hover {
+  background-color:rgb(46, 146, 50);
+}
 
 </style>

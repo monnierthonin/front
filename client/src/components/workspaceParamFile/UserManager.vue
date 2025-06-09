@@ -39,12 +39,22 @@
         <div v-for="user in filteredUsers" :key="user.id" class="user-item">
           <img :src="getUserAvatar(user)" :alt="getUserName(user)" class="user-avatar">
           <span class="username">{{ getUserName(user) }}</span>
-          <select v-model="user.role" class="role-select" :disabled="isOwner(user)" @change="updateUserRole(user)">
+          <select 
+            v-model="user.role" 
+            class="role-select" 
+            :disabled="isOwner(user) || (!isUserOwner() && isUserAdmin() && isAdmin(user))" 
+            @change="updateUserRole(user)"
+          >
             <option value="admin">Admin</option>
             <option value="membre">Membre</option>
           </select>
           <div class="action-buttons">
-            <button v-if="!isOwner(user)" class="bann-button" @click="banUser(user)" title="Bannir l'utilisateur">
+            <button 
+              v-if="!isOwner(user) && (isUserOwner() || !(isUserAdmin() && isAdmin(user)))" 
+              class="bann-button" 
+              @click="banUser(user)" 
+              title="Bannir l'utilisateur"
+            >
               <img src="../../assets/styles/image/ban.png" alt="bann" class="bann">
             </button>
           </div>
@@ -71,6 +81,7 @@ export default {
       loading: true,
       error: null,
       ownerId: null,
+      userId: null,
       defaultAvatar: '../../assets/styles/image/profilDelault.png',
       roleUpdateLoading: {}
     }
@@ -118,6 +129,19 @@ export default {
         this.ownerId = this.workspace.proprietaire._id || this.workspace.proprietaire.id;
       } else {
         this.ownerId = this.workspace.proprietaire;
+      }
+    }
+    
+    // Récupérer l'ID de l'utilisateur connecté
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        // Décode le token JWT pour obtenir l'ID utilisateur
+        const tokenPayload = token.split('.')[1];
+        const decodedPayload = JSON.parse(atob(tokenPayload));
+        this.userId = decodedPayload.userId || decodedPayload.id || decodedPayload.sub;
+      } catch (error) {
+        console.error('Erreur lors du décodage du token:', error);
       }
     }
     
@@ -177,6 +201,36 @@ export default {
      */
     isOwner(user) {
       return user.id === this.ownerId;
+    },
+    
+    /**
+     * Vérifie si l'utilisateur a le rôle admin
+     */
+    isAdmin(user) {
+      return user.role === 'admin';
+    },
+    
+    /**
+     * Vérifie si l'utilisateur connecté est admin
+     */
+    isUserAdmin() {
+      // Si l'utilisateur connecté est le propriétaire, il a les droits admin
+      if (this.userId === this.ownerId) return true;
+      
+      // Vérifier si l'utilisateur connecté a le rôle admin
+      const currentUser = this.users.find(user => user.id === this.userId);
+      if (!currentUser) return false;
+      
+      // Vérifier les différentes possibilités de nommage du champ rôle
+      const userRole = currentUser.role || currentUser.rôle || currentUser.Role || currentUser.Rôle;
+      return userRole === 'admin';
+    },
+    
+    /**
+     * Vérifie si l'utilisateur connecté est le propriétaire
+     */
+    isUserOwner() {
+      return this.userId === this.ownerId;
     },
 
     /**
