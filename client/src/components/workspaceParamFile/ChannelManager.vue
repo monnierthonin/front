@@ -38,23 +38,36 @@
       <div v-else class="channels-list">
         <div v-for="channel in filteredChannels" :key="channel.id" class="channel-item">
           <span class="channel-name"># {{ channel.nom }}</span>
-          <select v-model="channel.visibilite" class="status-select">
+          <select v-model="channel.visibilite" class="status-select" @change="updateChannelVisibility(channel)">
             <option value="public">Public</option>
             <option value="prive">Privé</option>
           </select>
-          <button class="add-user-button">ajout user</button>
-          <button class="delete-channel-button" title="Supprimer le canal">
+          <button v-if="channel.visibilite === 'prive'" class="add-user-button" @click="openUserModal(channel)">ajout user</button>
+          <button class="delete-channel-button" title="Supprimer le canal" @click="deleteChannel(channel)">
             <img src="../../assets/styles/image/ban.png" alt="delete" class="delete">
           </button>
         </div>
       </div>
     </div>
   </div>
+  <!-- Utilisation du composant modal pour la gestion des utilisateurs -->
+  <ChannelUsersModal 
+    :show="showUserModal" 
+    :channel="selectedChannel" 
+    :workspaceId="workspaceId"
+    @close="closeUserModal"
+    @saved="handleUserPermissionsSaved"
+  />
 </template>
 
 <script>
+import ChannelUsersModal from './ChannelUsersModal.vue';
+
 export default {
   name: 'ChannelManager',
+  components: {
+    ChannelUsersModal
+  },
   props: {
     workspaceId: {
       type: String,
@@ -67,7 +80,10 @@ export default {
       channelFilter: 'all',
       channels: [],
       loading: true,
-      error: null
+      error: null,
+      // Données pour le modal d'utilisateurs
+      showUserModal: false,
+      selectedChannel: null
     }
   },
   computed: {
@@ -112,6 +128,7 @@ export default {
     async loadChannels() {
       this.loading = true;
       this.error = null;
+      this.channels = [];
       
       try {
         // Récupérer le token depuis le localStorage
@@ -161,6 +178,108 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+
+    /**
+     * Mettre à jour la visibilité d'un canal (public/privé)
+     */
+    async updateChannelVisibility(channel) {
+      try {
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          throw new Error('Aucun token d\'authentification trouvé');
+        }
+        
+        const response = await fetch(`http://localhost:3000/api/v1/workspaces/${this.workspaceId}/canaux/${channel.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            visibilite: channel.visibilite
+          }),
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('Session expirée, veuillez vous reconnecter');
+          }
+          throw new Error(`Erreur lors de la mise à jour du canal: ${response.status}`);
+        }
+        
+        console.log(`Visibilité du canal ${channel.id} mise à jour en ${channel.visibilite}`);
+      } catch (err) {
+        console.error('Erreur lors de la mise à jour de la visibilité du canal:', err);
+        this.error = err.message || "Impossible de modifier la visibilité du canal";
+        // Restaurer la valeur précédente (à implémenter si nécessaire)
+      }
+    },
+    
+    /**
+     * Supprimer un canal
+     */
+    async deleteChannel(channel) {
+      if (!confirm(`Êtes-vous sûr de vouloir supprimer le canal #${channel.nom} ?`)) {
+        return;
+      }
+      
+      try {
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          throw new Error('Aucun token d\'authentification trouvé');
+        }
+        
+        const response = await fetch(`http://localhost:3000/api/v1/workspaces/${this.workspaceId}/canaux/${channel.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('Session expirée, veuillez vous reconnecter');
+          }
+          throw new Error(`Erreur lors de la suppression du canal: ${response.status}`);
+        }
+        
+        // Supprimer le canal de la liste sans avoir à recharger tous les canaux
+        this.channels = this.channels.filter(c => c.id !== channel.id);
+        console.log(`Canal ${channel.id} supprimé avec succès`);
+      } catch (err) {
+        console.error('Erreur lors de la suppression du canal:', err);
+        this.error = err.message || "Impossible de supprimer le canal";
+      }
+    },
+    
+    /**
+     * Ouvrir le modal pour gérer les utilisateurs du canal
+     */
+    openUserModal(channel) {
+      this.selectedChannel = channel;
+      this.showUserModal = true;
+    },
+    
+    /**
+     * Fermer le modal
+     */
+    closeUserModal() {
+      this.showUserModal = false;
+      this.selectedChannel = null;
+    },
+    
+    /**
+     * Gestionnaire d'événement quand les permissions sont sauvegardées
+     */
+    handleUserPermissionsSaved() {
+      console.log('Permissions mises à jour avec succès');
+      // Ici on pourrait ajouter un toast ou notification de succès
+      this.closeUserModal();
     }
   }
 }
@@ -320,4 +439,6 @@ export default {
 .delete-channel-button img {
   width: 40px;
 }
+
+
 </style>
