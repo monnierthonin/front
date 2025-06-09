@@ -19,6 +19,13 @@
           Quitter le workspace
         </button>
       </div>
+      
+      <!-- Bouton pour supprimer le workspace (uniquement pour le propriétaire) -->
+      <div v-if="isOwner" class="delete-workspace-container">
+        <button class="delete-workspace-button" @click="confirmDeleteWorkspace">
+          Supprimer le workspace
+        </button>
+      </div>
     </template>
   </div>
 </template>
@@ -179,12 +186,70 @@ export default {
     },
     
     /**
-     * Fonction pour quitter le workspace (à implémenter plus tard)
+     * Demande à l'utilisateur de quitter le workspace
      */
     leaveWorkspace() {
-      // Cette fonction sera implémentée plus tard
-      console.log('Fonctionnalité "Quitter le workspace" à implémenter');
-      alert('Cette fonctionnalité sera disponible prochainement');
+      // TODO: Implémenter la logique pour quitter le workspace
+      console.log('Quitter le workspace');
+      // Rediriger vers la page d'accueil
+    },
+    
+    /**
+     * Demande confirmation avant de supprimer le workspace
+     */
+    confirmDeleteWorkspace() {
+      if (confirm(`Êtes-vous sûr de vouloir supprimer définitivement le workspace "${this.workspace.nom}" ? Cette action est irréversible et supprimera tous les canaux et messages associés.`)) {
+        this.deleteWorkspace();
+      }
+    },
+    
+    /**
+     * Supprime le workspace et tous ses contenus
+     */
+    async deleteWorkspace() {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Aucun token d\'authentification trouvé');
+        }
+        
+        // Appel API pour supprimer le workspace
+        const response = await fetch(`http://localhost:3000/api/v1/workspaces/${this.workspaceId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('Session expirée, veuillez vous reconnecter');
+          } else if (response.status === 403) {
+            throw new Error('Vous n\'avez pas les droits pour supprimer ce workspace');
+          } else {
+            throw new Error(`Erreur lors de la suppression: ${response.status}`);
+          }
+        }
+        
+        // Mettre à jour le header en émettant un événement global
+        this.$root.$emit('workspace-deleted', this.workspaceId);
+        
+        // Supprimer le workspace du localStorage si présent
+        try {
+          const storedWorkspaces = JSON.parse(localStorage.getItem('userWorkspaces') || '[]');
+          const updatedWorkspaces = storedWorkspaces.filter(w => w._id !== this.workspaceId);
+          localStorage.setItem('userWorkspaces', JSON.stringify(updatedWorkspaces));
+        } catch (e) {
+          console.error('Erreur lors de la mise à jour du localStorage:', e);
+        }
+        
+        // Redirection vers la page d'accueil
+        this.$router.push('/main');
+        alert('Le workspace a été supprimé avec succès.');
+      } catch (err) {
+        console.error('Erreur lors de la suppression du workspace:', err);
+        alert(`Erreur: ${err.message}`);
+      }
     }
   }
 }
@@ -201,24 +266,46 @@ export default {
 }
 
 .leave-button {
-  background-color: #e74c3c;
+  background-color: #f44336;
   color: white;
   border: none;
-  border-radius: 8px;
-  padding: 12px 24px;
-  font-size: 16px;
-  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-weight: bold;
   cursor: pointer;
-  transition: background-color 0.3s, transform 0.2s;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-top: 20px;
 }
 
 .leave-button:hover {
-  background-color: #c0392b;
-  transform: translateY(-2px);
+  background-color: #d32f2f;
 }
 
 .leave-button:active {
+  transform: translateY(0);
+  background-color: #a93226;
+}
+
+.delete-workspace-container {
+  margin-top: 40px;
+  border-top: 1px solid #555;
+  padding-top: 20px;
+}
+
+.delete-workspace-button {
+  background-color: #d32f2f;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.delete-workspace-button:hover {
+  background-color: #b71c1c;
+}
+
+.delete-workspace-button:active {
   transform: translateY(0);
   background-color: #a93226;
 }

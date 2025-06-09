@@ -111,6 +111,13 @@ export default {
       // Ne pas réinitialiser la photo de profil, laissons la fonction loadUserProfile le faire correctement
       // quand l'utilisateur se connectera à nouveau
     });
+    
+    // Écouter l'événement global de suppression d'un workspace
+    this.$root.$on('workspace-deleted', (workspaceId) => {
+      console.log('Header a reçu l\'événement de suppression du workspace:', workspaceId);
+      // Mettre à jour la liste des workspaces
+      this.workspaces = this.workspaces.filter(w => w._id !== workspaceId);
+    });
   },
   
   async mounted() {
