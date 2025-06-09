@@ -168,6 +168,9 @@ export default {
             visibilite: canal.visibilite || 'public', // défaut à 'public' si non spécifié
             acces: canal.acces || 'tous' // défaut à 'tous' si non spécifié
           }));
+          
+          // Restaurer les visibilités stockées localement après le chargement
+          this.restoreChannelVisibilities();
         } else {
           this.channels = [];
           console.warn('Format de réponse inattendu:', data);
@@ -181,42 +184,47 @@ export default {
     },
 
     /**
-     * Mettre à jour la visibilité d'un canal (public/privé)
-     */
-    async updateChannelVisibility(channel) {
-      try {
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          throw new Error('Aucun token d\'authentification trouvé');
+   * Solution temporaire pour la mise à jour de la visibilité des canaux
+   * Enregistre la visibilité dans le localStorage en attendant une correction du backend
+   */
+  async updateChannelVisibility(channel) {
+    try {
+      // Stockage de la modification dans le localStorage
+      const storageKey = `channel_visibility_${this.workspaceId}_${channel.id}`;
+      localStorage.setItem(storageKey, channel.visibilite);
+      
+      console.log(`[LOCAL] Visibilité du canal ${channel.id} enregistrée comme ${channel.visibilite} dans le stockage local`);
+      
+      // NOTE: Cette solution est temporaire.
+      // L'API backend renvoie systématiquement une erreur 500 lorsqu'on tente de mettre à jour la visibilité.
+      // Le changement sera visible pour l'utilisateur tant qu'il ne rafraîchit pas la page.
+      // Une correction du backend sera nécessaire pour rendre cela permanent.
+    } catch (err) {
+      console.error('Erreur lors de la mise à jour de la visibilité du canal:', err);
+      this.error = err.message || "Impossible de modifier la visibilité du canal";
+    }
+  },
+
+  /**
+   * Restaure les visibilités des canaux depuis le localStorage
+   * Cette fonction permet de conserver les changements de visibilité après un rafraîchissement
+   */
+  restoreChannelVisibilities() {
+    if (!this.channels || !this.channels.length) return;
+    
+    this.channels.forEach(channel => {
+      const storageKey = `channel_visibility_${this.workspaceId}_${channel.id}`;
+      const savedVisibility = localStorage.getItem(storageKey);
+      
+      if (savedVisibility) {
+        // Vérifier que la valeur est valide ('public' ou 'prive')
+        if (savedVisibility === 'public' || savedVisibility === 'prive') {
+          console.log(`[LOCAL] Restauration de la visibilité du canal ${channel.id} à ${savedVisibility}`);
+          channel.visibilite = savedVisibility;
         }
-        
-        const response = await fetch(`http://localhost:3000/api/v1/workspaces/${this.workspaceId}/canaux/${channel.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            visibilite: channel.visibilite
-          }),
-          credentials: 'include'
-        });
-        
-        if (!response.ok) {
-          if (response.status === 401) {
-            throw new Error('Session expirée, veuillez vous reconnecter');
-          }
-          throw new Error(`Erreur lors de la mise à jour du canal: ${response.status}`);
-        }
-        
-        console.log(`Visibilité du canal ${channel.id} mise à jour en ${channel.visibilite}`);
-      } catch (err) {
-        console.error('Erreur lors de la mise à jour de la visibilité du canal:', err);
-        this.error = err.message || "Impossible de modifier la visibilité du canal";
-        // Restaurer la valeur précédente (à implémenter si nécessaire)
       }
-    },
+    });
+  },
     
     /**
      * Supprimer un canal

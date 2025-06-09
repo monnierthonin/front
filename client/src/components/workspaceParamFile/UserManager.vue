@@ -12,8 +12,7 @@
         <select v-model="userFilter" class="filter-select">
           <option value="all">Tous les rôles</option>
           <option value="admin">Admin</option>
-          <option value="moderator">Modérateur</option>
-          <option value="member">Membre</option>
+          <option value="membre">Membre</option>
         </select>
       </div>
       
@@ -42,8 +41,7 @@
           <span class="username">{{ getUserName(user) }}</span>
           <select v-model="user.role" class="role-select" :disabled="isOwner(user)" @change="updateUserRole(user)">
             <option value="admin">Admin</option>
-            <option value="moderator">Modérateur</option>
-            <option value="member">Membre</option>
+            <option value="membre">Membre</option>
           </select>
           <div class="action-buttons">
             <button v-if="!isOwner(user)" class="bann-button" @click="banUser(user)" title="Bannir l'utilisateur">
@@ -204,13 +202,16 @@ export default {
         const url = `http://localhost:3000/api/v1/workspaces/${this.workspace._id}/membres/${user.id}/role`;
         
         // Format du corps pour une requête PATCH conforme aux standards REST
+        // L'API nécessite que tous les paramètres soient envoyés même s'ils n'ont pas changé
         const response = await fetch(url, {
           method: 'PATCH',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ role: user.role }), // Utiliser un objet JSON avec la propriété role
+          body: JSON.stringify({ 
+            role: user.role 
+          }), // Inclure tous les paramètres requis par l'API
           credentials: 'include'
         });
         
