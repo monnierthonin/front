@@ -30,7 +30,7 @@
         </ul>
       </div>
       <div class="botom-header">
-        <div class="boutonModeration" v-if="isAdmin"><!-- a afficher quand l'utilisateur est admin -->
+        <div class="boutonModeration" v-if="isAdmin"><!-- Section administration (uniquement pour les superadmins) -->
           <router-link to="/admin">
             <button class="moderationButton"><img src="../../assets/styles/image/moderation.png" alt="moderation" class="moderation"></button>
           </router-link>
@@ -103,11 +103,18 @@ export default {
       console.log('Header a reçu l\'événement de connexion');
       // Récupérer la nouvelle photo de profil du localStorage
       this.currentProfilePicture = localStorage.getItem('profilePicture') || 'default.jpg';
+      this.isAuthenticated = true;
+      // Vérifier le rôle superadmin
+      this.checkSuperAdminRole();
+      // Recharger les workspaces
+      this.loadWorkspaces();
     });
     
     // S'abonner à l'événement de déconnexion
     eventBus.on(APP_EVENTS.USER_LOGGED_OUT, () => {
       console.log('Header a reçu l\'événement de déconnexion');
+      this.isAuthenticated = false;
+      this.isAdmin = false;
       // Ne pas réinitialiser la photo de profil, laissons la fonction loadUserProfile le faire correctement
       // quand l'utilisateur se connectera à nouveau
     });
@@ -125,10 +132,52 @@ export default {
     this.isAuthenticated = localStorage.getItem('token') !== null;
     console.log('Statut d\'authentification:', this.isAuthenticated);
     
+    // Vérifier si l'utilisateur est un superadmin
+    if (this.isAuthenticated) {
+      this.checkSuperAdminRole();
+    }
+    
     // Chargement des workspaces au montage du composant
     await this.loadWorkspaces();
   },
   methods: {
+    /**
+     * Vérifie si l'utilisateur a le rôle superadmin (admin)
+     */
+    async checkSuperAdminRole() {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        // Faire une requête au serveur pour récupérer les informations de l'utilisateur courant
+        const response = await fetch('http://localhost:3000/api/v1/users/profile', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Erreur lors de la récupération des informations utilisateur: ${response.status}`);
+        }
+        
+        const userData = await response.json();
+        console.log('Informations utilisateur:', userData);
+        
+        // Vérifier si l'utilisateur a le rôle 'admin' ou 'super_admin'
+        if (userData.data) {
+          // Structure de réponse de l'API: la réponse peut contenir directement les données utilisateur
+          // ou être encapsulée dans un champ user
+          const user = userData.data.user || userData.data;
+          this.isAdmin = ['admin', 'super_admin'].includes(user.role);
+          console.log('L\'utilisateur est-il superadmin?', this.isAdmin, 'Role:', user.role);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la vérification du rôle superadmin:', error);
+        this.isAdmin = false;
+      }
+    },
     // Ouvrir le modal de gestion des workspaces
     openWorkspaceModal() {
       this.isWorkspaceModalOpen = true;
