@@ -14,6 +14,13 @@
           <option value="admin">Admin</option>
           <option value="membre">Membre</option>
         </select>
+        <button 
+          v-if="isUserAdmin() || isUserOwner()" 
+          @click="openInviteModal" 
+          class="invite-button"
+        >
+          Inviter
+        </button>
       </div>
       
       <!-- Loading state -->
@@ -62,11 +69,22 @@
       </div>
     </div>
   </div>
+  <!-- Modal d'invitation d'utilisateurs -->
+  <InviteUserModal
+    ref="inviteModal"
+    :workspace-id="workspace._id"
+    @close="closeInviteModal"
+    @user-invited="handleUserInvited"
+  />
 </template>
 
 <script>
+import InviteUserModal from './InviteUserModal.vue';
 export default {
   name: 'UserManager',
+  components: {
+    InviteUserModal
+  },
   props: {
     workspace: {
       type: Object,
@@ -83,7 +101,8 @@ export default {
       ownerId: null,
       userId: null,
       defaultAvatar: '../../assets/styles/image/profilDelault.png',
-      roleUpdateLoading: {}
+      roleUpdateLoading: {},
+      isInviteModalOpen: false
     }
   },
   computed: {
@@ -352,6 +371,36 @@ export default {
         console.error('Erreur lors du bannissement de l\'utilisateur:', err);
         this.error = err.message || "Impossible de bannir l'utilisateur";
       }
+    },
+    
+    // Méthodes pour le modal d'invitation
+    /**
+ * Ouvre le modal d'invitation
+ */
+openInviteModal() {
+  this.$refs.inviteModal.open();
+},
+
+/**
+ * Ferme le modal d'invitation
+ */
+closeInviteModal() {
+  this.$refs.inviteModal.close();
+},
+
+    /**
+     * Gère l'événement d'invitation réussie
+     */
+    handleUserInvited(user) {
+      // Recupérer à nouveau la liste des membres pour inclure le nouvel invité
+      this.loading = true;
+      // Permettre au backend de traiter l'ajout
+      setTimeout(() => {
+        this.fetchMembers();
+      }, 1000);
+      
+      // Afficher un message de confirmation
+      alert(`${user.username} a été invité(e) avec succès au workspace.`);
     }
   }
 }
@@ -483,11 +532,27 @@ export default {
 }
 
 .role-select {
-  padding: 0.3rem;
+  padding: 4px 8px;
   border-radius: 4px;
-  background: #333;
-  color: #fff;
-  border: 1px solid #555;
+  background-color: #40444b;
+  color: white;
+  border: none;
+  font-size: 14px;
+}
+
+.invite-button {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.invite-button:hover {
+  background-color:rgb(50, 151, 53);
 }
 
 .action-buttons {
