@@ -6,24 +6,28 @@
         <input type="text" v-model="userSearchQuery" placeholder="Rechercher un utilisateur..." class="search-input"/>
       </div>
       <div class="users-list">
-        <div v-for="user in users" :key="user.id" class="user-item">
-          <img :src="user.profileImage" :alt="user.username" class="user-avatar">
+        <div v-for="user in filteredUsers" :key="user.id" class="user-item">
+          <img :src="user.profileImage || '../../assets/styles/image/profilDelault.png'" :alt="user.username" class="user-avatar">
           <span class="username">{{ user.username }}</span>
-          <select v-model="user.role" class="UserMessages">
-            <option value="admin">Admin</option>
-            <option value="user">User</option>
-            <option value="guest">Invité</option>
-          </select>
-          <select v-model="user.role" class="UserWorkspace">
+          <select v-model="user.role" class="role-select" @change="updateUserRole(user)">
             <option value="admin">Admin</option>
             <option value="user">User</option>
             <option value="guest">Invité</option>
           </select>
           <div class="action-buttons">
-            <button class="exit-button"><img src="../../assets/styles/image/banTempo.png" alt="exit" class="exit"></button>
-            <button class="bann-button"><img src="../../assets/styles/image/ban.png" alt="bann" class="bann"></button>
+            <button class="action-button" title="Trouver les workspaces" @click="findUserWorkspaces(user)">
+              <img src="../../assets/styles/image/parametre.png" alt="workspaces" class="action-icon">
+            </button>
+            <button class="action-button" title="Trouver les messages" @click="findUserMessages(user)">
+              <img src="../../assets/styles/image/messageEnvoi.png" alt="messages" class="action-icon">
+            </button>
+            <button class="action-button delete-button" title="Supprimer l'utilisateur" @click="deleteUser(user)">
+              <img src="../../assets/styles/image/ban.png" alt="delete" class="action-icon">
+            </button>
           </div>
         </div>
+        <div v-if="loading" class="loading">Chargement...</div>
+        <div v-if="!loading && !users.length" class="no-results">Aucun utilisateur trouvé</div>
       </div>
     </div>
   </div>
@@ -31,56 +35,61 @@
 
 <script>
 export default {
-  name: 'UserManager',
+  name: 'AdminUserManager',
   data() {
     return {
       userSearchQuery: '',
-      userFilter: 'all',
-      users: [
-        {
-          id: 1,
-          username: 'JohnDoe',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'admin'
-        },
-        {
-          id: 2,
-          username: 'JaneSmith',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'user'
-        },
-        {
-          id: 3,
-          username: 'GuestUser',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'guest'
-        },
-        {
-          id: 4,
-          username: 'GuestUser',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'guest'
-        },
-        {
-          id: 5,
-          username: 'GuestUser',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'guest'
-        },
-        {
-          id: 6,
-          username: 'GuestUser',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'guest'
-        },
-        {
-          id: 7,
-          username: 'GuestUser',
-          profileImage: "../../assets/styles/image/profilDelault.png",
-          role: 'guest'
-        }
-      ]
+      loading: false,
+      error: null,
+      users: []
+    };
+  },
+  computed: {
+    filteredUsers() {
+      if (!this.userSearchQuery) return this.users;
+      
+      const query = this.userSearchQuery.toLowerCase();
+      return this.users.filter(user => 
+        user.username.toLowerCase().includes(query)
+      );
     }
+  },
+  methods: {
+    // Cette méthode sera implémentée lorsque l'API sera disponible
+    async fetchUsers() {
+      // Actuellement, nous utilisons des données statiques définies dans data()
+      this.loading = true;
+      
+      // Simulation d'un appel API (attente de 300ms)
+      setTimeout(() => {
+        this.loading = false;
+      }, 300);
+    },
+    
+    updateUserRole(user) {
+      // This would typically make an API call to update the user's role
+      console.log(`Updating ${user.username}'s role to ${user.role}`);
+    },
+    
+    findUserWorkspaces(user) {
+      // This would open a modal or navigate to show user's workspaces
+      console.log(`Finding workspaces for user: ${user.username}`);
+    },
+    
+    findUserMessages(user) {
+      // This would open a modal or navigate to show user's messages
+      console.log(`Finding messages for user: ${user.username}`);
+    },
+    
+    deleteUser(user) {
+      // This would typically make an API call to delete the user
+      console.log(`Deleting user: ${user.username}`);
+    },
+    
+
+  },
+  mounted() {
+    this.fetchUsers();
   }
 }
 </script>
@@ -193,20 +202,13 @@ export default {
   flex: 1;
 }
 
-.UserMessages {
+.role-select {
   padding: 0.3rem;
   border-radius: 4px;
   background: #333;
   color: #fff;
   border: 1px solid #555;
-}
-
-.UserWorkspace {
-  padding: 0.3rem;
-  border-radius: 4px;
-  background: #333;
-  color: #fff;
-  border: 1px solid #555;
+  margin-right: 10px;
 }
 
 .role-button {
@@ -227,11 +229,7 @@ export default {
   gap: 0.5rem;
 }
 
-.exit-button img {
-  width: 40px;
-}
-
-.exit-button {
+.action-button {
   height: 40px;
   width: 40px;
   background: none;
@@ -239,19 +237,27 @@ export default {
   align-items: center;
   justify-content: center;
   display: flex;
+  cursor: pointer;
+  transition: transform 0.2s;
 }
 
-.bann-button img {
-  width: 40px;
+.action-button:hover {
+  transform: scale(1.1);
 }
 
-.bann-button {
-  height: 40px;
-  width: 40px;
-  background: none;
-  border: none;
-  align-items: center;
-  justify-content: center;
-  display: flex;
+.action-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.delete-button {
+  color: #ff5252;
+}
+
+.loading, .no-results {
+  color: #fff;
+  text-align: center;
+  padding: 1rem;
+  font-style: italic;
 }
 </style>
