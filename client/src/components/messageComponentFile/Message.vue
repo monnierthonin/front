@@ -63,16 +63,16 @@
             </div>
             
             <!-- Réactions aux messages -->
-            <div v-if="message.reactions && message.reactions.length > 0" class="message-reactions">
+            <div v-if="getMessageReactions(message)" class="message-reactions">
               <div 
-                v-for="(reaction, index) in message.reactions" 
+                v-for="(reaction, index) in getMessageReactions(message)" 
                 :key="index" 
                 class="reaction-badge"
                 :class="{ 'user-reacted': hasUserReacted(reaction, currentUserId) }"
                 @click="handleReaction(message, reaction.emoji)"
               >
                 <span class="reaction-emoji">{{ reaction.emoji }}</span>
-                <span class="reaction-count">{{ reaction.utilisateurs.length }}</span>
+                <span class="reaction-count">{{ reaction.utilisateurs ? reaction.utilisateurs.length : 0 }}</span>
               </div>
             </div>
             
@@ -120,6 +120,7 @@
               :message="message"
               :is-private="isPrivate"
               :conversation-id="conversationId"
+              :workspace-id="$route.params.id"
               @reaction-added="handleReactionAdded"
             />
             <MessageEditButton
@@ -139,13 +140,8 @@
             />
           </div>
           
-          <!-- Emoji Picker -->
-          <div class="emoji-picker-container" v-if="activeEmojiPickerMessageId === message._id">
-            <SimpleEmojiPicker 
-              @select="addReaction(message, $event)" 
-              @close="closeEmojiPicker()"
-            />
-          </div>
+          <!-- Le selecteur d'emoji est maintenant géré dans le composant MessageReactionButton -->
+
         </div>
       </div>
     </template>
@@ -200,7 +196,6 @@ export default {
       showEditModal: false,
       editContent: '',
       editingMessageId: null,
-      activeEmojiPickerMessageId: null,
       userId: '',
       localCurrentUserId: this.currentUserId || getCurrentUserId() || '',
       localMessages: [], // Copie locale des messages pour le rendu optimisé
@@ -645,77 +640,54 @@ export default {
       });
     },
     
-    /**
-     * Affiche ou masque le sélecteur d'emoji pour un message
-     * @param {Object} message - Le message concerné
-     */
-    toggleEmojiPicker(message) {
-      if (this.activeEmojiPickerMessageId === message._id) {
-        this.activeEmojiPickerMessageId = null;
-      } else {
-        this.activeEmojiPickerMessageId = message._id;
-      }
-    },
-    
-    /**
-     * Ferme le sélecteur d'emoji
-     */
-    closeEmojiPicker() {
-      this.activeEmojiPickerMessageId = null;
-    },
-    
-    /**
-     * Gère le clic sur le bouton d'emoji
-     * @param {Object} message - Le message concerné
-     */
-    handleEmoji(message) {
-      this.toggleEmojiPicker(message);
-    },
-    
-    /**
-     * Gère le clic sur une réaction existante (ajoute ou retire la réaction)
-     * @param {Object} message - Le message concerné 
-     * @param {String} emoji - L'emoji de la réaction
-     */
-    handleReaction(message, emoji) {
-      this.addReaction(message, emoji);
-    },
-    
-    /**
-     * Ajoute ou retire une réaction à un message
-     * @param {Object} message - Le message auquel réagir
-     * @param {String} emoji - L'emoji à ajouter ou retirer
-     */
-    addReaction(message, emoji) {
-      const workspaceId = this.$route.params.id;
-      const canalId = this.$route.params.canalId;
-      
-      messageService.reactToMessage(workspaceId, canalId, message._id, emoji)
-        .then(() => {
-          this.closeEmojiPicker();
-          this.$emit('update-messages');
-        })
-        .catch(error => {
-          console.error('Erreur lors de l\'ajout de la réaction :', error);
+    // Méthode temporaire pour tester directement les réactions
+    async testEmojiReaction(message, emoji) {
+      try {
+        console.log('Test de réaction avec emoji:', emoji, 'pour le message:', message._id);
+        let result;
+        
+        if (this.isPrivate) {
+          // Messages privés
+          result = await messagePrivateService.reactToPrivateMessage(
+            this.conversationId,
+            message._id,
+            emoji
+          );
+        } else {
+          // Messages de canal
+          result = await messageService.reactToMessage(
+            this.$route.params.id,
+            message.canal,
+            message._id,
+            emoji
+          );
+        }
+        
+        console.log('Résultats de la réaction:', result);
+        
+        // Vue 3 compatible - Modification directe du tableau réactif
+        if (result && result.reactions) {
+          const index = this.messages.findIndex(m => m._id === message._id);
+          if (index !== -1) {
+            // Créer une nouvelle copie du message avec les réactions mises à jour
+            const updatedMessages = [...this.messages];
+            updatedMessages[index] = { ...this.messages[index], reactions: result.reactions };
+            this.messages = updatedMessages;
+          }
+        }
+        
+        // Emettre l'événement
+        this.$emit('reaction-added', { messageId: message._id, emoji });
+      } catch (error) {
+        console.error('Erreur lors de l\'ajout de la réaction:', error);
+        
+        // Gérer le cas où l'utilisateur a déjà réagi avec cet emoji
+        if (error.message && error.message.includes('déjà réagi')) {
+          console.log('Vous avez déjà réagi avec cet emoji');
+        } else {
           alert(`Erreur: ${error.message}`);
-        });
-    },
-    
-    /**
-     * Gère le clic sur une réaction existante (ajoute ou retire la réaction)
-     * @param {Object} message - Le message concerné
-     * @param {String} emoji - L'emoji de la réaction
-     */
-    handleReaction(message, emoji) {
-      this.addReaction(message, emoji);
-    },
-    
-    /**
-     * Gère le clic sur le bouton d'emoji
-     * @param {Object} message - Le message concerné
-     */
-    handleEmoji(message) {
-      this.toggleEmojiPicker(message);
+        }
+      }
     },
     
     /**
@@ -895,15 +867,233 @@ export default {
       }
     },
 
-    handleReactionAdded({ messageId, emoji }) {
-      this.$emit('reaction-added', { messageId, emoji });
+    /**
+     * Récupère les réactions d'un message quelle que soit sa structure
+     * @param {Object} message - Le message
+     * @returns {Array} Liste des réactions ou null si pas de réactions
+     */
+    getMessageReactions(message) {
+      console.log('getMessageReactions appelé avec message.reactions:', JSON.stringify(message.reactions));
+      
+      // Aucune réaction
+      if (!message.reactions) {
+        return null;
+      }
+      
+      // Messages de canal standards avec tableau de réactions
+      if (Array.isArray(message.reactions) && message.reactions.length > 0) {
+        return message.reactions;
+      }
+      
+      // Messages privés (structure potentiellement différente)
+      if (typeof message.reactions === 'object') {
+        // Si les réactions sont stockées comme un objet avec emojis comme clés
+        const reactionsArray = [];
+        for (const emoji in message.reactions) {
+          if (Object.prototype.hasOwnProperty.call(message.reactions, emoji)) {
+            const reaction = message.reactions[emoji];
+            
+            // Gérer tous les formats possibles
+            reactionsArray.push({
+              emoji: emoji,
+              utilisateurs: Array.isArray(reaction) ? reaction : 
+                           (reaction.utilisateurs && Array.isArray(reaction.utilisateurs)) ? reaction.utilisateurs : 
+                           []
+            });
+          }
+        }
+        console.log('reactionsArray après conversion:', reactionsArray);
+        return reactionsArray.length > 0 ? reactionsArray : null;
+      }
+      
+      // Aucune réaction
+      return null;
     },
 
-    closeEditModal() {
-      this.showEditModal = false;
-      this.editingMessage = null;
-      this.editContent = '';
+    /**
+     * Gère le clic sur une réaction existante
+     * @param {Object} message - Le message contenant la réaction
+     * @param {String} emoji - L'emoji sur lequel on a cliqué
+     */
+    async handleReaction(message, emoji) {
+      console.log('handleReaction appelé avec le message:', message._id, 'et emoji:', emoji);
+      try {
+        let result;
+        
+        if (this.isPrivate) {
+          // Messages privés
+          result = await messagePrivateService.reactToPrivateMessage(
+            this.conversationId,
+            message._id,
+            emoji
+          );
+        } else {
+          // Messages de canal
+          result = await messageService.reactToMessage(
+            this.$route.params.id,
+            message.canal,
+            message._id,
+            emoji
+          );
+        }
+        
+        console.log('Résultat de l\'API après réaction:', result);
+        
+        // Mettre à jour l'interface avec les résultats
+        this.handleReactionAdded({
+          messageId: message._id,
+          emoji,
+          result
+        });
+        
+      } catch (error) {
+        console.error('Erreur lors du clic sur une réaction:', error);
+        // Gérer l'erreur si l'utilisateur a déjà réagi
+        if (error.message && error.message.includes('déjà réagi')) {
+          console.log('Vous avez déjà réagi avec cet emoji');
+        }
+      }
+    },
+    
+    /**
+     * Gère l'ajout d'une réaction à un message
+     * @param {Object} params - Paramètres de la réaction
+     * @param {String} params.messageId - ID du message
+     * @param {String} params.emoji - Emoji utilisé
+     * @param {Object} params.result - Résultat de l'API contenant les réactions mises à jour
+     */
+    async handleReactionAdded({ messageId, emoji, result }) {
+      console.log('handleReactionAdded appelé avec messageId:', messageId, 'emoji:', emoji, 'et résultat:', result);
+      
+      try {
+        let updatedMessage = null;
+        let index = -1;
+        
+        // Trouver l'index du message dans le tableau
+        index = this.messages.findIndex(m => this.getMessageId(m) === messageId);
+        console.log('Index du message trouvé:', index);
+        
+        if (index === -1) {
+          console.warn(`Message avec ID ${messageId} non trouvé dans le tableau`);
+          return;
+        }
+        
+        const originalMessage = this.messages[index];
+        console.log('Message original:', originalMessage);
+        
+        // Copie complète du message original pour éviter les modifications directes
+        updatedMessage = JSON.parse(JSON.stringify(originalMessage));
+        
+        // Si le résultat de l'API contient directement les données mises à jour, on les utilise
+        if (result && result.reactions) {
+          updatedMessage.reactions = result.reactions;
+          console.log('Structure des réactions après mise à jour API:', JSON.stringify(result.reactions));
+        } else {
+          // Sinon, mettre à jour manuellement en ajoutant l'emoji au message
+          const currentUserId = this.currentUserId || this.getAuthorId();
+          
+          if (!currentUserId) {
+            console.warn('ID utilisateur non disponible pour la mise à jour manuelle des réactions');
+            return;
+          }
+          
+          // Gérer différents formats de réactions selon le type de message
+          if (this.isPrivate) {
+            // Format pour messages privés (objet avec clés d'emoji)
+            if (!updatedMessage.reactions) updatedMessage.reactions = {};
+            
+            // S'assurer que la structure est correcte
+            if (Array.isArray(updatedMessage.reactions)) {
+              // Convertir de tableau à objet si nécessaire
+              const reactionsObj = {};
+              updatedMessage.reactions.forEach(r => {
+                if (r.emoji) {
+                  reactionsObj[r.emoji] = { 
+                    utilisateurs: Array.isArray(r.utilisateurs) ? r.utilisateurs : []
+                  };
+                }
+              });
+              updatedMessage.reactions = reactionsObj;
+            }
+            
+            // Initialiser l'emoji s'il n'existe pas encore
+            if (!updatedMessage.reactions[emoji]) {
+          updatedMessage.reactions[emoji] = { utilisateurs: [] };
+        }
+        
+        // S'assurer que utilisateurs est un tableau
+        if (!Array.isArray(updatedMessage.reactions[emoji].utilisateurs)) {
+          updatedMessage.reactions[emoji].utilisateurs = [];
+        }
+        
+        // Ajouter l'utilisateur courant s'il n'a pas déjà réagi
+        const users = updatedMessage.reactions[emoji].utilisateurs;
+        if (!users.includes(currentUserId)) {
+          updatedMessage.reactions[emoji].utilisateurs = [...users, currentUserId];
+        }
+      } else {
+        // Format pour messages de canal (tableau de réactions)
+        if (!updatedMessage.reactions) updatedMessage.reactions = [];
+        
+        // S'assurer que la structure est correcte
+        if (!Array.isArray(updatedMessage.reactions)) {
+          // Convertir d'objet à tableau si nécessaire
+          const reactionsArray = [];
+          for (const key in updatedMessage.reactions) {
+            if (Object.prototype.hasOwnProperty.call(updatedMessage.reactions, key)) {
+              const users = updatedMessage.reactions[key].utilisateurs || [];
+              reactionsArray.push({
+                emoji: key,
+                utilisateurs: users
+              });
+            }
+          }
+          updatedMessage.reactions = reactionsArray;
+        }
+        
+        // Rechercher si cet emoji existe déjà
+        const existingReaction = updatedMessage.reactions.find(r => r.emoji === emoji);
+        
+        if (existingReaction) {
+          // S'assurer que utilisateurs est un tableau
+          if (!Array.isArray(existingReaction.utilisateurs)) {
+            existingReaction.utilisateurs = [];
+          }
+          
+          // Ajouter l'utilisateur s'il n'a pas déjà réagi
+          if (!existingReaction.utilisateurs.includes(currentUserId)) {
+            existingReaction.utilisateurs = [...existingReaction.utilisateurs, currentUserId];
+          }
+        } else {
+          // Créer une nouvelle réaction
+          updatedMessage.reactions.push({
+            emoji,
+            utilisateurs: [currentUserId]
+          });
+        }
+      }
+      
+      console.log(`Réaction ${emoji} ajoutée manuellement au message ${messageId}`);
     }
+    
+    // Au lieu de modifier la prop directement, on émet un événement pour que le parent fasse la mise à jour
+    console.log('Message mis à jour:', JSON.stringify(updatedMessage.reactions));
+    
+    // Émettre un événement pour mettre à jour le message dans le composant parent
+    this.$emit('update-message', { index, message: updatedMessage });
+    
+    // Également émettre l'événement reaction-added pour la compatibilité avec le code existant
+    this.$emit('reaction-added', { messageId, emoji, updatedMessage });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour des réactions:', error);
+  }
+},
+
+closeEditModal() {
+  this.showEditModal = false;
+  this.editingMessage = null;
+  this.editContent = '';
+}
   }
 }
 </script>

@@ -11,6 +11,8 @@
         @reply-to-message="handleReplyToMessage"
         @edit-message="handleEditMessage"
         @delete-message="handleDeleteMessage"
+        @reaction-added="handleReactionAdded"
+        @update-message="handleMessageUpdate"
       />
     </div>
     
@@ -618,23 +620,12 @@ export default {
         this.$toast.error(error.message || 'Erreur lors de la suppression du message');
       }
     },
-
-    /**
-     * Annule la réponse à un message
-     */
-    cancelReply() {
-      this.replyingToMessage = null;
-    },
     
     /**
-     * Charge automatiquement la première conversation disponible
+     * Initialise la première conversation disponible
      */
-    async loadFirstConversation() {
+    async initializeFirstConversation() {
       try {
-        console.log('Chargement de la première conversation disponible...');
-        this.isLoading = true;
-        
-        // Récupérer toutes les conversations
         const conversations = await messagePrivateService.getAllPrivateConversations();
         
         if (conversations && conversations.length > 0) {
@@ -668,6 +659,33 @@ export default {
         console.error('Erreur lors du chargement de la première conversation:', error);
         this.isLoading = false;
       }
+    },
+    
+    /**
+     * Gère la mise à jour d'un message, notamment pour les réactions
+     * @param {Object} param0 - Paramètres de la mise à jour
+     * @param {Number} param0.index - Index du message dans le tableau messagesData
+     * @param {Object} param0.message - Message mis à jour
+     */
+    handleMessageUpdate({ index, message }) {
+      console.log('PrivateMessage: handleMessageUpdate appelé avec index:', index, 'et message:', message);
+      if (index !== -1 && index < this.messagesData.length) {
+        // Créer une nouvelle copie du tableau pour assurer la réactivité dans Vue 3
+        const updatedMessages = [...this.messagesData];
+        updatedMessages[index] = message;
+        this.messagesData = updatedMessages;
+        console.log('Message mis à jour dans messagesData à l\'index', index);
+      }
+    },
+    
+    /**
+     * Gère l'ajout d'une réaction à un message
+     * Méthode de compatibilité pour l'ancien système d'événements
+     */
+    handleReactionAdded({ messageId, emoji, updatedMessage }) {
+      console.log('PrivateMessage: handleReactionAdded appelé, messageId:', messageId, 'emoji:', emoji);
+      // Cette méthode est maintenue pour la compatibilité
+      // La mise à jour réelle est gérée par handleMessageUpdate
     }
   },
 

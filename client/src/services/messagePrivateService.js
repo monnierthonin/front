@@ -729,6 +729,98 @@ const messagePrivateService = {
    * @param {String} participantId - L'ID de l'autre utilisateur participant à la conversation.
    * @returns {Promise} Promesse avec les données de la conversation.
    */
+  /**
+   * Récupérer un message privé spécifique dans une conversation
+   * @param {String} conversationId - ID de la conversation
+   * @param {String} messageId - ID du message à récupérer
+   * @returns {Promise} Promesse avec le message
+   */
+  async getPrivateMessage(conversationId, messageId) {
+    try {
+      // Vérifier si l'utilisateur est authentifié (via cookie)
+      const isAuthenticated = await authService.isAuthenticated();
+      
+      if (!isAuthenticated) {
+        throw new Error('Vous devez être connecté pour accéder aux messages');
+      }
+      
+      // Construire l'URL pour l'endpoint d'un message spécifique
+      const url = `${API_URL}/conversations/${conversationId}/messages/${messageId}`;
+      
+      console.log('Appel API pour récupérer un message:', url);
+      
+      // Appeler l'API pour récupérer le message
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+      });
+
+      console.log('Statut de la réponse API (getPrivateMessage):', response.status);
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('Erreur 401: Session expirée ou cookie non valide');
+          throw new Error('Session expirée, veuillez vous reconnecter');
+        }
+        const responseText = await response.text();
+        console.error('Contenu de l\'erreur (getPrivateMessage):', responseText);
+        throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
+      }
+
+      const responseText = await response.text();
+      console.log('Réponse brute API (getPrivateMessage):', responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Erreur de parsing JSON (getPrivateMessage):', parseError);
+        throw new Error('Impossible de parser la réponse du serveur');
+      }
+
+      console.log('Données reçues de l\'API (getPrivateMessage):', data);
+
+      // Extraire le message de la réponse selon le format attendu
+      if (data && data.status === 'success' && data.data && data.data.message) {
+        return data.data.message;
+      } else if (data && data.message) {
+        return data.message;
+      } else if (data && data.data) {
+        return data.data;
+      }
+      
+      // Si aucun message n'est trouvé dans la réponse, essayer de récupérer via l'API de réaction
+      // et utiliser les données de réaction à la place
+      const reactionUrl = `${API_URL}/conversations/${conversationId}/messages/${messageId}/reactions`;
+      const reactionResponse = await fetch(reactionUrl, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+
+      if (reactionResponse.ok) {
+        const reactionData = await reactionResponse.json();
+        console.log('Données de réaction reçues:', reactionData);
+        
+        if (reactionData && reactionData.data && reactionData.data.message) {
+          return reactionData.data.message;
+        } else if (reactionData && reactionData.message) {
+          return reactionData.message;
+        } else if (reactionData && reactionData.data) {
+          return reactionData.data;
+        }
+      }
+
+      throw new Error('Message non trouvé');
+    } catch (error) {
+      console.error('Erreur lors de la récupération du message privé:', error);
+      throw error;
+    }
+  },
+
   async createOrGetConversation(participantId) {
     try {
       // Vérifier si l'utilisateur est authentifié (via cookie)
