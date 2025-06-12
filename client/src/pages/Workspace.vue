@@ -34,6 +34,7 @@ import workspaceService from '../services/workspaceService'
 import canalService from '../services/canalService'
 import messageService from '../services/messageService'
 import websocketService from '../services/websocketService'
+import { getCurrentUserIdAsync } from '../utils/userUtils'
 
 export default {
   name: 'Workspace',
@@ -80,18 +81,22 @@ export default {
     }
   },
   
-  created() {
+  async created() {
     // Récupérer l'ID du workspace depuis l'URL
     this.workspaceId = this.$route.params.id
 
-    
-    // Récupérer l'ID de l'utilisateur connecté
-    this.userId = messageService.getUserIdFromToken()
+    try {
+      // Récupérer l'ID de l'utilisateur connecté via cookie HTTP-only
+      console.log('Workspace.vue: Récupération de l\'ID utilisateur via API...');
+      this.userId = await getCurrentUserIdAsync();
+      console.log('Workspace.vue: ID utilisateur récupéré:', this.userId);
+    } catch (error) {
+      console.error('Workspace.vue: Erreur lors de la récupération de l\'ID utilisateur:', error);
+      this.userId = null;
+    }
 
-    
     if (this.workspaceId) {
-
-      this.chargerDonnees()
+      await this.chargerDonnees()
       
       // Initialiser la connexion WebSocket
       this.initWebSocket()

@@ -54,6 +54,7 @@
 
 <script>
 import workspaceService from '../../services/workspaceService';
+import authService from '../../services/authService';
 import defaultProfileImg from '../../assets/styles/image/profilDelault.png';
 import { eventBus, APP_EVENTS } from '../../utils/eventBus.js';
 import { ref, onMounted } from 'vue'
@@ -71,7 +72,8 @@ export default {
       loading: true,
       errorMessage: '',
       isAuthenticated: false,
-      isWorkspaceModalOpen: false
+      isWorkspaceModalOpen: false,
+      currentUserId: null
     }
   },
   computed: {
@@ -104,8 +106,8 @@ export default {
       // Récupérer la nouvelle photo de profil du localStorage
       this.currentProfilePicture = localStorage.getItem('profilePicture') || 'default.jpg';
       this.isAuthenticated = true;
-      // Vérifier le rôle superadmin
-      this.checkSuperAdminRole();
+      // Charger le profil utilisateur pour obtenir les informations les plus récentes
+      this.loadUserProfile();
       // Recharger les workspaces
       this.loadWorkspaces();
     });
@@ -115,8 +117,8 @@ export default {
       console.log('Header a reçu l\'événement de déconnexion');
       this.isAuthenticated = false;
       this.isAdmin = false;
-      // Ne pas réinitialiser la photo de profil, laissons la fonction loadUserProfile le faire correctement
-      // quand l'utilisateur se connectera à nouveau
+      this.currentUserId = null;
+      this.workspaces = [];
     });
     
     // Écouter l'événement global de suppression d'un workspace
@@ -128,52 +130,92 @@ export default {
   },
   
   async mounted() {
-    // Vérifier si l'utilisateur est authentifié
-    this.isAuthenticated = localStorage.getItem('token') !== null;
-    console.log('Statut d\'authentification:', this.isAuthenticated);
-    
-    // Vérifier si l'utilisateur est un superadmin
-    if (this.isAuthenticated) {
-      this.checkSuperAdminRole();
+    // Vérifier si l'utilisateur est connecté via l'API
+    try {
+      const isAuthenticated = await authService.isAuthenticated();
+      this.isAuthenticated = isAuthenticated;
+      
+      if (isAuthenticated) {
+        // Charger le profil utilisateur
+        await this.loadUserProfile();
+        // Charger les workspaces
+        await this.loadWorkspaces();
+      }
+    } catch (error) {
+      console.error('Erreur lors de la vérification de l\'authentification:', error);
+      this.isAuthenticated = false;
     }
-    
-    // Chargement des workspaces au montage du composant
-    await this.loadWorkspaces();
   },
   methods: {
+    /**
+     * Charge le profil de l'utilisateur connecté
+     */
+    async loadUserProfile() {
+      try {
+        // Appeler l'API pour récupérer les informations de l'utilisateur connecté
+        const response = await fetch('http://localhost:3000/api/v1/auth/me', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Erreur lors de la récupération du profil: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data && data.status === 'success' && data.data && data.data.user) {
+          const user = data.data.user;
+          
+          // Stocker l'ID utilisateur
+          this.currentUserId = user.id || user._id;
+          
+          // Vérifier si l'utilisateur a le rôle admin
+          if (user.role === 'admin') {
+            console.log('Utilisateur avec rôle admin détecté');
+            this.isAdmin = true;
+          } else {
+            console.log('Utilisateur sans rôle admin');
+            this.isAdmin = false;
+          }
+          
+          // Mettre à jour la photo de profil si disponible
+          if (user.profilePicture) {
+            this.currentProfilePicture = user.profilePicture;
+            localStorage.setItem('profilePicture', user.profilePicture);
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement du profil utilisateur:', error);
+        this.isAdmin = false;
+      }
+    },
+    
     /**
      * Vérifie si l'utilisateur a le rôle superadmin (admin)
      */
     async checkSuperAdminRole() {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-        
         // Faire une requête au serveur pour récupérer les informations de l'utilisateur courant
         const response = await fetch('http://localhost:3000/api/v1/users/profile', {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+          credentials: 'include'
         });
         
         if (!response.ok) {
-          throw new Error(`Erreur lors de la récupération des informations utilisateur: ${response.status}`);
+          console.error('Erreur lors de la vérification du rôle admin: ', response.status);
+          return;
         }
         
-        const userData = await response.json();
-        console.log('Informations utilisateur:', userData);
-        
-        // Vérifier si l'utilisateur a le rôle 'admin' ou 'super_admin'
-        if (userData.data) {
-          // Structure de réponse de l'API: la réponse peut contenir directement les données utilisateur
-          // ou être encapsulée dans un champ user
-          const user = userData.data.user || userData.data;
-          this.isAdmin = ['admin', 'super_admin'].includes(user.role);
-          console.log('L\'utilisateur est-il superadmin?', this.isAdmin, 'Role:', user.role);
+        const data = await response.json();
+        if (data && data.data && data.data.user) {
+          this.isAdmin = data.data.user.role === 'admin';
+        } else {
+          console.warn('Format de réponse inattendu:', data);
+          this.isAdmin = false;
         }
       } catch (error) {
+        console.error('Erreur lors de la vérification du rôle admin:', error);
         console.error('Erreur lors de la vérification du rôle superadmin:', error);
         this.isAdmin = false;
       }
@@ -205,9 +247,9 @@ export default {
         
         // Si l'utilisateur est authentifié, essayer de récupérer ses workspaces
         if (this.isAuthenticated) {
-          // Appel au service pour récupérer les workspaces avec l'endpoint mes-workspaces
+          // Appel au service pour récupérer les workspaces
           this.workspaces = await workspaceService.getUserWorkspaces();
-          console.log('Workspaces chargés depuis l\'API (mes-workspaces):', this.workspaces);
+          console.log('Workspaces chargés depuis l\'API:', this.workspaces);
         } else {
           // Si l'utilisateur n'est pas authentifié, afficher un tableau vide
           this.workspaces = [];

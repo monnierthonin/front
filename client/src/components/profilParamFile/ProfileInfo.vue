@@ -167,9 +167,9 @@ export default {
         // Appel à l'API
         const response = await fetch('http://localhost:3000/api/v1/users/profile/picture', {
           method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
+          // Suppression de l'en-tête Authorization avec token JWT
+          // Utilisation du cookie HTTP-only qui est envoyé automatiquement
+          credentials: 'include',
           body: formData
         });
 
@@ -250,37 +250,52 @@ export default {
       this.showPassword = !this.showPassword;
     },
     async saveSettings() {
+      console.log('ProfileInfo.vue: Début de saveSettings');
       this.errorMessage = '';
       this.successMessage = '';
       
       try {
         // Si une image a été sélectionnée, la télécharger d'abord
         if (this.selectedFile) {
+          console.log('ProfileInfo.vue: Téléchargement de l\'image de profil');
           const success = await this.uploadProfileImage();
           if (success) {
             this.successMessage = 'Photo de profil mise à jour avec succès';
+            console.log('ProfileInfo.vue: Photo de profil mise à jour avec succès');
           }
         }
 
         // Gestion de la mise à jour du profil (email et/ou username)
         if (this.username || this.email) {
+          console.log('ProfileInfo.vue: Mise à jour du profil (username et/ou email)');
           const profileData = {};
           
           if (this.username) {
             profileData.username = this.username;
+            console.log('ProfileInfo.vue: Username à mettre à jour:', this.username);
           }
           
           if (this.email) {
             profileData.email = this.email;
+            console.log('ProfileInfo.vue: Email à mettre à jour:', this.email);
           }
           
-          await userService.updateProfile(profileData);
+          console.log('ProfileInfo.vue: Données à envoyer:', profileData);
           
-          // Mise à jour des informations affichées
-          await this.fetchUserProfile();
-          this.username = '';
-          this.email = '';
-          this.successMessage = 'Profil mis à jour avec succès';
+          try {
+            const result = await userService.updateProfile(profileData);
+            console.log('ProfileInfo.vue: Résultat de la mise à jour:', result);
+            
+            // Mise à jour des informations affichées
+            await this.fetchUserProfile();
+            this.username = '';
+            this.email = '';
+            this.successMessage = 'Profil mis à jour avec succès';
+          } catch (err) {
+            console.error('ProfileInfo.vue: Erreur lors de la mise à jour du profil:', err);
+            this.errorMessage = `Erreur lors de la mise à jour du profil: ${err.message}`;
+            throw err; // Propager l'erreur pour arrêter le traitement
+          }
         }
         
         // Gestion du changement de mot de passe

@@ -19,13 +19,27 @@ const genererToken = (user, rememberMe = false) => {
     );
 };
 
-// Configuration des cookies
-const getCookieOptions = (rememberMe = false) => ({
-    expires: new Date(Date.now() + (rememberMe ? 30 : 1) * 24 * 60 * 60 * 1000), // 30 jours ou 24 heures
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax'
-});
+// Configuration des cookies adaptée pour les requêtes cross-origin
+const getCookieOptions = (rememberMe = false) => {
+    // Console log pour déboguer
+    console.log('Création d\'un cookie JWT avec les options suivantes:');
+    console.log('- Mode production:', process.env.NODE_ENV === 'production');
+    console.log('- Durée:', rememberMe ? '30 jours' : '24 heures');
+    
+    // Configuration optimisée pour le développement et la production
+    const options = {
+        expires: new Date(Date.now() + (rememberMe ? 30 : 1) * 24 * 60 * 60 * 1000), // 30 jours ou 24 heures
+        httpOnly: true,
+        // En développement, secure:false permet d'utiliser http
+        secure: process.env.NODE_ENV === 'production',
+        // En développement, 'lax' permet les redirections mais peut être problématique pour certaines requêtes
+        // En production, None avec secure:true est nécessaire pour les domaines croisés
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        path: '/' // S'assurer que le cookie est disponible sur toutes les routes
+    };
+    
+    return options;
+};
 
 // Envoyer le token dans un cookie et la réponse
 const envoyerToken = (user, statusCode, res, rememberMe = false) => {

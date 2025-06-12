@@ -1,5 +1,6 @@
 // URL de base de l'API avec le préfixe correct v1
 const API_URL = 'http://localhost:3000/api/v1';
+import authService from './authService';
 
 /**
  * Service de gestion des messages privés
@@ -11,10 +12,10 @@ const messagePrivateService = {
    */
   async getAllPrivateConversations() {
     try {
-      // Récupérer le token dans le localStorage
-      const token = localStorage.getItem('token');
+      // Vérifier si l'utilisateur est authentifié (via cookie)
+      const isAuthenticated = await authService.isAuthenticated();
       
-      if (!token) {
+      if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour accéder aux conversations');
       }
       
@@ -27,7 +28,6 @@ const messagePrivateService = {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include',
@@ -38,7 +38,7 @@ const messagePrivateService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
+          console.warn('Erreur 401: Session expirée ou cookie non valide');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         const responseText = await response.text();
@@ -89,9 +89,10 @@ const messagePrivateService = {
    */
   async getPrivateMessages(userId) {
     try {
-      const token = localStorage.getItem('token');
+      // Vérifier si l'utilisateur est authentifié (via cookie)
+      const isAuthenticated = await authService.isAuthenticated();
       
-      if (!token) {
+      if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour accéder aux messages');
       }
       
@@ -101,7 +102,6 @@ const messagePrivateService = {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include',
@@ -109,7 +109,7 @@ const messagePrivateService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
+          console.warn('Erreur 401: Session expirée ou cookie non valide');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         const responseText = await response.text();
@@ -147,9 +147,10 @@ const messagePrivateService = {
    */
   async sendPrivateMessage(targetId, contenu, targetType = 'user') {
     try {
-      const token = localStorage.getItem('token');
+      // Vérifier si l'utilisateur est authentifié (via cookie)
+      const isAuthenticated = await authService.isAuthenticated();
       
-      if (!token) {
+      if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour envoyer un message');
       }
       
@@ -171,7 +172,6 @@ const messagePrivateService = {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include',
@@ -180,7 +180,6 @@ const messagePrivateService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         
@@ -255,10 +254,11 @@ const messagePrivateService = {
    */
   async markMessageAsRead(messageId) {
     try {
-      const token = localStorage.getItem('token');
+      // Vérifier si l'utilisateur est authentifié (via cookie)
+      const isAuthenticated = await authService.isAuthenticated();
       
-      if (!token) {
-        throw new Error('Vous devez être connecté pour mettre à jour un message');
+      if (!isAuthenticated) {
+        throw new Error('Vous devez être connecté pour marquer un message comme lu');
       }
       
       // Construire l'URL
@@ -267,15 +267,13 @@ const messagePrivateService = {
       const response = await fetch(url, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        credentials: 'include'
+        credentials: 'include',
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         
@@ -310,9 +308,10 @@ const messagePrivateService = {
    */
   async getConversationMessages(conversationId, page = 1, limit = 50) {
     try {
-      const token = localStorage.getItem('token');
+      // Vérifier si l'utilisateur est authentifié (via cookie)
+      const isAuthenticated = await authService.isAuthenticated();
       
-      if (!token) {
+      if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour accéder aux messages');
       }
       
@@ -325,7 +324,6 @@ const messagePrivateService = {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include',
@@ -333,7 +331,6 @@ const messagePrivateService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         const responseText = await response.text();
@@ -388,9 +385,10 @@ const messagePrivateService = {
    */
   async updatePrivateMessage(conversationId, messageId, contenu) {
     try {
-      const token = localStorage.getItem('token');
+      // Vérifier si l'utilisateur est authentifié (via cookie)
+      const isAuthenticated = await authService.isAuthenticated();
       
-      if (!token) {
+      if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour modifier un message');
       }
       
@@ -409,7 +407,6 @@ const messagePrivateService = {
       const response = await fetch(url, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include',
@@ -418,7 +415,6 @@ const messagePrivateService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         
@@ -482,9 +478,10 @@ const messagePrivateService = {
    */
   async deletePrivateMessage(conversationId, messageId) {
     try {
-      const token = localStorage.getItem('token');
+      // Vérifier si l'utilisateur est authentifié (via cookie)
+      const isAuthenticated = await authService.isAuthenticated();
       
-      if (!token) {
+      if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour supprimer un message');
       }
       
@@ -500,15 +497,13 @@ const messagePrivateService = {
       const response = await fetch(url, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        credentials: 'include'
+        credentials: 'include',
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         
@@ -557,9 +552,10 @@ const messagePrivateService = {
    */
   async sendPrivateReply(conversationId, messageId, contenu) {
     try {
-      const token = localStorage.getItem('token');
+      // Vérifier si l'utilisateur est authentifié (via cookie)
+      const isAuthenticated = await authService.isAuthenticated();
       
-      if (!token) {
+      if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour répondre à un message');
       }
       
@@ -583,7 +579,7 @@ const messagePrivateService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
+          console.warn('Erreur 401: Session expirée ou cookie non valide');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         
@@ -673,9 +669,10 @@ const messagePrivateService = {
    */
   async reactToPrivateMessage(conversationId, messageId, emoji) {
     try {
-      const token = localStorage.getItem('token');
+      // Vérifier si l'utilisateur est authentifié (via cookie)
+      const isAuthenticated = await authService.isAuthenticated();
       
-      if (!token) {
+      if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour réagir à un message');
       }
       
@@ -697,7 +694,7 @@ const messagePrivateService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
+          console.warn('Erreur 401: Session expirée ou cookie non valide');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         
@@ -736,8 +733,10 @@ const messagePrivateService = {
    */
   async createOrGetConversation(participantId) {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      // Vérifier si l'utilisateur est authentifié (via cookie)
+      const isAuthenticated = await authService.isAuthenticated();
+      
+      if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour créer une conversation');
       }
 
@@ -749,7 +748,6 @@ const messagePrivateService = {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include',
@@ -760,7 +758,7 @@ const messagePrivateService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
+          console.warn('Erreur 401: Session expirée ou cookie non valide');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         const responseText = await response.text();

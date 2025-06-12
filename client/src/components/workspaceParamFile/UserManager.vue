@@ -49,7 +49,8 @@
           <select 
             v-model="user.role" 
             class="role-select" 
-            :disabled="isOwner(user) || (!isUserOwner() && isUserAdmin() && isAdmin(user))" 
+            :disabled="isRoleSelectDisabled(user)" 
+            @click="logPermission(user)"
             @change="updateUserRole(user)"
           >
             <option value="admin">Admin</option>
@@ -57,7 +58,7 @@
           </select>
           <div class="action-buttons">
             <button 
-              v-if="!isOwner(user) && (isUserOwner() || !(isUserAdmin() && isAdmin(user)))" 
+              v-if="canBanUser(user)" 
               class="bann-button" 
               @click="banUser(user)" 
               title="Bannir l'utilisateur"
@@ -80,6 +81,7 @@
 
 <script>
 import InviteUserModal from './InviteUserModal.vue';
+import { getCurrentUserIdAsync } from '../../utils/userUtils';
 export default {
   name: 'UserManager',
   components: {
@@ -141,27 +143,34 @@ export default {
       });
     }
   },
-  created() {
-    // Récupérer l'ID du propriétaire
+  async created() {
+    // Extraire l'ID du propriétaire du workspace
+    // Il peut être fourni sous forme d'objet ou directement comme une chaîne
     if (this.workspace && this.workspace.proprietaire) {
       if (typeof this.workspace.proprietaire === 'object') {
         this.ownerId = this.workspace.proprietaire._id || this.workspace.proprietaire.id;
       } else {
         this.ownerId = this.workspace.proprietaire;
       }
+      console.log('UserManager.vue: ID du propriétaire récupéré:', this.ownerId);
+    } else {
+      console.error('UserManager.vue: Propriétaire du workspace non trouvé:', this.workspace);
     }
     
-    // Récupérer l'ID de l'utilisateur connecté
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        // Décode le token JWT pour obtenir l'ID utilisateur
-        const tokenPayload = token.split('.')[1];
-        const decodedPayload = JSON.parse(atob(tokenPayload));
-        this.userId = decodedPayload.userId || decodedPayload.id || decodedPayload.sub;
-      } catch (error) {
-        console.error('Erreur lors du décodage du token:', error);
+    // Récupérer l'ID de l'utilisateur connecté via cookie HTTP-only
+    try {
+      this.userId = await getCurrentUserIdAsync();
+      console.log('UserManager.vue: ID utilisateur récupéré via API:', this.userId);
+      
+      if (!this.userId) {
+        console.error('UserManager.vue: Impossible de récupérer l\'ID utilisateur');
       }
+      
+      // Vérifications des autorisations pour débogage
+      console.log('UserManager.vue: Utilisateur connecté est propriétaire:', this.isUserOwner());
+      console.log('UserManager.vue: Utilisateur connecté est admin:', this.isUserAdmin());
+    } catch (error) {
+      console.error('UserManager.vue: Erreur lors de la récupération de l\'ID utilisateur:', error);
     }
     
     this.loadUsers();
@@ -261,16 +270,14 @@ export default {
         return;
       }
       
+      console.log('UserManager.vue: Tentative de mise à jour du rôle pour l\'utilisateur:', user.id);
+      console.log('UserManager.vue: Nouveau rôle:', user.role);
+      console.log('UserManager.vue: L\'utilisateur connecté est le propriétaire:', this.isUserOwner());
+      
       this.roleUpdateLoading[user.id] = true;
       const originalRole = user.role; // Sauvegarde du rôle original en cas d'échec
       
-      try {
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          throw new Error('Aucun token d\'authentification trouvé');
-        }
-        
+      try {        
         // Construction de l'URL selon le format de l'API
         const url = `http://localhost:3000/api/v1/workspaces/${this.workspace._id}/membres/${user.id}/role`;
         
@@ -279,13 +286,12 @@ export default {
         const response = await fetch(url, {
           method: 'PATCH',
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ 
             role: user.role 
           }), // Inclure tous les paramètres requis par l'API
-          credentials: 'include'
+          credentials: 'include' // Envoi automatique du cookie HTTP-only
         });
         
         // Vérification de la réponse
@@ -333,28 +339,28 @@ export default {
      * Bannir/supprimer un utilisateur du workspace
      */
     async banUser(user) {
-      if (this.isOwner(user)) {
-        console.error('Impossible de bannir le propriétaire du workspace');
+      if (!this.canBanUser(user)) {
+        alert('Vous n\'avez pas les droits pour bannir cet utilisateur');
         return;
       }
       
+      console.log('UserManager.vue: Tentative de bannissement de l\'utilisateur:', user.id);
+      console.log('UserManager.vue: L\'utilisateur connecté est le propriétaire:', this.isUserOwner());
+      console.log('UserManager.vue: Permission de bannissement vérifiée:', this.canBanUser(user));
+      
+      // Demande de confirmation
       if (!confirm(`Êtes-vous sûr de vouloir bannir ${this.getUserName(user)} du workspace ?`)) {
         return;
       }
       
       try {
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          throw new Error('Aucun token d\'authentification trouvé');
-        }
-        
+        // Utiliser les credentials avec le cookie HTTP-only
         const response = await fetch(`http://localhost:3000/api/v1/workspaces/${this.workspace._id}/membres/${user.id}`, {
           method: 'DELETE',
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Content-Type': 'application/json'
           },
-          credentials: 'include'
+          credentials: 'include' // Envoi automatique du cookie HTTP-only
         });
         
         if (!response.ok) {
@@ -391,7 +397,7 @@ closeInviteModal() {
     /**
      * Gère l'événement d'invitation réussie
      */
-    handleUserInvited(user) {
+    async handleUserInvited(user) {
       // Recupérer à nouveau la liste des membres pour inclure le nouvel invité
       this.loading = true;
       // Permettre au backend de traiter l'ajout
@@ -401,6 +407,78 @@ closeInviteModal() {
       
       // Afficher un message de confirmation
       alert(`${user.username} a été invité(e) avec succès au workspace.`);
+    },
+    
+    /**
+     * Log détaillé des permissions pour débogage
+     */
+    /**
+     * Détermine si le sélecteur de rôle doit être désactivé pour un utilisateur spécifique
+     * 
+     * Règles:
+     * - Le rôle du propriétaire ne peut jamais être changé
+     * - Seul le propriétaire peut changer le rôle des admins
+     * - Les admins peuvent changer le rôle des membres normaux
+     */
+    isRoleSelectDisabled(user) {
+      // Cas 1: On ne peut jamais changer le rôle du propriétaire
+      if (this.isOwner(user)) {
+        return true;
+      }
+      
+      // Cas 2: Si l'utilisateur connecté est le propriétaire, il peut tout modifier sauf lui-même
+      if (this.isUserOwner()) {
+        return false; // Le propriétaire peut tout modifier (sauf lui-même, traité dans le cas 1)
+      }
+      
+      // Cas 3: Si l'utilisateur connecté est admin, il ne peut pas modifier d'autres admins
+      if (this.isUserAdmin() && this.isAdmin(user)) {
+        return true; // Admin ne peut pas modifier d'autres admins
+      }
+      
+      // Par défaut, on peut modifier le rôle
+      return false;
+    },
+    
+    /**
+     * Détermine si l'utilisateur connecté peut bannir un autre utilisateur
+     * 
+     * Règles:
+     * - On ne peut pas bannir le propriétaire
+     * - Le propriétaire peut bannir tout le monde
+     * - Les admins peuvent bannir les membres normaux mais pas d'autres admins
+     */
+    canBanUser(user) {
+      // Cas 1: On ne peut jamais bannir le propriétaire
+      if (this.isOwner(user)) {
+        return false;
+      }
+      
+      // Cas 2: Le propriétaire peut bannir tout le monde (sauf lui-même, traité dans le cas 1)
+      if (this.isUserOwner()) {
+        return true;
+      }
+      
+      // Cas 3: Un admin ne peut pas bannir un autre admin
+      if (this.isUserAdmin() && this.isAdmin(user)) {
+        return false;
+      }
+      
+      // Cas 4: Par défaut, un admin peut bannir un membre normal
+      return this.isUserAdmin();
+    },
+
+    logPermission(user) {
+      console.log('===== DÉBOGAGE PERMISSIONS =====');
+      console.log('User ID courant:', this.userId);
+      console.log('Owner ID:', this.ownerId);
+      console.log('User sélectionné:', user.id, this.getUserName(user), 'avec rôle:', user.role);
+      console.log('Est propriétaire:', this.isOwner(user));
+      console.log('Utilisateur connecté est propriétaire:', this.isUserOwner());
+      console.log('Utilisateur connecté est admin:', this.isUserAdmin());
+      console.log('Utilisateur sélectionné est admin:', this.isAdmin(user));
+      console.log('Sélecteur désactivé:', this.isRoleSelectDisabled(user));
+      console.log('===============================');
     }
   }
 }

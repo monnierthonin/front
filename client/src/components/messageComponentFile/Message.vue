@@ -155,7 +155,7 @@
 <script>
 import fichierService from '../../services/fichierService.js';
 import ProfilePicture from '../common/ProfilePicture.vue';
-import { getCurrentUserId, isCurrentUser } from '../../utils/userUtils';
+import { getCurrentUserId, isCurrentUser, getCurrentUserIdAsync, isCurrentUserAsync } from '../../utils/userUtils';
 import messageService from '../../services/messageService';
 import messagePrivateService from '../../services/messagePrivateService';
 import MessageReplyButton from './buttons/MessageReplyButton.vue';
@@ -196,18 +196,34 @@ export default {
   },
   data() {
     return {
-      activeEmojiPickerMessageId: null,
+      loading: false,
       showEditModal: false,
-      editingMessage: null,
       editContent: '',
-      replyingTo: null,
-      localCurrentUserId: this.currentUserId || getCurrentUserId() || ''
+      editingMessageId: null,
+      activeEmojiPickerMessageId: null,
+      userId: '',
+      localCurrentUserId: this.currentUserId || getCurrentUserId() || '',
+      localMessages: [], // Copie locale des messages pour le rendu optimisé
+      userAuthenticated: false  // Flag pour indiquer si l'authentification a été vérifiée
     };
   },
-  created() {
+  async created() {
     // Récupérer l'ID de l'utilisateur connecté s'il n'est pas fourni via les props
     if (!this.currentUserId) {
-      this.userId = messageService.getUserIdFromToken();
+      try {
+        // Récupérer l'ID via l'API auth/me avec cookie HTTP-only
+        const userId = await getCurrentUserIdAsync();
+        if (userId) {
+          console.log('Message.vue: ID utilisateur récupéré via API:', userId);
+          this.userId = userId;
+        } else {
+          console.warn('Message.vue: Impossible de récupérer l\'ID utilisateur');
+          this.userId = '';
+        }
+      } catch (error) {
+        console.error('Message.vue: Erreur lors de la récupération de l\'ID utilisateur:', error);
+        this.userId = '';
+      }
     } else {
       this.userId = this.currentUserId;
     }
@@ -217,6 +233,17 @@ export default {
     this.scrollToBottom();
   },
   methods: {
+    /**
+     * Vérifie si l'utilisateur donné est l'utilisateur actuellement connecté
+     * @param {String} userId - ID de l'utilisateur à vérifier
+     * @returns {Boolean} True si c'est l'utilisateur actuel, false sinon
+     */
+    isCurrentUser(userId) {
+      // Utilise l'ID utilisateur récupéré lors de l'initialisation du composant
+      // ou fourni par le parent via les props
+      return userId === this.userId || userId === this.localCurrentUserId;
+    },
+    
     /**
      * Obtenir l'ID de l'auteur du message (compatible avec les deux structures)
      * @param {Object} message - Le message

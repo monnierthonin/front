@@ -1,6 +1,9 @@
 // URL de base de l'API avec le préfixe correct v1
 const API_URL = 'http://localhost:3000/api/v1';
 
+// Import du service d'authentification
+import authService from './authService';
+
 /**
  * Service de gestion des canaux
  */
@@ -12,10 +15,10 @@ const canalService = {
    */
   async getWorkspaceCanaux(workspaceId) {
     try {
-      // Récupérer le token dans le localStorage
-      const token = localStorage.getItem('token');
+      // Vérifier l'authentification via le service auth
+      const isAuthenticated = await authService.isAuthenticated();
       
-      if (!token) {
+      if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour accéder aux canaux');
       }
       
@@ -23,7 +26,6 @@ const canalService = {
       const response = await fetch(`${API_URL}/workspaces/${workspaceId}/canaux`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include',
@@ -31,7 +33,6 @@ const canalService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         throw new Error(`Erreur lors de la récupération des canaux: ${response.status}`);
@@ -59,16 +60,16 @@ const canalService = {
    */
   async getCanalById(workspaceId, canalId) {
     try {
-      const token = localStorage.getItem('token');
+      // Vérifier l'authentification via le service auth
+      const isAuthenticated = await authService.isAuthenticated();
       
-      if (!token) {
+      if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour accéder aux canaux');
       }
       
       const response = await fetch(`${API_URL}/workspaces/${workspaceId}/canaux/${canalId}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include',
@@ -76,7 +77,6 @@ const canalService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         throw new Error(`Erreur lors de la récupération du canal: ${response.status}`);

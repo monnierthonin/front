@@ -61,10 +61,8 @@ const authService = {
         throw new Error(errorMsg);
       }
       
-      // Si l'inscription réussit, stocker le token dans le localStorage
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-      }
+      // Le token est désormais géré par un cookie HTTP-only
+      // Pas besoin de stocker le token dans localStorage
       
       return data;
     } catch (error) {
@@ -107,9 +105,8 @@ const authService = {
         throw new Error(errorMessage);
       }
       
-      // Si la connexion réussit, stocker le token dans le localStorage
-      if (data.token) {
-        localStorage.setItem('token', data.token);
+      // Le token est désormais géré par un cookie HTTP-only
+      // Pas besoin de stocker le token dans localStorage
         
         // Charger directement le profil utilisateur
         try {
@@ -148,7 +145,6 @@ const authService = {
           // En cas d'erreur, émettre quand même l'événement de connexion
           eventBus.emit(APP_EVENTS.USER_LOGGED_IN);
         }
-      }
       
       return data;
     } catch (error) {
@@ -166,7 +162,7 @@ const authService = {
     document.documentElement.classList.add('dark-theme');
     
     // Supprimer toutes les données utilisateur du localStorage
-    localStorage.removeItem('token');
+    // Le token est géré par cookie HTTP-only, pas besoin de le supprimer du localStorage
     localStorage.removeItem('profilePicture');
     localStorage.removeItem('status');
     localStorage.removeItem('userId');
@@ -187,28 +183,52 @@ const authService = {
    * Vérifier si l'utilisateur est connecté
    * @returns {Boolean} Vrai si l'utilisateur est connecté
    */
-  isAuthenticated() {
-    return !!localStorage.getItem('token');
+  async isAuthenticated() {
+    try {
+      console.log('Vérification de l\'authentification via cookie HTTP-only...');
+      // Vérifie l'authentification en interrogeant l'API (qui vérifie le cookie)
+      const response = await fetch(`${API_URL}/auth/me`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        cache: 'no-store' // Pour éviter les problèmes de cache
+      });
+      
+      const isAuthenticated = response.ok;
+      console.log('Résultat authentification:', isAuthenticated, 'Status:', response.status);
+      
+      if (!isAuthenticated && response.status === 401) {
+        console.warn('Session expirée ou cookie non valide. Déconnexion automatique.');
+        // Optionnel: émettre un évènement de déconnexion si nécessaire
+        // eventBus.emit(APP_EVENTS.USER_LOGGED_OUT);
+      }
+      
+      return isAuthenticated;
+    } catch (error) {
+      console.error('Erreur lors de la vérification de l\'authentification:', error);
+      return false;
+    }
   },
   
   /**
    * Récupérer le token d'authentification
-   * @returns {String} Token d'authentification
+   * @returns {null} Pas de token direct car utilisation de cookie HTTP-only
    */
   getToken() {
-    return localStorage.getItem('token');
+    // Avec un cookie HTTP-only, on ne peut pas accéder directement au token
+    // Renvoie null pour indiquer que le token est géré par le cookie
+    return null;
   },
   
   /**
    * Définir le token d'authentification
-   * @param {String} token - Le token JWT à stocker
+   * @param {String} token - Méthode maintenue pour compatibilité, mais ne fait rien car token géré par cookie
    */
   setToken(token) {
-    if (token) {
-      localStorage.setItem('token', token);
-      return true;
-    }
-    return false;
+    // Le token est géré par les cookies HTTP-only, cette fonction est maintenue pour compatibilité
+    return !!token; // Renvoie true si token existe, sinon false
   },
   
   /**
@@ -229,10 +249,8 @@ const authService = {
       
       const data = await response.json();
       
-      // Si on a un token dans la réponse, on le stocke
-      if (data.token) {
-        this.setToken(data.token);
-      }
+      // Le token est géré par cookie HTTP-only
+      // Pas besoin de le stocker manuellement
       
       // Émettre l'événement de connexion réussie
       eventBus.emit(APP_EVENTS.USER_LOGGED_IN);

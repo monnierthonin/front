@@ -32,7 +32,7 @@
 import Message from './Message.vue';
 import textBox from './textBox.vue';
 import messagePrivateService from '../../services/messagePrivateService';
-import { getCurrentUserId } from '../../utils/userUtils';
+import { getCurrentUserId, getCurrentUserIdAsync } from '../../utils/userUtils';
 
 export default {
   name: 'PrivateMessage',
@@ -58,13 +58,28 @@ export default {
     return {
       messagesData: [],
       isLoading: true,
-      currentUserId: getCurrentUserId() || '',
+      currentUserId: getCurrentUserId() || '', // Initialisation synchrone avec valeur potentiellement en cache
       privateMessageTarget: null,
       replyingToMessage: null,
       currentPage: 1,
       messagesPerPage: 50,
       hasMoreMessages: true
     };
+  },
+  
+  async created() {
+    // Initialisation asynchrone de l'ID utilisateur lors de la création du composant
+    try {
+      const userId = await getCurrentUserIdAsync();
+      if (userId) {
+        console.log('ID utilisateur récupéré via API dans PrivateMessage:', userId);
+        this.currentUserId = userId;
+      } else {
+        console.warn('Impossible de récupérer l\'ID utilisateur via l\'API dans PrivateMessage');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération de l\'ID utilisateur dans PrivateMessage:', error);
+    }
   },
   watch: {
     userId: {

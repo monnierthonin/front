@@ -6,23 +6,16 @@ const API_URL = 'http://localhost:3000/api/v1';
  */
 const workspaceService = {
   /**
-   * Récupérer tous les workspaces de l'utilisate ur
+   * Récupérer tous les workspaces de l'utilisateur
    * @returns {Promise} Promesse avec la liste des workspaces
    */
   async getUserWorkspaces() {
     try {
-      // Récupérer le token dans le localStorage (s'il existe)
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        return [];
-      }
-      
       // Appeler l'API pour récupérer les workspaces dont l'utilisateur est membre
+      // Le cookie HTTP-only sera automatiquement inclus avec credentials: 'include'
       const response = await fetch(`${API_URL}/workspaces`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include',
@@ -30,9 +23,7 @@ const workspaceService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          console.error('Non autorisé: le token peut être invalide ou expiré');
-          // Supprimer le token invalide
-          localStorage.removeItem('token');
+          console.error('Non autorisé: la session peut être invalide ou expirée');
           return [];
         }
         throw new Error(`Erreur lors de la récupération des workspaces: ${response.status}`);
@@ -67,16 +58,9 @@ const workspaceService = {
    */
   async getWorkspaceById(id) {
     try {
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('Vous devez être connecté pour accéder aux workspaces');
-      }
-      
       const response = await fetch(`${API_URL}/workspaces/${id}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include',
@@ -84,7 +68,6 @@ const workspaceService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         throw new Error(`Erreur lors de la récupération du workspace: ${response.status}`);
@@ -104,17 +87,10 @@ const workspaceService = {
    */
   async searchPublicWorkspaces(query = '') {
     try {
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('Vous devez être connecté pour rechercher des workspaces');
-      }
-      
       // Utiliser l'endpoint de recherche des workspaces publics
       const response = await fetch(`${API_URL}/workspaces/recherche/public?query=${encodeURIComponent(query)}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include',
@@ -122,7 +98,6 @@ const workspaceService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         throw new Error(`Erreur lors de la recherche de workspaces: ${response.status}`);
@@ -148,16 +123,9 @@ const workspaceService = {
    */
   async createWorkspace(workspaceData) {
     try {
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('Vous devez être connecté pour créer un workspace');
-      }
-      
       const response = await fetch(`${API_URL}/workspaces`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include',
@@ -166,7 +134,6 @@ const workspaceService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         
@@ -189,18 +156,11 @@ const workspaceService = {
    */
   async updateWorkspaceStatus(id, isPublic) {
     try {
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('Vous devez être connecté pour modifier un workspace');
-      }
-      
       // Appel à l'API pour mettre à jour le statut du workspace
       // Utiliser le champ 'visibilite' au lieu de 'estPublic'
       const response = await fetch(`${API_URL}/workspaces/${id}`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include',
@@ -211,7 +171,6 @@ const workspaceService = {
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         
@@ -226,21 +185,22 @@ const workspaceService = {
     }
   },
   
-  // Extraire l'ID utilisateur à partir du token JWT
-  getUserIdFromToken(token) {
+  // Récupérer l'ID utilisateur via l'API au lieu de décoder le token
+  async getUserId() {
     try {
-      if (!token) return null;
+      const response = await fetch(`${API_URL}/auth/me`, {
+        method: 'GET',
+        credentials: 'include'
+      });
       
-      // Décoder le payload du JWT (partie du milieu entre les points)
-      const payload = token.split('.')[1];
-      if (!payload) return null;
+      if (!response.ok) {
+        return null;
+      }
       
-      // Décoder de base64 et parser le JSON
-      const decoded = JSON.parse(atob(payload));
-      
-      // Retourner l'ID utilisateur (peut être dans id, _id, ou userId selon votre implémentation)
-      return decoded.id || decoded._id || decoded.userId || null;
+      const data = await response.json();
+      return data.data?.user?.id || data.data?.user?._id || null;
     } catch (error) {
+      console.error('Erreur lors de la récupération de l\'ID utilisateur:', error);
       return null;
     }
   }

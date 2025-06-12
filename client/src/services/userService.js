@@ -10,16 +10,13 @@ const userService = {
    * @returns {Promise} Promesse avec le résultat de la suppression
    */
   async deleteAccount(password) {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Non authentifié');
-    }
+    // Avec les cookies HTTP-only, pas besoin de vérifier le token manuellement
+    // Le cookie sera automatiquement envoyé avec credentials: 'include'
 
     try {
       const response = await fetch(`${API_URL}/users/profile`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ password }),
@@ -32,8 +29,8 @@ const userService = {
         throw new Error(data.message || (data.error ? `Erreur: ${data.error}` : 'Erreur lors de la suppression du compte'));
       }
 
-      // Supprimer le token après la suppression réussie
-      localStorage.removeItem('token');
+      // Le token est géré par cookie HTTP-only
+      // La déconnexion sera gérée par le serveur qui invalidera le cookie
       return true;
     } catch (error) {
 
@@ -46,16 +43,13 @@ const userService = {
    */
   async getProfile() {
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Non authentifié');
-    }
+    // Avec les cookies HTTP-only, pas besoin de vérifier le token manuellement
+    // Le cookie sera automatiquement envoyé avec credentials: 'include'
 
     try {
       const response = await fetch(`${API_URL}/users/profile`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include'
@@ -82,34 +76,45 @@ const userService = {
    * @returns {Promise} Promesse avec les données du profil mis à jour
    */
   async updateProfile(profileData) {
+    console.log('userService.updateProfile - Données envoyées:', profileData);
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Non authentifié');
-    }
+    // Avec les cookies HTTP-only, pas besoin de vérifier le token manuellement
+    // Le cookie sera automatiquement envoyé avec credentials: 'include'
 
     try {
+      // Vérification des données requises
+      if (!profileData || (Object.keys(profileData).length === 0)) {
+        throw new Error('Aucune donnée à mettre à jour');
+      }
+
       const response = await fetch(`${API_URL}/users/profile`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(profileData),
         credentials: 'include'
       });
 
-      if (!response.ok) {
-        const data = await response.json();
+      console.log('userService.updateProfile - Statut de la réponse:', response.status);
+      
+      // Récupérer les données de la réponse même en cas d'erreur
+      const responseData = await response.json().catch(e => {
+        console.error('Erreur lors du parsing JSON:', e);
+        return { error: 'Format de réponse invalide' };
+      });
+      
+      console.log('userService.updateProfile - Réponse du serveur:', responseData);
 
-        throw new Error(data.message || 'Erreur lors de la mise à jour du profil');
+      if (!response.ok) {
+        const errorMessage = responseData.message || responseData.error || 'Erreur lors de la mise à jour du profil';
+        console.error('userService.updateProfile - Erreur:', errorMessage);
+        throw new Error(errorMessage);
       }
 
-      const data = await response.json();
-
-      return data;
+      return responseData;
     } catch (error) {
-
+      console.error('userService.updateProfile - Exception:', error.message);
       throw error;
     }
   },
@@ -120,18 +125,23 @@ const userService = {
    * @returns {Promise} Promesse avec le résultat du changement de mot de passe
    */
   async updatePassword(passwordData) {
+    console.log('userService.updatePassword - Tentative de mise à jour du mot de passe');
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Non authentifié');
-    }
+    // Avec les cookies HTTP-only, pas besoin de vérifier le token manuellement
+    // Le cookie sera automatiquement envoyé avec credentials: 'include'
 
     try {
-      // Essayons avec une autre structure pour les données
+      // Vérification des données requises
+      if (!passwordData || !passwordData.oldPassword || !passwordData.newPassword) {
+        console.error('userService.updatePassword - Données manquantes');
+        throw new Error('Les données du mot de passe sont incomplètes');
+      }
+
+      console.log('userService.updatePassword - Envoi de la requête avec les données convert format');
+      
       const response = await fetch(`${API_URL}/users/profile/password`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         // Format correct selon la documentation de l'API
@@ -142,17 +152,25 @@ const userService = {
         credentials: 'include'
       });
 
-
+      console.log('userService.updatePassword - Statut de la réponse:', response.status);
+      
+      // Récupérer les données de la réponse même en cas d'erreur
+      const responseData = await response.json().catch(e => {
+        console.error('Erreur lors du parsing JSON:', e);
+        return { error: 'Format de réponse invalide' };
+      });
+      
+      console.log('userService.updatePassword - Réponse du serveur:', responseData);
 
       if (!response.ok) {
-        const errorData = await response.json();
-
-        throw new Error(errorData.message || errorData.error || 'Erreur lors du changement de mot de passe');
+        const errorMessage = responseData.message || responseData.error || 'Erreur lors du changement de mot de passe';
+        console.error('userService.updatePassword - Erreur:', errorMessage);
+        throw new Error(errorMessage);
       }
       
-      const data = await response.json();
-      return data;
+      return responseData;
     } catch (error) {
+      console.error('userService.updatePassword - Exception:', error.message);
       throw error;
     }
   },
@@ -164,10 +182,8 @@ const userService = {
    */
   async updateStatus(status) {
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Non authentifié');
-    }
+    // Avec les cookies HTTP-only, pas besoin de vérifier le token manuellement
+    // Le cookie sera automatiquement envoyé avec credentials: 'include'
     
     // Convertir les valeurs anglaises en françaises pour l'API
     let statusFr;
@@ -190,7 +206,6 @@ const userService = {
       const response = await fetch(`${API_URL}/users/status`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ status: statusFr }),
@@ -219,10 +234,8 @@ const userService = {
    */
   async updateTheme(theme) {
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Non authentifié');
-    }
+    // Avec les cookies HTTP-only, pas besoin de vérifier le token manuellement
+    // Le cookie sera automatiquement envoyé avec credentials: 'include'
     
     // Vérifier si le thème est déjà en français ou s'il est en anglais
     let themeFr;
@@ -241,7 +254,6 @@ const userService = {
       const response = await fetch(`${API_URL}/users/theme`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ theme: themeFr }),
@@ -270,16 +282,13 @@ const userService = {
    */
   async getUserProfileById(id) {
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('Non authentifié');
-    }
+    // Avec les cookies HTTP-only, pas besoin de vérifier le token manuellement
+    // Le cookie sera automatiquement envoyé avec credentials: 'include'
 
     try {
       const response = await fetch(`${API_URL}/users/profile/${id}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         credentials: 'include'

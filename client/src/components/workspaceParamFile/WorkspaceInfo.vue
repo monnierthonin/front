@@ -86,6 +86,7 @@
 
 <script>
 import workspaceService from '../../services/workspaceService';
+import { getCurrentUserIdAsync } from '../../utils/userUtils';
 
 export default {
   name: 'WorkspaceInfo',
@@ -97,6 +98,7 @@ export default {
   },
   data() {
     return {
+      userId: null, // ID de l'utilisateur connecté via cookie HTTP-only
       isEditing: false,
       showStatusMenu: false,
       editedWorkspace: {
@@ -191,6 +193,15 @@ export default {
   return userRole === 'admin';
     }
   },
+  async created() {
+    try {
+      // Récupérer l'ID utilisateur via le cookie HTTP-only
+      this.userId = await this.getUserIdAsync();
+      console.log('WorkspaceInfo.vue created(): ID utilisateur chargé:', this.userId);
+    } catch (error) {
+      console.error('WorkspaceInfo.vue created(): Erreur lors du chargement de l\'ID utilisateur:', error);
+    }
+  },
   methods: {
     toggleStatusMenu() {
       // Uniquement le propriétaire en mode édition peut changer le statut
@@ -229,10 +240,25 @@ export default {
     },
 
     
+    // Méthode asynchrone pour obtenir l'ID utilisateur depuis le cookie HTTP-only
+    async getUserIdAsync() {
+      try {
+        // Récupérer l'ID de l'utilisateur connecté via l'API avec cookie HTTP-only
+        const userId = await getCurrentUserIdAsync();
+        console.log('WorkspaceInfo.vue: ID utilisateur récupéré via API:', userId);
+        return userId;
+      } catch (error) {
+        console.error('WorkspaceInfo.vue: Erreur lors de la récupération de l\'ID utilisateur:', error);
+        return null;
+      }
+    },
+    
+    // Ancienne méthode maintenue pour la compatibilité avec les computed properties
+    // À terme, toutes les computed properties devraient être converties pour utiliser des données async
     getUserId() {
-      // Récupérer l'ID de l'utilisateur connecté depuis le token
-      const token = localStorage.getItem('token');
-      return token ? workspaceService.getUserIdFromToken(token) : null;
+      // Cette méthode synchrone sera utilisée temporairement par les computed properties
+      // Mais elle utilisera l'ID utilisateur déjà chargé dans data()
+      return this.userId || null;
     },
     
     startEditing() {

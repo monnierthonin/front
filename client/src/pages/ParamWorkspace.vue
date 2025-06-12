@@ -35,6 +35,7 @@ import WorkspaceInfo from '../components/workspaceParamFile/WorkspaceInfo.vue'
 import UserManager from '../components/workspaceParamFile/UserManager.vue'
 import ChannelManager from '../components/workspaceParamFile/ChannelManager.vue'
 import workspaceService from '../services/workspaceService'
+import { getCurrentUserIdAsync } from '../utils/userUtils'
 
 export default {
   name: 'ParamWorkspace',
@@ -134,44 +135,61 @@ export default {
       });
     }
   },
-  created() {
-    // Récupérer l'ID du workspace depuis localStorage
-    this.workspaceId = localStorage.getItem('currentWorkspaceId')
-    
-    // Récupérer l'ID de l'utilisateur à partir du token
-    const token = localStorage.getItem('token');
-    if (token) {
-      this.userId = workspaceService.getUserIdFromToken(token);
-    }
-    
-    if (this.workspaceId) {
-      // Si un ID est trouvé dans le localStorage, charger les données du workspace
-      this.loadWorkspaceData()
-    } else {
-      // Sans ID, on affiche simplement la page sans données spécifiques
-      this.isLoading = false
-      this.workspace = { nom: 'Sans titre', description: 'Pas de workspace sélectionné' }
+  async created() {
+    try {
+      // Récupérer l'ID du workspace depuis le localStorage comme avant
+      this.workspaceId = localStorage.getItem('currentWorkspaceId');
+      console.log('ParamWorkspace.vue: ID du workspace récupéré depuis localStorage:', this.workspaceId);
+      
+      if (!this.workspaceId) {
+        throw new Error('ID du workspace manquant');
+      }
+      
+      // Récupérer l'ID utilisateur via API avec cookie HTTP-only
+      this.userId = await getCurrentUserIdAsync();
+      console.log('ParamWorkspace.vue: ID utilisateur récupéré via API avec cookie HTTP-only:', this.userId);
+      
+      if (!this.userId) {
+        throw new Error('Impossible de récupérer l\'ID utilisateur');
+      }
+      
+      // Charger les données du workspace
+      await this.loadWorkspaceData();
+    } catch (error) {
+      console.error('ParamWorkspace.vue - Erreur lors de l\'initialisation:', error);
+      this.error = `Impossible de charger les paramètres: ${error.message}`;
     }
   },
   methods: {
     async loadWorkspaceData() {
       try {
-        this.isLoading = true
-        this.error = null
+        this.isLoading = true;
+        this.error = null;
 
-        // Appel à l'API pour récupérer les données du workspace
-        const response = await workspaceService.getWorkspaceById(this.workspaceId)
+        console.log('ParamWorkspace.vue: Chargement des données du workspace:', this.workspaceId);
+        
+        // Appel à l'API pour récupérer les données du workspace avec cookie HTTP-only
+        const response = await workspaceService.getWorkspaceById(this.workspaceId);
+        console.log('ParamWorkspace.vue: Réponse reçue du service:', response);
         
         if (response && response.workspace) {
-          this.workspace = response.workspace
+          this.workspace = response.workspace;
+          console.log('ParamWorkspace.vue: Workspace chargé:', this.workspace);
         } else {
-          this.error = 'Impossible de charger les informations du workspace'
+          console.warn('ParamWorkspace.vue: Structure de réponse invalide ou workspace manquant');
+          this.error = 'Impossible de charger les informations du workspace';
         }
       } catch (error) {
-        console.error('Erreur lors du chargement du workspace:', error)
-        this.error = `Erreur: ${error.message || 'Impossible de charger les données du workspace'}`
+        console.error('ParamWorkspace.vue: Erreur lors du chargement du workspace:', error);
+        this.error = `Erreur: ${error.message || 'Impossible de charger les données du workspace'}`;
+        
+        // Vérifier si l'erreur est liée à l'authentification
+        if (error.message && error.message.includes('session')) {
+          // Rediriger vers la page de connexion
+          this.$router.push('/login');
+        }
       } finally {
-        this.isLoading = false
+        this.isLoading = false;
       }
     },
     
@@ -179,18 +197,32 @@ export default {
      * Met à jour les données du workspace dans le composant
      * @param {Object} updatedWorkspace - Workspace mis à jour
      */
-    updateWorkspace(updatedWorkspace) {
-      if (updatedWorkspace) {
-        this.workspace = updatedWorkspace;
-      }
+    async updateWorkspace(updatedWorkspace) {
+      console.log('ParamWorkspace.vue: Mise à jour du workspace avec les nouvelles données:', updatedWorkspace);
+      this.workspace = updatedWorkspace;
     },
     
     /**
      * Demande à l'utilisateur de quitter le workspace
      */
-    leaveWorkspace() {
-      // TODO: Implémenter la logique pour quitter le workspace
-      console.log('Quitter le workspace');
+    async leaveWorkspace() {
+      try {
+        // Appel API pour quitter le workspace avec cookie HTTP-only
+        const response = await workspaceService.leaveWorkspace(this.workspaceId);
+        console.log('ParamWorkspace.vue: Réponse reçue du service:', response);
+        
+        if (response && response.success) {
+          console.log('ParamWorkspace.vue: Utilisateur a quitté le workspace avec succès');
+          // Rediriger vers la page d'accueil
+          this.$router.push('/main');
+        } else {
+          console.error('ParamWorkspace.vue: Erreur lors de la sortie du workspace:', response.error);
+          this.error = 'Erreur lors de la sortie du workspace';
+        }
+      } catch (error) {
+        console.error('ParamWorkspace.vue: Erreur lors de la sortie du workspace:', error);
+        this.error = `Erreur: ${error.message || 'Impossible de quitter le workspace'}`;
+      }
       // Rediriger vers la page d'accueil
     },
     
@@ -204,44 +236,42 @@ export default {
     },
     
     /**
-     * Supprime le workspace et tous ses contenus
+     * Supprime le workspace et tous ses contenus en utilisant le cookie HTTP-only
      */
     async deleteWorkspace() {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('Aucun token d\'authentification trouvé');
-        }
+        console.log('ParamWorkspace.vue: Tentative de suppression du workspace:', this.workspaceId);
         
-        // Appel API pour supprimer le workspace
+        // Utilisation de credentials: 'include' pour envoyer automatiquement le cookie HTTP-only
         const response = await fetch(`http://localhost:3000/api/v1/workspaces/${this.workspaceId}`, {
           method: 'DELETE',
           headers: {
-            'Authorization': `Bearer ${token}`
-          }
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include' // Pour envoyer le cookie HTTP-only
         });
+        
+        console.log('ParamWorkspace.vue: Réponse de suppression reçue, status:', response.status);
         
         if (!response.ok) {
           if (response.status === 401) {
+            console.error('ParamWorkspace.vue: Non autorisé - session expirée');
             throw new Error('Session expirée, veuillez vous reconnecter');
           } else if (response.status === 403) {
+            console.error('ParamWorkspace.vue: Permission refusée');
             throw new Error('Vous n\'avez pas les droits pour supprimer ce workspace');
           } else {
+            console.error('ParamWorkspace.vue: Erreur lors de la suppression:', response.status);
             throw new Error(`Erreur lors de la suppression: ${response.status}`);
           }
         }
         
+        console.log('ParamWorkspace.vue: Suppression du workspace réussie');
+        
         // Mettre à jour le header en émettant un événement global
         this.$root.$emit('workspace-deleted', this.workspaceId);
         
-        // Supprimer le workspace du localStorage si présent
-        try {
-          const storedWorkspaces = JSON.parse(localStorage.getItem('userWorkspaces') || '[]');
-          const updatedWorkspaces = storedWorkspaces.filter(w => w._id !== this.workspaceId);
-          localStorage.setItem('userWorkspaces', JSON.stringify(updatedWorkspaces));
-        } catch (e) {
-          console.error('Erreur lors de la mise à jour du localStorage:', e);
-        }
+        // Plus besoin de gérer le stockage local des workspaces car nous utilisons l'API
         
         // Redirection vers la page d'accueil
         this.$router.push('/main');

@@ -39,6 +39,7 @@
 
 <script>
 import messagePrivateService from '../../services/messagePrivateService';
+import authService from '../../services/authService';
 import { ref, onMounted } from 'vue';
 import defaultProfileImg from '../../assets/styles/image/profilDelault.png';
 import SearchBar from '../common/SearchBar.vue';
@@ -56,23 +57,33 @@ export default {
     const error = ref(null);
     const currentUserId = ref(null);
 
-    // Récupérer l'ID de l'utilisateur connecté à partir du token JWT
-    const getCurrentUserId = () => {
+    // Récupérer l'ID de l'utilisateur connecté en utilisant authService
+    const getCurrentUserId = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return null;
+        console.log('Tentative de récupération de l\'utilisateur connecté...');
         
-        // Décoder le token JWT
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
+        // Vérifier d'abord si l'utilisateur est authentifié
+        const isLoggedIn = await authService.isAuthenticated();
+        if (!isLoggedIn) {
+          console.warn('Utilisateur non authentifié selon authService.isAuthenticated()');
+          return null;
+        }
         
-        const payload = JSON.parse(jsonPayload);
-        return payload.id; // Ou payload.userId selon la structure du token
+        // Utiliser le checkAuthStatus de authService qui récupère les données utilisateur
+        const userData = await authService.checkAuthStatus();
+        console.log('Réponse de checkAuthStatus:', userData);
+        
+        if (userData && userData.data && userData.data.user) {
+          const userId = userData.data.user.id || userData.data.user._id;
+          console.log('ID utilisateur récupéré:', userId);
+          // Stocker l'ID dans localStorage pour une récupération plus rapide ultérieurement
+          localStorage.setItem('userId', userId);
+          return userId;
+        }
+        
+        return null;
       } catch (err) {
-        console.error('Erreur lors du décodage du token:', err);
+        console.error('Erreur lors de la récupération de l\'ID utilisateur:', err);
         return null;
       }
     };
@@ -84,8 +95,8 @@ export default {
         error.value = null;
         contacts.value = [];
         
-        // Récupérer l'ID de l'utilisateur actuel
-        currentUserId.value = getCurrentUserId();
+        // Récupérer l'ID de l'utilisateur actuel via l'API
+        currentUserId.value = await getCurrentUserId();
         if (!currentUserId.value) {
           throw new Error('Utilisateur non connecté');
         }

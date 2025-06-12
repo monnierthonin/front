@@ -90,6 +90,7 @@
       saveWorkspaceId() {
         if (this.workspaceId) {
           localStorage.setItem('currentWorkspaceId', this.workspaceId);
+          console.log('ID du workspace sauvegardé dans localStorage:', this.workspaceId);
         }
       },
       
