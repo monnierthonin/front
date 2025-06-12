@@ -85,7 +85,7 @@ export default {
 
 <style scoped>
 .containerSettingUserChanel {
-  border: 5px solid #443E3E;
+  border: 5px solid var(--background-list-message);
   border-radius: 10px;
   width: 70%;
   scrollbar-width: thin;
@@ -125,7 +125,7 @@ export default {
   padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
-  background-color: #2f3136;
+  background-color: var(--background-recherche-filtre);
   color: #fff;
   width: 60%;
 }
@@ -134,13 +134,13 @@ export default {
   padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
-  background-color: #2f3136;
+  background-color: var(--background-recherche-filtre);
   color: #fff;
   cursor: pointer;
 }
 
 .filter-select option {
-  background-color: #2f3136;
+  background-color: var(--background-recherche-filtre);
   color: #fff;
 }
 
@@ -174,7 +174,7 @@ export default {
   display: flex;
   align-items: center;
   padding: 0.5rem;
-  background: #443E3E;
+  background: var(--background-list-message);
   gap: 1rem;
   border-radius: 10px;
 }

@@ -486,7 +486,7 @@ closeInviteModal() {
 
 <style scoped>
 .containerSettingUserChanel {
-  border: 5px solid #443E3E;
+  border: 5px solid var(--background-list-message);
   border-radius: 10px;
   width: 70%;
   scrollbar-width: thin;
@@ -513,7 +513,7 @@ closeInviteModal() {
 
 .search-header h3 {
   margin-bottom: 1rem;
-  color: #fff;
+  color: var(--text-color);
 }
 
 .search-controls {
@@ -526,8 +526,8 @@ closeInviteModal() {
   padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
-  background-color: #2f3136;
-  color: #fff;
+  background-color: var(--background-recherche-filtre);
+  color: var(--text-color);
   width: 60%;
 }
 
@@ -535,14 +535,14 @@ closeInviteModal() {
   padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
-  background-color: #2f3136;
-  color: #fff;
+  background-color: var(--background-recherche-filtre);
+  color: var(--text-color);
   cursor: pointer;
 }
 
 .filter-select option {
-  background-color: #2f3136;
-  color: #fff;
+  background-color: var(--background-recherche-filtre);
+  color: var(--text-color);
 }
 
 .users-list {
@@ -592,7 +592,7 @@ closeInviteModal() {
   display: flex;
   align-items: center;
   padding: 0.5rem;
-  background: #443E3E;
+  background: var(--background-list-message);
   gap: 1rem;
   border-radius: 10px;
 }
@@ -605,15 +605,15 @@ closeInviteModal() {
 }
 
 .username {
-  color: #fff;
+  color: var(--text-color);
   flex: 1;
 }
 
 .role-select {
   padding: 4px 8px;
   border-radius: 4px;
-  background-color: #40444b;
-  color: white;
+  background-color: var(--background-recherche-filtre);
+  color: var(--text-color);
   border: none;
   font-size: 14px;
 }

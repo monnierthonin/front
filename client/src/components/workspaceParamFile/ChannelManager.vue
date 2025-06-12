@@ -326,7 +326,7 @@ export default {
 
 <style scoped>
 .containerSettingUserChanel {
-  border: 5px solid #443E3E;
+  border: 5px solid var(--background-list-message);
   border-radius: 10px;
   width: 70%;
   scrollbar-width: thin;
@@ -353,7 +353,7 @@ export default {
 
 .search-header h3 {
   margin-bottom: 1rem;
-  color: #fff;
+  color: var(--text-color);
 }
 
 .search-controls {
@@ -366,8 +366,8 @@ export default {
   padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
-  background-color: #2f3136;
-  color: #fff;
+  background-color: var(--background-recherche-filtre);
+  color: var(--text-color);
   width: 60%;
 }
 
@@ -375,14 +375,14 @@ export default {
   padding: 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
-  background-color: #2f3136;
-  color: #fff;
+  background-color: var(--background-recherche-filtre);
+  color: var(--text-color);
   cursor: pointer;
 }
 
 .filter-select option {
-  background-color: #2f3136;
-  color: #fff;
+  background-color: var(--background-recherche-filtre);
+  color: var(--text-color);
 }
 
 .channels-list {
@@ -432,7 +432,7 @@ export default {
   display: flex;
   align-items: center;
   padding: 0.5rem 1rem;
-  background: #443E3E;
+  background: var(--background-list-message);
   gap: 1rem;
   border-radius: 10px;
 }
@@ -440,29 +440,29 @@ export default {
 
 
 .channel-name {
-  color: #fff;
+  color: var(--text-color);
   flex: 1;
 }
 
 .status-select {
   padding: 0.3rem;
   border-radius: 4px;
-  background: #333;
-  color: #fff;
+  background: var(--background-list-message);
+  color: var(--text-color);
   border: 1px solid #555;
 }
 
 .add-user-button {
   padding: 0.3rem 1rem;
-  background: #444;
-  color: #fff;
+  background: var(--background-recherche-filtre);
+  color: var(--text-color);
   border: 1px solid #555;
   border-radius: 4px;
   cursor: pointer;
 }
 
 .add-user-button:hover {
-  background: #555;
+  background: var(--background-recherche-filtre);
 }
 
 .delete-channel-button {

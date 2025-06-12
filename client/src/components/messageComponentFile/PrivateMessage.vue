@@ -777,15 +777,15 @@ export default {
   display: flex;
   position: relative;
   max-width: 70%;
-  background-color: var(--color-background-soft, #36393f);
+  background-color: var(--color-background-soft, --background-message-secondaire);
   border-radius: 8px;
   padding: 0.75rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 :deep(.current-user .message-content) {
-  background-color: var(--accent-color-light, #14324F);
-  color: #fff;
+  background-color: var(--accent-color-light, --background-message);
+  color: var(--text-color);
   flex-direction: row-reverse;
 }
 

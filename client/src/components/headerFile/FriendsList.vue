@@ -480,7 +480,7 @@ export default {
   top: 0;
   height: 100vh;
   width: var(--whidth-friendsList);
-  background-color: #2B3132;
+  background-color:var(--background-list-message);
   display: flex;
   flex-direction: column;
   justify-content: space-between;

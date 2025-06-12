@@ -22,12 +22,15 @@
   --secondary-color: #e3e5e8;
   --secondary-color-transition: #d4d7dc;
   --background-color: #ffffff;
-  --text-color: #2e3338;
+  --text-color: #000000;
   --hover-color: #677bc4;
   --background-primary: #ffffff;
   --background-secondary: #f2f3f5;
-  --text-primary: #2e3338;
+  --text-primary: #000000;
   --text-secondary: #747f8d;
+  --background-list-message: #a8a8a8;
+  --background-message: #777777;
+  --background-recherche-filtre: #d4d7dc;
 }
 
 /* Variables pour le thème sombre (pour être explicite) */
@@ -42,6 +45,10 @@
   --background-secondary: #14324F;
   --text-primary: #ffffff;
   --text-secondary: #c4c4c4;
+  --background-list-message: #2b3132;
+  --background-message-secondaire: #39393f;
+  --background-message: #14324F;
+  --background-recherche-filtre: #2f3136;
 }
 
 * {
