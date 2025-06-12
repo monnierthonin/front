@@ -13,29 +13,20 @@ const searchService = {
    */
   async searchUsers(query = '', all = false) {
     try {
-      // Récupérer le token dans le localStorage
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('Vous devez être connecté pour rechercher des utilisateurs');
-      }
-      
       // Construire l'URL avec les paramètres de recherche
       const url = `${API_URL}/search/users?q=${encodeURIComponent(query)}${all ? '&all=true' : ''}`;
       
-      // Appeler l'API pour rechercher des utilisateurs
+      // Appeler l'API avec les cookies HTTP-only pour l'authentification
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        credentials: 'include',
+        credentials: 'include' // Inclure les cookies pour l'authentification
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         const responseText = await response.text();
@@ -71,26 +62,19 @@ const searchService = {
    */
   async searchMyWorkspaces(query = '') {
     try {
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('Vous devez être connecté pour rechercher des workspaces');
-      }
-      
       const url = `${API_URL}/search/workspaces?q=${encodeURIComponent(query)}`;
       
+      // Utiliser uniquement les cookies pour l'authentification
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        credentials: 'include',
+        credentials: 'include' // Inclure les cookies pour l'authentification
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          localStorage.removeItem('token');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         const responseText = await response.text();
