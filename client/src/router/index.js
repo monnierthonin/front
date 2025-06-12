@@ -1,11 +1,34 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import authService from '../services/authService' // Import du service d'authentification
 
 // Définition des routes avec protection
 const routes = [
   {
+    // Route explicite pour /workspace (sans id) qui redirige vers l'authentification si déconnecté
+    path: '/workspace',
+    name: 'WorkspaceRedirect',
+    beforeEnter: async (to, from, next) => {
+      try {
+        // Vérifier l'authentification
+        const isAuthenticated = await authService.isAuthenticated();
+        
+        if (!isAuthenticated) {
+          // Rediriger vers l'authentification si l'utilisateur n'est pas connecté
+          return next('/auth');
+        }
+        
+        // Si authentifié, redirige vers la page d'accueil qui chargera le premier workspace
+        return next('/');
+      } catch (error) {
+        console.error('Erreur lors de la vérification de l\'authentification:', error);
+        return next('/auth');
+      }
+    }
+  },
+  {
     path: '/workspace/:id',
     name: 'Workspace',
-    component: () => import('@/pages/Home.vue'),
+    component: () => import('@/pages/Workspace.vue'), // Composant pour les workspaces
     meta: { requiresAuth: true },
     props: true
   },
@@ -17,7 +40,7 @@ const routes = [
   {
     path: '/',
     name: 'Home',
-    component: () => import('@/pages/Home.vue'),
+    component: () => import('@/pages/Home.vue'), // Page des messages privés
     meta: { requiresAuth: true },
     beforeEnter: async (to, from, next) => {
       try {
@@ -31,6 +54,7 @@ const routes = [
           next();
         }
       } catch (error) {
+        console.error('Erreur lors de la récupération des workspaces:', error);
         next();
       }
     }
@@ -65,52 +89,35 @@ const router = createRouter({
   routes
 })
 
-// Fonction pour vérifier si un token JWT est valide (non expiré)
-function isTokenValid(token) {
-  if (!token) return false;
-  
-  try {
-    // Extraire le payload du token
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    
-    // Vérifier si le token a expiré
-    const expiration = payload.exp * 1000; // Convertir en millisecondes
-    return Date.now() < expiration;
-  } catch (error) {
-    return false;
-  }
-}
+// La validation du token est maintenant gérée par authService.isAuthenticated()
+// qui vérifie l'authentification via les cookies HTTP-only
 
-// Guard de navigation pour protéger TOUTES les routes qui nécessitent une authentification
-router.beforeEach((to, from, next) => {
-  // Récupérer et valider le token d'authentification
-  const token = localStorage.getItem('token');
-  const isAuthenticated = token && isTokenValid(token);
+// Guard de navigation pour protéger les routes qui nécessitent une authentification
+router.beforeEach(async (to, from, next) => {
+  console.log('Navigation vers:', to.path);
   
-  // Si le token existe mais n'est pas valide, le supprimer
-  if (token && !isTokenValid(token)) {
-    localStorage.removeItem('token');
-  }
+  // Vérifier si la route nécessite une authentification
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const isAuthPage = to.path === '/auth' || to.path === '/auth/callback';
   
-  // Définir les routes accessibles sans authentification
-  const publicRoutes = ['/auth', '/auth/callback'];
+  // Vérifier l'état d'authentification de l'utilisateur avec le service d'authentification
+  // qui utilise les cookies HTTP-only
+  const isAuthenticated = await authService.isAuthenticated();
+  console.log('Est authentifié (via cookie):', isAuthenticated);
   
-  // Vérifier si la route actuelle est une route publique
-  const isPublicRoute = publicRoutes.includes(to.path);
-  
-
-  
-  // Si la route n'est pas publique et l'utilisateur n'est pas authentifié
-  if (!isPublicRoute && !isAuthenticated) {
+  // Logique de redirection
+  if (isAuthPage && isAuthenticated) {
+    // Si l'utilisateur est déjà connecté et essaie d'accéder à la page d'authentification
+    console.log('Redirection: utilisateur authentifié essayant d\'accéder à /auth, redirection vers /');
+    return next('/');
+  } else if (requiresAuth && !isAuthenticated) {
+    // Si l'utilisateur n'est pas connecté et essaie d'accéder à une route protégée
+    console.log('Redirection: accès refusé à une page protégée, redirection vers /auth');
     return next('/auth');
   }
   
-  // Si l'utilisateur est authentifié et essaie d'accéder à la page d'authentification
-  if (isPublicRoute && isAuthenticated) {
-    return next('/');
-  }
-  
-  // Dans tous les autres cas, autoriser la navigation
+  // Dans tous les autres cas, permettre la navigation
+  console.log('Navigation autorisée vers:', to.path);
   next();
 })
 
