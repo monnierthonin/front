@@ -1,0 +1,21 @@
+CORRECTIONS À APPORTER :
+
+1. Dans messagePrivateService.js, ligne ~573 (fonction sendPrivateReply) :
+   Remplacer :
+   ```javascript
+   headers: {
+     'Authorization': `Bearer ${token}`, // Problème ici: token n'est pas défini
+     'Content-Type': 'application/json'
+   },
+   ```
+   Par :
+   ```javascript
+   headers: {
+     'Content-Type': 'application/json'
+   },
+   ```
+
+2. Dans messagePrivateService.js, ligne ~688 (fonction reactToPrivateMessage) :
+   Faire la même modification, supprimer la ligne avec 'Authorization'.
+
+Ces modifications permettront d'utiliser uniquement l'authentification par cookies HTTP-only, comme dans le reste de l'application.
