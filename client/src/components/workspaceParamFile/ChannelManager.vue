@@ -146,21 +146,13 @@ export default {
       this.channels = [];
       
       try {
-        // Récupérer le token depuis le localStorage
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          throw new Error('Aucun token d\'authentification trouvé');
-        }
-        
-        // Appeler l'endpoint spécifique pour récupérer les canaux
+        // Utiliser les cookies HTTP-only pour l'authentification sans avoir besoin du token explicite
         const response = await fetch(`http://localhost:3000/api/v1/workspaces/${this.workspaceId}/canaux`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          credentials: 'include'
+          credentials: 'include' // Pour envoyer automatiquement le cookie HTTP-only
         });
         
         if (!response.ok) {
