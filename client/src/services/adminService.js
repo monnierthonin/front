@@ -133,14 +133,23 @@ const adminService = {
   /**
    * Met à jour le rôle d'un utilisateur
    * @param {string} userId - ID de l'utilisateur
-   * @param {string} role - Nouveau rôle
+   * @param {string} role - Nouveau rôle (admin ou user)
    * @returns {Promise<Object>} - Réponse de l'API
    */
   async updateUserRole(userId, role) {
-    return await tryMultiplePaths(`utilisateurs/${userId}/role`, {
-      method: 'PATCH',
-      body: JSON.stringify({ role })
-    });
+    try {
+      // Utilisation de l'endpoint spécifique pour la promotion
+      const response = await tryMultiplePaths(`utilisateurs/${userId}/promouvoir`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role })
+      });
+      
+      console.log(`Rôle mis à jour avec succès pour l'utilisateur ${userId}:`, response);
+      return response;
+    } catch (error) {
+      console.error(`Échec de la mise à jour du rôle pour l'utilisateur ${userId}:`, error);
+      throw error;
+    }
   },
   
   /**
@@ -181,7 +190,36 @@ const adminService = {
    * @returns {Promise<Object>} - Réponse de l'API
    */
   async deleteUser(userId) {
-    return await tryMultiplePaths(`utilisateurs/${userId}`, { method: 'DELETE' });
+    try {
+      console.log(`Tentative de suppression de l'utilisateur avec ID: ${userId}`);
+      const url = `${API_URL}${currentAdminPath}utilisateurs/${userId}`;
+      console.log(`URL de suppression: ${url}`);
+      
+      const response = await fetch(url, {
+        ...defaultOptions,
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur lors de la suppression: ${response.status} ${response.statusText}`);
+      }
+      
+      // Si la réponse est vide (204 No Content), on retourne un objet avec statut success
+      if (response.status === 204) {
+        return { status: 'success', message: 'Utilisateur supprimé avec succès' };
+      }
+      
+      // Sinon on tente de parser le JSON
+      try {
+        return await response.json();
+      } catch (e) {
+        // Si pas de JSON, on retourne un succès par défaut
+        return { status: 'success', message: 'Utilisateur supprimé' };
+      }
+    } catch (error) {
+      console.error(`Échec de la suppression de l'utilisateur ${userId}:`, error);
+      throw error;
+    }
   },
   
   /**

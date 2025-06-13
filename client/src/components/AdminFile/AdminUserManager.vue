@@ -9,18 +9,11 @@
         <div v-for="user in filteredUsers" :key="user.id" class="user-item">
           <img :src="user.profileImage || '../../assets/styles/image/profilDelault.png'" :alt="user.username" class="user-avatar">
           <span class="username">{{ user.username }}</span>
-          <select v-model="user.role" class="role-select" @change="updateUserRole(user)">
+          <select v-model="user.role" class="role-select" @change="updateUserRole(user)" :disabled="user.role === 'admin'" :title="user.role === 'admin' ? 'Un admin ne peut pas être rétrogradé' : ''">
             <option value="admin">Admin</option>
             <option value="user">User</option>
-            <option value="guest">Invité</option>
           </select>
           <div class="action-buttons">
-            <button class="action-button" title="Trouver les workspaces" @click="findUserWorkspaces(user)">
-              workspace
-            </button>
-            <button class="action-button" title="Trouver les messages" @click="findUserMessages(user)">
-              messages
-            </button>
             <button class="action-button delete-button" title="Supprimer l'utilisateur" @click="deleteUser(user)">
               <img src="../../assets/styles/image/ban.png" alt="delete" class="action-icon">
             </button>
@@ -80,28 +73,6 @@ export default {
       } catch (error) {
         console.error('Erreur lors de la mise à jour du rôle:', error);
         // Réinitialiser le rôle précédent en cas d'erreur
-      }
-    },
-    
-    async findUserWorkspaces(user) {
-      try {
-        const userId = user._id || user.id;
-        const workspaces = await adminService.getUserWorkspaces(userId);
-        console.log(`Workspaces pour ${user.username}:`, workspaces);
-        // Ici vous pourriez afficher les workspaces dans un modal ou naviguer vers une autre page
-      } catch (error) {
-        console.error('Erreur lors de la récupération des workspaces:', error);
-      }
-    },
-    
-    async findUserMessages(user) {
-      try {
-        const userId = user._id || user.id;
-        const messages = await adminService.getUserMessages(userId);
-        console.log(`Messages pour ${user.username}:`, messages);
-        // Ici vous pourriez afficher les messages dans un modal
-      } catch (error) {
-        console.error('Erreur lors de la récupération des messages:', error);
       }
     },
     
