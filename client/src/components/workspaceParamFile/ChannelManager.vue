@@ -461,10 +461,6 @@ export default {
   cursor: pointer;
 }
 
-.add-user-button:hover {
-  background: var(--background-recherche-filtre);
-}
-
 .delete-channel-button {
   height: 40px;
   width: 40px;

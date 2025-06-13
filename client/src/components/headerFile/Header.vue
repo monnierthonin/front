@@ -30,7 +30,9 @@
         </ul>
       </div>
       <div class="botom-header">
-        <div class="boutonModeration" v-if="isAdmin"><!-- Section administration (uniquement pour les superadmins) -->
+        <!-- Log pour déboguer -->
+        <div style="display:none;">{{ console.log('Rendu du composant Header, isAdmin =', isAdmin) }}</div>
+        <div class="boutonModeration" v-if="isAdmin"><!-- Section administration (uniquement pour les admins) -->
           <router-link to="/admin">
             <button class="moderationButton"><img src="../../assets/styles/image/moderation.png" alt="moderation" class="moderation"></button>
           </router-link>
@@ -102,13 +104,15 @@ export default {
     
     // S'abonner à l'événement de connexion
     eventBus.on(APP_EVENTS.USER_LOGGED_IN, () => {
+      console.log('---- EVENT: Utilisateur connecté, rechargement du profil et des workspaces ----');
       console.log('Header a reçu l\'événement de connexion');
       // Récupérer la nouvelle photo de profil du localStorage
       this.currentProfilePicture = localStorage.getItem('profilePicture') || 'default.jpg';
       this.isAuthenticated = true;
-      // Charger le profil utilisateur pour obtenir les informations les plus récentes
+      console.log('État isAdmin avant loadUserProfile:', this.isAdmin);
       this.loadUserProfile();
-      // Recharger les workspaces
+      console.log('État isAdmin avant checkSuperAdminRole:', this.isAdmin);
+      this.checkSuperAdminRole(); // Vérifier à nouveau le rôle admin après connexion
       this.loadWorkspaces();
     });
     
@@ -130,6 +134,7 @@ export default {
   },
   
   async mounted() {
+    console.log('---- MOUNTED: Header component ----');
     // Vérifier si l'utilisateur est connecté via l'API
     try {
       const isAuthenticated = await authService.isAuthenticated();
@@ -138,6 +143,7 @@ export default {
       if (isAuthenticated) {
         // Charger le profil utilisateur
         await this.loadUserProfile();
+        console.log('État isAdmin après loadUserProfile:', this.isAdmin);
         // Charger les workspaces
         await this.loadWorkspaces();
       }
@@ -151,18 +157,22 @@ export default {
      * Charge le profil de l'utilisateur connecté
      */
     async loadUserProfile() {
+      console.log('---- DÉBUT: Chargement du profil utilisateur ----');
       try {
         // Appeler l'API pour récupérer les informations de l'utilisateur connecté
+        console.log('Envoi de la requête pour charger le profil...');
         const response = await fetch('http://localhost:3000/api/v1/auth/me', {
           method: 'GET',
           credentials: 'include'
         });
         
+        console.log('Réponse reçue, status:', response.status);
         if (!response.ok) {
           throw new Error(`Erreur lors de la récupération du profil: ${response.status}`);
         }
         
         const data = await response.json();
+        console.log('Données profil utilisateur reçues:', JSON.stringify(data, null, 2));
         
         if (data && data.status === 'success' && data.data && data.data.user) {
           const user = data.data.user;
@@ -172,10 +182,10 @@ export default {
           
           // Vérifier si l'utilisateur a le rôle admin
           if (user.role === 'admin') {
-            console.log('Utilisateur avec rôle admin détecté');
+            console.log('✅ Utilisateur avec rôle admin détecté, isAdmin mis à TRUE');
             this.isAdmin = true;
           } else {
-            console.log('Utilisateur sans rôle admin');
+            console.log('❌ Utilisateur sans rôle admin');
             this.isAdmin = false;
           }
           
@@ -195,23 +205,45 @@ export default {
      * Vérifie si l'utilisateur a le rôle superadmin (admin)
      */
     async checkSuperAdminRole() {
+      console.log('---- DÉBUT: Vérification du rôle admin ----');
       try {
         // Faire une requête au serveur pour récupérer les informations de l'utilisateur courant
+        console.log('Envoi de la requête pour vérifier le rôle admin...');
         const response = await fetch('http://localhost:3000/api/v1/users/profile', {
           method: 'GET',
           credentials: 'include'
         });
         
+        console.log('Réponse reçue, status:', response.status);
         if (!response.ok) {
           console.error('Erreur lors de la vérification du rôle admin: ', response.status);
           return;
         }
         
         const data = await response.json();
-        if (data && data.data && data.data.user) {
-          this.isAdmin = data.data.user.role === 'admin';
+        console.log('Données utilisateur reçues:', JSON.stringify(data, null, 2));
+        
+        // Extraire les données du profil selon la structure correcte
+        let userData = null;
+        
+        // Structure attendue: {success: true, data: {...}} ou {data: {user: {...}}}
+        if (data.success && data.data) {
+          userData = data.data;
+        } else if (data.data && data.data.user) {
+          userData = data.data.user;
+        }
+        
+        if (userData) {
+          // Vérifier si le champ role existe et s'il est égal à 'admin'
+          const hasAdminRole = userData.role === 'admin';
+          console.log('Rôle détecté:', userData.role, 'Est admin?', hasAdminRole);
+          this.isAdmin = hasAdminRole;
+          console.log('isAdmin mis à jour:', this.isAdmin);
+          
+          // Force la mise à jour du DOM
+          this.$forceUpdate();
         } else {
-          console.warn('Format de réponse inattendu:', data);
+          console.warn('Profil utilisateur introuvable dans la réponse:', data);
           this.isAdmin = false;
         }
       } catch (error) {

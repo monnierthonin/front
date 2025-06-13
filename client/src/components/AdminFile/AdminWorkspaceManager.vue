@@ -10,10 +10,10 @@
           <span class="workspace-name">{{ workspace.name }}</span>
           <div class="action-buttons">
             <button class="action-button" title="Voir les membres" @click="findWorkspaceUsers(workspace)">
-              <img src="../../assets/styles/image/ajoutAmis.png" alt="users" class="action-icon">
+              membres
             </button>
             <button class="action-button" title="Voir les canaux" @click="findWorkspaceChannels(workspace)">
-              <img src="../../assets/styles/image/rechercheGris.png" alt="channels" class="action-icon">
+              canaux
             </button>
             <button class="action-button delete-button" title="Supprimer le workspace" @click="deleteWorkspace(workspace)">
               <img src="../../assets/styles/image/ban.png" alt="delete" class="action-icon">
@@ -28,6 +28,8 @@
 </template>
 
 <script>
+import adminService from '../../services/adminService';
+
 export default {
   name: 'AdminWorkspaceManager',
   data() {
@@ -49,30 +51,58 @@ export default {
     }
   },
   methods: {
-    // Cette méthode sera implémentée lorsque l'API sera disponible
+    // Récupère tous les workspaces depuis le service
     async fetchWorkspaces() {
-      // Actuellement, nous utilisons des données statiques définies dans data()
       this.loading = true;
+      this.error = null;
       
-      // Simulation d'un appel API (attente de 300ms)
-      setTimeout(() => {
+      try {
+        this.workspaces = await adminService.getWorkspaces();
+      } catch (error) {
+        console.error('Erreur lors du chargement des workspaces:', error);
+        this.error = error.message;
+      } finally {
         this.loading = false;
-      }, 300);
+      }
     },
     
-    findWorkspaceUsers(workspace) {
-      // This would open a modal or navigate to show workspace members
-      console.log(`Finding users for workspace: ${workspace.name}`);
+    async findWorkspaceUsers(workspace) {
+      try {
+        const workspaceId = workspace._id || workspace.id;
+        const users = await adminService.getWorkspaceUsers(workspaceId);
+        console.log(`Utilisateurs du workspace ${workspace.name}:`, users);
+        // Ici vous pourriez afficher les utilisateurs dans un modal
+      } catch (error) {
+        console.error('Erreur lors de la récupération des utilisateurs du workspace:', error);
+      }
     },
     
-    findWorkspaceChannels(workspace) {
-      // This would open a modal or navigate to show workspace channels
-      console.log(`Finding channels for workspace: ${workspace.name}`);
+    async findWorkspaceChannels(workspace) {
+      try {
+        const workspaceId = workspace._id || workspace.id;
+        const channels = await adminService.getWorkspaceChannels(workspaceId);
+        console.log(`Canaux du workspace ${workspace.name}:`, channels);
+        // Ici vous pourriez afficher les canaux dans un modal
+      } catch (error) {
+        console.error('Erreur lors de la récupération des canaux du workspace:', error);
+      }
     },
     
-    deleteWorkspace(workspace) {
-      // This would typically make an API call to delete the workspace
-      console.log(`Deleting workspace: ${workspace.name}`);
+    async deleteWorkspace(workspace) {
+      if (!confirm(`Êtes-vous sûr de vouloir supprimer le workspace ${workspace.name}?`)) {
+        return;
+      }
+      
+      try {
+        const workspaceId = workspace._id || workspace.id;
+        await adminService.deleteWorkspace(workspaceId);
+        
+        // Supprimer le workspace de la liste locale
+        this.workspaces = this.workspaces.filter(w => w.id !== workspace.id);
+        console.log(`Workspace ${workspace.name} supprimé avec succès`);
+      } catch (error) {
+        console.error('Erreur lors de la suppression du workspace:', error);
+      }
     },
     
 
@@ -84,6 +114,21 @@ export default {
 </script>
 
 <style scoped>
+.action-buttons {
+  display: flex;
+  align-items: center;
+}
+.action-button {
+  padding: 0.3rem 1rem;
+  background: var(--background-recherche-filtre);
+  color: var(--text-color);
+  border: 1px solid #555;
+  border-radius: 4px;
+  margin: 0 3px;
+  cursor: pointer;
+  justify-content: center;
+}
+
 .containerSettingUserChanel {
   border: 5px solid var(--background-list-message);
   border-radius: 10px;
@@ -206,25 +251,9 @@ export default {
   background: #555;
 }
 
-.action-buttons {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.action-button {
-  height: 40px;
-  width: 40px;
+.delete-button {
   background: none;
   border: none;
-  align-items: center;
-  justify-content: center;
-  display: flex;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.action-button:hover {
-  transform: scale(1.1);
 }
 
 .action-icon {

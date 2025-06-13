@@ -16,10 +16,10 @@
           </select>
           <div class="action-buttons">
             <button class="action-button" title="Trouver les workspaces" @click="findUserWorkspaces(user)">
-              <img src="../../assets/styles/image/parametre.png" alt="workspaces" class="action-icon">
+              workspace
             </button>
             <button class="action-button" title="Trouver les messages" @click="findUserMessages(user)">
-              <img src="../../assets/styles/image/messageEnvoi.png" alt="messages" class="action-icon">
+              messages
             </button>
             <button class="action-button delete-button" title="Supprimer l'utilisateur" @click="deleteUser(user)">
               <img src="../../assets/styles/image/ban.png" alt="delete" class="action-icon">
@@ -34,6 +34,8 @@
 </template>
 
 <script>
+import adminService from '../../services/adminService';
+
 export default {
   name: 'AdminUserManager',
   data() {
@@ -55,35 +57,69 @@ export default {
     }
   },
   methods: {
-    // Cette méthode sera implémentée lorsque l'API sera disponible
+    // Récupère tous les utilisateurs depuis le service
     async fetchUsers() {
-      // Actuellement, nous utilisons des données statiques définies dans data()
       this.loading = true;
+      this.error = null;
       
-      // Simulation d'un appel API (attente de 300ms)
-      setTimeout(() => {
+      try {
+        this.users = await adminService.getUsers();
+      } catch (error) {
+        console.error('Erreur lors du chargement des utilisateurs:', error);
+        this.error = error.message;
+      } finally {
         this.loading = false;
-      }, 300);
+      }
     },
     
-    updateUserRole(user) {
-      // This would typically make an API call to update the user's role
-      console.log(`Updating ${user.username}'s role to ${user.role}`);
+    async updateUserRole(user) {
+      try {
+        const userId = user._id || user.id;
+        await adminService.updateUserRole(userId, user.role);
+        console.log(`Rôle de ${user.username} mis à jour avec succès à ${user.role}`);
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour du rôle:', error);
+        // Réinitialiser le rôle précédent en cas d'erreur
+      }
     },
     
-    findUserWorkspaces(user) {
-      // This would open a modal or navigate to show user's workspaces
-      console.log(`Finding workspaces for user: ${user.username}`);
+    async findUserWorkspaces(user) {
+      try {
+        const userId = user._id || user.id;
+        const workspaces = await adminService.getUserWorkspaces(userId);
+        console.log(`Workspaces pour ${user.username}:`, workspaces);
+        // Ici vous pourriez afficher les workspaces dans un modal ou naviguer vers une autre page
+      } catch (error) {
+        console.error('Erreur lors de la récupération des workspaces:', error);
+      }
     },
     
-    findUserMessages(user) {
-      // This would open a modal or navigate to show user's messages
-      console.log(`Finding messages for user: ${user.username}`);
+    async findUserMessages(user) {
+      try {
+        const userId = user._id || user.id;
+        const messages = await adminService.getUserMessages(userId);
+        console.log(`Messages pour ${user.username}:`, messages);
+        // Ici vous pourriez afficher les messages dans un modal
+      } catch (error) {
+        console.error('Erreur lors de la récupération des messages:', error);
+      }
     },
     
-    deleteUser(user) {
-      // This would typically make an API call to delete the user
-      console.log(`Deleting user: ${user.username}`);
+    async deleteUser(user) {
+      if (!confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${user.username}?`)) {
+        return;
+      }
+      
+      try {
+        const userId = user._id || user.id;
+        await adminService.deleteUser(userId);
+        
+        // Supprimer l'utilisateur de la liste locale
+        this.users = this.users.filter(u => u.id !== user.id);
+        console.log(`Utilisateur ${user.username} supprimé avec succès`);
+      } catch (error) {
+        console.error('Erreur lors de la suppression de l\'utilisateur:', error);
+      }
     },
     
 
@@ -95,6 +131,21 @@ export default {
 </script>
 
 <style scoped>
+.action-buttons {
+  display: flex;
+  align-items: center;
+}
+.action-button {
+  padding: 0.3rem 1rem;
+  background: var(--background-recherche-filtre);
+  color: var(--text-color);
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  margin: 0 3px;
+  transition: background-color 0.2s;
+  justify-content: center;
+}
 .containerSettingUserChanel {
   border: 5px solid #443E3E;
   border-radius: 10px;
@@ -165,6 +216,7 @@ export default {
   gap: 10px;
   scrollbar-width: thin;
   scrollbar-color: #7D7D7D #D9D9D9;
+  vertical-align: middle;
 }
 
 .users-list::-webkit-scrollbar {
@@ -224,25 +276,9 @@ export default {
   background: #555;
 }
 
-.action-buttons {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.action-button {
-  height: 40px;
-  width: 40px;
+.delete-button {
   background: none;
   border: none;
-  align-items: center;
-  justify-content: center;
-  display: flex;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.action-button:hover {
-  transform: scale(1.1);
 }
 
 .action-icon {
