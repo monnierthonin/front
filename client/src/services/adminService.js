@@ -591,6 +591,58 @@ const adminService = {
       console.error(`Échec de la suppression du message ${messageId}:`, error);
       throw error;
     }
+  },
+
+  /**
+   * Met à jour les informations d'un workspace
+   * @param {string} workspaceId - ID du workspace
+   * @param {Object} workspaceData - Données du workspace à mettre à jour
+   * @returns {Promise<Object>} - Réponse de l'API
+   */
+  async updateWorkspace(workspaceId, workspaceData) {
+    try {
+      console.log(`Mise à jour du workspace ${workspaceId} avec:`, workspaceData);
+      const url = `${API_URL}${currentAdminPath}workspaces/${workspaceId}`;
+      console.log(`URL de mise à jour: ${url}`);
+      
+      const response = await fetch(url, {
+        ...defaultOptions,
+        method: 'PATCH',
+        body: JSON.stringify(workspaceData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur lors de la mise à jour du workspace: ${response.status} ${response.statusText}`);
+      }
+      
+      // Tenter de parser le JSON
+      try {
+        const responseData = await response.json();
+        console.log('Réponse mise à jour workspace:', responseData);
+        
+        // Normalisation et retour des données
+        return {
+          status: 'success',
+          id: responseData._id || responseData.id || workspaceId,
+          name: responseData.name || workspaceData.name || 'Workspace sans nom',
+          description: responseData.description || workspaceData.description || '',
+          visibility: responseData.visibility || workspaceData.visibility || 'public'
+        };
+      } catch (e) {
+        // Si pas de JSON, on retourne un succès par défaut avec les données qu'on avait envoyées
+        return { 
+          status: 'success', 
+          message: 'Workspace mis à jour avec succès',
+          id: workspaceId,
+          name: workspaceData.name,
+          description: workspaceData.description,
+          visibility: workspaceData.visibility
+        };
+      }
+    } catch (error) {
+      console.error(`Échec de la mise à jour du workspace ${workspaceId}:`, error);
+      throw error;
+    }
   }
 };
 

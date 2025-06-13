@@ -7,7 +7,7 @@
       </div>
       <div class="workspaces-list">
         <div v-for="workspace in filteredWorkspaces" :key="workspace.id" class="workspace-item">
-          <span class="workspace-name">{{ workspace.name }}</span>
+          <span class="workspace-name clickable" @click="openEditWorkspaceModal(workspace)">{{ workspace.name }}</span>
           <div class="action-buttons">
             <button class="action-button" title="Voir les membres" @click="findWorkspaceUsers(workspace)">
               membres
@@ -55,6 +55,15 @@
       @close="closeMessagesModal"
       @delete-message="deleteMessage"
     />
+    
+    <!-- Modal pour éditer les informations d'un workspace -->
+    <workspace-edit-modal
+      :show="showEditWorkspaceModal"
+      :workspace="selectedWorkspace"
+      :loading="loadingWorkspaceEdit"
+      @close="closeEditWorkspaceModal"
+      @save="saveWorkspaceChanges"
+    />
   </div>
 </template>
 
@@ -63,13 +72,15 @@ import adminService from '../../services/adminService';
 import WorkspaceMembersModal from './WorkspaceMembersModal.vue';
 import WorkspaceChannelsModal from './WorkspaceChannelsModal.vue';
 import ChannelMessagesModal from './ChannelMessagesModal.vue';
+import WorkspaceEditModal from './WorkspaceEditModal.vue';
 
 export default {
   name: 'AdminWorkspaceManager',
   components: {
     WorkspaceMembersModal,
     WorkspaceChannelsModal,
-    ChannelMessagesModal
+    ChannelMessagesModal,
+    WorkspaceEditModal
   },
   data() {
     return {
@@ -87,7 +98,9 @@ export default {
       showMessagesModal: false,
       selectedChannel: null,
       channelMessages: [],
-      loadingMessages: false
+      loadingMessages: false,
+      showEditWorkspaceModal: false,
+      loadingWorkspaceEdit: false
     };
   },
   computed: {
@@ -275,6 +288,82 @@ export default {
       }
     },
     
+    /**
+     * Ouvre la modal d'édition pour un workspace
+     * @param {Object} workspace - Le workspace à éditer
+     */
+    openEditWorkspaceModal(workspace) {
+      this.selectedWorkspace = workspace;
+      this.showEditWorkspaceModal = true;
+    },
+    
+    /**
+     * Ferme la modal d'édition de workspace
+     */
+    closeEditWorkspaceModal() {
+      this.showEditWorkspaceModal = false;
+      this.selectedWorkspace = null;
+    },
+    
+    /**
+     * Sauvegarde les modifications apportées au workspace
+     * @param {Object} updatedWorkspace - Les données modifiées du workspace
+     */
+    async saveWorkspaceChanges(updatedWorkspace) {
+      this.loadingWorkspaceEdit = true;
+      
+      try {
+        const workspaceId = updatedWorkspace.id;
+        const result = await adminService.updateWorkspace(workspaceId, {
+          name: updatedWorkspace.name,
+          description: updatedWorkspace.description,
+          visibility: updatedWorkspace.visibility
+        });
+        
+        // Mettre à jour le workspace dans la liste locale
+        const index = this.workspaces.findIndex(w => w.id === workspaceId);
+        if (index !== -1) {
+          this.workspaces[index] = { 
+            ...this.workspaces[index], 
+            name: updatedWorkspace.name,
+            description: updatedWorkspace.description,
+            visibility: updatedWorkspace.visibility 
+          };
+        }
+        
+        this.$toast.success('Workspace mis à jour avec succès');
+        this.closeEditWorkspaceModal();
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour du workspace:', error);
+        this.$toast.error('Erreur lors de la mise à jour du workspace');
+      } finally {
+        this.loadingWorkspaceEdit = false;
+      }
+    },
+    
+    /**
+     * Formatte une date en format lisible
+     * @param {string} dateString - La date à formatter
+     * @returns {string} - La date formattée
+     */
+    formatDate(dateString) {
+      if (!dateString) return 'Date inconnue';
+      
+      try {
+        const date = new Date(dateString);
+        return new Intl.DateTimeFormat('fr-FR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }).format(date);
+      } catch (error) {
+        console.error('Erreur de formatage de date:', error);
+        return dateString;
+      }
+    },
+    
 
   },
   mounted() {
@@ -404,6 +493,15 @@ export default {
 .workspace-name {
   color: #fff;
   flex: 1;
+}
+
+.clickable {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.clickable:hover {
+  color: #a0a0ff;
 }
 
 
