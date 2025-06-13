@@ -23,7 +23,22 @@
           >
             <div class="channel-info">
               <span class="channel-icon">#</span>
-              <span class="channel-name">{{ channel.nom || channel.name }}</span>
+              <span class="channel-name" @click="startEditing(channel)" :class="{ 'editable': true }">
+                <template v-if="editingChannel && editingChannel.id === channel.id">
+                  <input 
+                    type="text" 
+                    v-model="editingName" 
+                    @keyup.enter="saveChannelName(channel)" 
+                    @blur="saveChannelName(channel)" 
+                    @click.stop 
+                    class="channel-name-input" 
+                    ref="channelNameInput"
+                  />
+                </template>
+                <template v-else>
+                  {{ channel.nom || channel.name }}
+                </template>
+              </span>
               <span class="channel-type" :class="{ 'private': channel.type === 'private' }">
                 {{ channel.type || 'public' }}
               </span>
@@ -70,7 +85,40 @@ export default {
       default: false
     }
   },
-  emits: ['close', 'delete-channel', 'view-messages']
+  data() {
+    return {
+      editingChannel: null,
+      editingName: ''
+    };
+  },
+  methods: {
+    startEditing(channel) {
+      this.editingChannel = channel;
+      this.editingName = channel.nom || channel.name || '';
+      // Attendre que l'input soit rendu
+      this.$nextTick(() => {
+        if (this.$refs.channelNameInput) {
+          this.$refs.channelNameInput.focus();
+        }
+      });
+    },
+    saveChannelName(channel) {
+      if (this.editingName && this.editingName !== (channel.nom || channel.name)) {
+        this.$emit('update-channel', { ...channel, nom: this.editingName });
+      }
+      this.editingChannel = null;
+    }
+  },
+  watch: {
+    show(newValue) {
+      if (!newValue) {
+        // Réinitialiser l'édition lors de la fermeture de la modal
+        this.editingChannel = null;
+        this.editingName = '';
+      }
+    }
+  },
+  emits: ['close', 'delete-channel', 'view-messages', 'update-channel']
 }
 </script>
 
@@ -173,6 +221,30 @@ export default {
 .channel-name {
   color: #fff;
   flex: 1;
+  position: relative;
+  cursor: pointer;
+}
+
+.channel-name.editable:hover::after {
+  content: '✏️';
+  font-size: 12px;
+  margin-left: 5px;
+  opacity: 0.7;
+}
+
+.channel-name-input {
+  background-color: #40444b;
+  border: 1px solid #72767d;
+  border-radius: 3px;
+  padding: 4px 8px;
+  color: #fff;
+  width: 100%;
+  font-size: 14px;
+  outline: none;
+}
+
+.channel-name-input:focus {
+  border-color: #7289da;
 }
 
 .channel-actions {

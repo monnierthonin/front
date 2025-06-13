@@ -43,6 +43,7 @@
       @close="closeChannelsModal"
       @delete-channel="deleteChannel"
       @view-messages="viewChannelMessages"
+      @update-channel="updateChannel"
     />
     
     <!-- Modal pour afficher les messages d'un canal -->
@@ -171,15 +172,46 @@ export default {
       }
       
       try {
-        const channelId = channel._id || channel.id;
-        await adminService.deleteChannel(channelId);
+        this.loadingChannels = true;
+        await adminService.deleteChannel(this.selectedWorkspace.id, channel.id);
         
-        // Supprimer le canal de la liste locale
-        this.workspaceChannels = this.workspaceChannels.filter(c => c.id !== channelId);
-        console.log(`Canal ${channel.name || channel.nom} supprimé avec succès`);
+        // Filtrer les canaux pour enlever celui qui a été supprimé
+        this.workspaceChannels = this.workspaceChannels.filter(c => c.id !== channel.id);
+        this.$toast.success('Canal supprimé avec succès');
       } catch (error) {
         console.error('Erreur lors de la suppression du canal:', error);
-        alert(`Erreur lors de la suppression: ${error.message}`);
+        this.$toast.error('Erreur lors de la suppression du canal');
+      } finally {
+        this.loadingChannels = false;
+      }
+    },
+    
+    async updateChannel(channel) {
+      try {
+        this.loadingChannels = true;
+        console.log('Mise à jour du canal:', channel);
+        
+        const updatedChannel = await adminService.updateChannel(
+          channel.id, 
+          { nom: channel.nom }
+        );
+        
+        // Mettre à jour le canal dans la liste
+        this.workspaceChannels = this.workspaceChannels.map(c => 
+          c.id === updatedChannel.id ? { ...c, ...updatedChannel } : c
+        );
+        
+        // Si le canal mis à jour est le canal sélectionné pour les messages, mettre à jour son nom
+        if (this.selectedChannel && this.selectedChannel.id === updatedChannel.id) {
+          this.selectedChannel = { ...this.selectedChannel, ...updatedChannel };
+        }
+        
+        this.$toast.success('Nom du canal mis à jour avec succès');
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour du canal:', error);
+        this.$toast.error('Erreur lors de la mise à jour du canal');
+      } finally {
+        this.loadingChannels = false;
       }
     },
     

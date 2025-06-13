@@ -405,13 +405,14 @@ const adminService = {
   
   /**
    * Supprime un canal
+   * @param {string} workspaceId - ID du workspace
    * @param {string} channelId - ID du canal
    * @returns {Promise<Object>} - Réponse de l'API
    */
-  async deleteChannel(channelId) {
+  async deleteChannel(workspaceId, channelId) {
     try {
-      console.log(`Tentative de suppression du canal avec ID: ${channelId}`);
-      const url = `${API_URL}${currentAdminPath}canaux/${channelId}`;
+      console.log(`Tentative de suppression du canal ${channelId} du workspace ${workspaceId}`);
+      const url = `${API_URL}/workspaces/${workspaceId}/canaux/${channelId}`;
       console.log(`URL de suppression: ${url}`);
       
       const response = await fetch(url, {
@@ -440,6 +441,71 @@ const adminService = {
       throw error;
     }
   },
+  
+  /**
+   * Met à jour un canal
+   * @param {string} channelId - ID du canal
+   * @param {Object} channelData - Données du canal à mettre à jour
+   * @returns {Promise<Object>} - Réponse de l'API
+   */
+  async updateChannel(channelId, channelData) {
+    try {
+      console.log(`Mise à jour du canal ${channelId}`);
+      const url = `${API_URL}${currentAdminPath}canaux/${channelId}`;
+      console.log(`URL de mise à jour: ${url}`);
+      console.log('Données envoyées:', channelData);
+      
+      const response = await fetch(url, {
+        ...defaultOptions,
+        method: 'PATCH',
+        headers: {
+          ...defaultOptions.headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(channelData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur lors de la mise à jour du canal: ${response.status} ${response.statusText}`);
+      }
+      
+      // Si la réponse est vide (204 No Content), on retourne un objet avec statut success
+      if (response.status === 204) {
+        return { 
+          status: 'success', 
+          message: 'Canal mis à jour avec succès', 
+          id: channelId,
+          nom: channelData.nom,
+          name: channelData.nom  // Pour normalisation
+        };
+      }
+      
+      try {
+        const responseData = await response.json();
+        return {
+          ...responseData,
+          status: 'success',  // Assurer qu'on a toujours un statut
+          id: responseData._id || responseData.id || channelId,
+          name: responseData.nom || responseData.name || channelData.nom || 'Canal sans nom',
+          nom: responseData.nom || responseData.name || channelData.nom || 'Canal sans nom',
+          type: responseData.type || responseData.visibility || 'public'
+        };
+      } catch (e) {
+        // Si pas de JSON, on retourne un succès par défaut avec les données qu'on avait envoyées
+        return { 
+          status: 'success', 
+          message: 'Canal mis à jour avec succès',
+          id: channelId,
+          nom: channelData.nom,
+          name: channelData.nom  // Pour normalisation
+        };
+      }
+    } catch (error) {
+      console.error(`Échec de la mise à jour du canal ${channelId}:`, error);
+      throw error;
+    }
+  },
+  
   /**
    * Récupère les messages d'un canal
    * @param {string} workspaceId - ID du workspace
