@@ -2,38 +2,37 @@
   <div v-if="show" class="modal-overlay" @click.self="$emit('close')">
     <div class="modal-container">
       <div class="modal-header">
-        <h3>Canaux du workspace "{{ workspaceName }}"</h3>
+        <h3>Messages du canal "{{ channelName }}"</h3>
         <button class="close-button" @click="$emit('close')">&times;</button>
       </div>
       
       <div class="modal-content">
         <div v-if="loading" class="modal-loading">
-          Chargement des canaux...
+          Chargement des messages...
         </div>
         
-        <div v-else-if="channels.length === 0" class="modal-loading">
-          Aucun canal trouvé dans ce workspace
+        <div v-else-if="messages.length === 0" class="modal-loading">
+          Aucun message trouvé dans ce canal
         </div>
         
-        <div v-else class="channels-list">
+        <div v-else class="messages-list">
           <div 
-            v-for="channel in channels" 
-            :key="channel.id" 
-            class="channel-item"
+            v-for="message in messages" 
+            :key="message.id" 
+            class="message-item"
           >
-            <div class="channel-info">
-              <span class="channel-icon">#</span>
-              <span class="channel-name">{{ channel.nom || channel.name }}</span>
-              <span class="channel-type" :class="{ 'private': channel.type === 'private' }">
-                {{ channel.type || 'public' }}
-              </span>
-              <div class="channel-actions">
-                <button class="cancel-button view-button" title="Voir les messages" @click.stop="$emit('view-messages', channel)">
-                  Messages
-                </button>
-                <button class="delete-button" title="Supprimer le canal" @click.stop="$emit('delete-channel', channel)">
-                  <img src="../../assets/styles/image/ban.png" alt="delete" class="action-icon">
-                </button>
+            <div class="message-info">
+              <div class="message-header">
+                <span class="message-sender">{{ message.sender?.username || message.sender?.nom || 'Utilisateur' }}</span>
+                <div class="message-actions">
+                  <button class="delete-button" title="Supprimer le message" @click.stop="confirmDeleteMessage(message)">
+                    <img src="../../assets/styles/image/ban.png" alt="delete" class="action-icon">
+                  </button>
+                  <span class="message-date">{{ formatDate(message.createdAt) }}</span>
+                </div>
+              </div>
+              <div class="message-content">
+                {{ message.content }}
               </div>
             </div>
           </div>
@@ -51,17 +50,17 @@
 
 <script>
 export default {
-  name: 'WorkspaceChannelsModal',
+  name: 'ChannelMessagesModal',
   props: {
     show: {
       type: Boolean,
       default: false
     },
-    workspaceName: {
+    channelName: {
       type: String,
       default: ''
     },
-    channels: {
+    messages: {
       type: Array,
       default: () => []
     },
@@ -70,7 +69,27 @@ export default {
       default: false
     }
   },
-  emits: ['close', 'delete-channel', 'view-messages']
+  methods: {
+    formatDate(dateString) {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      if (isNaN(date)) return '';
+      
+      return new Intl.DateTimeFormat('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    },
+    confirmDeleteMessage(message) {
+      if (confirm(`Êtes-vous sûr de vouloir supprimer ce message de ${message.sender?.username || message.sender?.nom || 'Utilisateur'} ?`)) {
+        this.$emit('delete-message', message);
+      }
+    }
+  },
+  emits: ['close', 'delete-message']
 }
 </script>
 
@@ -91,7 +110,7 @@ export default {
 
 .modal-container {
   width: 90%;
-  max-width: 500px;
+  max-width: 600px;
   background-color: #36393f;
   border-radius: 5px;
   overflow: hidden;
@@ -140,51 +159,21 @@ export default {
   color: #aaa;
 }
 
-.channels-list {
+.messages-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 15px;
 }
 
-.channel-item {
-  padding: 8px;
+.message-item {
+  padding: 10px;
   border-radius: 4px;
   transition: background-color 0.2s;
   background: var(--background-list-message);
 }
 
-.channel-item:hover {
+.message-item:hover {
   background-color: #32353a;
-}
-
-.channel-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #fff;
-}
-
-.channel-icon {
-  color: #72767d;
-  font-weight: bold;
-  font-size: 18px;
-}
-
-.channel-name {
-  color: #fff;
-  flex: 1;
-}
-
-.channel-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.view-button.cancel-button {
-  padding: 4px 12px;
-  font-size: 0.9rem;
-  margin: 0;
 }
 
 .delete-button {
@@ -197,28 +186,49 @@ export default {
   padding: 5px;
 }
 
-.view-button:hover,
-.delete-button:hover {
-  opacity: 0.8;
-}
-
 .action-icon {
-  width: 24px;
-  height: 24px;
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
 }
 
-.channel-type {
-  color: #43b581;
-  background: rgba(67, 181, 129, 0.1);
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
+.delete-button:hover .action-icon {
+  opacity: 1;
+}
+
+.message-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #fff;
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.message-sender {
+  font-weight: bold;
+  color: #fff;
+}
+
+.message-date {
+  color: #72767d;
   font-size: 0.8rem;
-  white-space: nowrap;
 }
 
-.channel-type.private {
-  color: #ff7675;
-  background: rgba(255, 118, 117, 0.1);
+.message-content {
+  color: #dcddde;
+  word-break: break-word;
 }
 
 .modal-footer {

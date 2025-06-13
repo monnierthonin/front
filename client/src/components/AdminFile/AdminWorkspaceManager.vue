@@ -42,6 +42,17 @@
       :loading="loadingChannels"
       @close="closeChannelsModal"
       @delete-channel="deleteChannel"
+      @view-messages="viewChannelMessages"
+    />
+    
+    <!-- Modal pour afficher les messages d'un canal -->
+    <channel-messages-modal
+      :show="showMessagesModal"
+      :channel-name="selectedChannel ? (selectedChannel.nom || selectedChannel.name) : ''"
+      :messages="channelMessages"
+      :loading="loadingMessages"
+      @close="closeMessagesModal"
+      @delete-message="deleteMessage"
     />
   </div>
 </template>
@@ -50,12 +61,14 @@
 import adminService from '../../services/adminService';
 import WorkspaceMembersModal from './WorkspaceMembersModal.vue';
 import WorkspaceChannelsModal from './WorkspaceChannelsModal.vue';
+import ChannelMessagesModal from './ChannelMessagesModal.vue';
 
 export default {
   name: 'AdminWorkspaceManager',
   components: {
     WorkspaceMembersModal,
-    WorkspaceChannelsModal
+    WorkspaceChannelsModal,
+    ChannelMessagesModal
   },
   data() {
     return {
@@ -69,7 +82,11 @@ export default {
       workspaceMembers: [],
       loadingMembers: false,
       workspaceChannels: [],
-      loadingChannels: false
+      loadingChannels: false,
+      showMessagesModal: false,
+      selectedChannel: null,
+      channelMessages: [],
+      loadingMessages: false
     };
   },
   computed: {
@@ -163,6 +180,49 @@ export default {
       } catch (error) {
         console.error('Erreur lors de la suppression du canal:', error);
         alert(`Erreur lors de la suppression: ${error.message}`);
+      }
+    },
+    
+    async viewChannelMessages(channel) {
+      try {
+        this.selectedChannel = channel;
+        this.showMessagesModal = true;
+        this.loadingMessages = true;
+        this.channelMessages = [];
+        
+        const channelId = channel._id || channel.id;
+        const workspaceId = this.selectedWorkspace._id || this.selectedWorkspace.id;
+        const messages = await adminService.getChannelMessages(workspaceId, channelId);
+        this.channelMessages = messages;
+        
+        console.log(`Messages du canal ${channel.name || channel.nom}:`, messages);
+        this.loadingMessages = false;
+      } catch (error) {
+        console.error('Erreur lors du chargement des messages:', error);
+        this.loadingMessages = false;
+      }
+    },
+    
+    closeMessagesModal() {
+      this.showMessagesModal = false;
+      this.selectedChannel = null;
+      this.channelMessages = [];
+    },
+    
+    async deleteMessage(message) {
+      try {
+        console.log('Suppression du message:', message.id);
+        this.loadingMessages = true;
+        await adminService.deleteMessage(message.id);
+        
+        // Retirer le message de la liste sans avoir à recharger tous les messages
+        this.channelMessages = this.channelMessages.filter(m => m.id !== message.id);
+        this.$toast.success('Message supprimé avec succès');
+      } catch (error) {
+        console.error('Erreur lors de la suppression du message:', error);
+        this.$toast.error('Erreur lors de la suppression du message');
+      } finally {
+        this.loadingMessages = false;
       }
     },
     

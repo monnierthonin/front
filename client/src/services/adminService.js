@@ -439,6 +439,92 @@ const adminService = {
       console.error(`Échec de la suppression du canal ${channelId}:`, error);
       throw error;
     }
+  },
+  /**
+   * Récupère les messages d'un canal
+   * @param {string} workspaceId - ID du workspace
+   * @param {string} channelId - ID du canal
+   * @returns {Promise<Array>} - Liste des messages
+   */
+  async getChannelMessages(workspaceId, channelId) {
+    try {
+      console.log(`Récupération des messages du canal ${channelId} dans le workspace ${workspaceId}`);
+      const url = `${API_URL}/workspaces/${workspaceId}/canaux/${channelId}/messages`;
+      console.log(`URL utilisée: ${url}`);
+      
+      const response = await fetch(url, {
+        ...defaultOptions,
+        method: 'GET'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur lors de la récupération des messages: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Réponse des messages:', data);
+      
+      if (!data || !data.status === 'success' || !data.data) {
+        console.warn('Pas de données de messages disponibles');
+        return [];
+      }
+      
+      // Extraire les informations des messages
+      const messages = Array.isArray(data.data) ? data.data : 
+                      (data.data.messages || Object.values(data.data));
+      
+      console.log(`Messages trouvés:`, messages);
+      
+      // Normaliser les messages
+      return messages.map(message => ({
+        ...message,
+        id: message._id || message.id,
+        content: message.content || message.contenu || '',
+        sender: message.sender || message.user || {},
+        createdAt: message.createdAt || message.date || new Date().toISOString()
+      }));
+    } catch (error) {
+      console.error(`Erreur lors de la récupération des messages du canal ${channelId}:`, error);
+      return [];
+    }
+  },
+  
+  /**
+   * Supprime un message
+   * @param {string} messageId - ID du message
+   * @returns {Promise<Object>} - Réponse de l'API
+   */
+  async deleteMessage(messageId) {
+    try {
+      console.log(`Tentative de suppression du message avec ID: ${messageId}`);
+      const url = `${API_URL}${currentAdminPath}messages/${messageId}`;
+      console.log(`URL de suppression: ${url}`);
+      
+      const response = await fetch(url, {
+        ...defaultOptions,
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur lors de la suppression du message: ${response.status} ${response.statusText}`);
+      }
+      
+      // Si la réponse est vide (204 No Content), on retourne un objet avec statut success
+      if (response.status === 204) {
+        return { status: 'success', message: 'Message supprimé avec succès' };
+      }
+      
+      // Sinon on tente de parser le JSON
+      try {
+        return await response.json();
+      } catch (e) {
+        // Si pas de JSON, on retourne un succès par défaut
+        return { status: 'success', message: 'Message supprimé' };
+      }
+    } catch (error) {
+      console.error(`Échec de la suppression du message ${messageId}:`, error);
+      throw error;
+    }
   }
 };
 
