@@ -2,7 +2,7 @@
  * @swagger
  * components:
  *   schemas:
- *     SuperAdmin:
+ *     Admin:
  *       type: object
  *       properties:
  *         _id:
@@ -16,20 +16,20 @@
  *           description: Adresse email
  *         role:
  *           type: string
- *           enum: [user, admin, super_admin]
+ *           enum: [user, admin]
  *           description: Rôle de l'utilisateur
  *
  * @swagger
  * tags:
- *   name: SuperAdmin
- *   description: Fonctionnalités réservées aux super administrateurs
+ *   name: Admin
+ *   description: Fonctionnalités réservées aux administrateurs
  *
  * @swagger
- * /api/v1/super-admin/workspaces:
+ * /api/v1/admin/workspaces:
  *   get:
  *     summary: Obtenir tous les workspaces
  *     description: Récupère tous les workspaces, peu importe leur visibilité
- *     tags: [SuperAdmin]
+ *     tags: [Admin]
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -38,14 +38,14 @@
  *       401:
  *         description: Non authentifié
  *       403:
- *         description: Non autorisé - Réservé aux super administrateurs
+ *         description: Non autorisé - Réservé aux administrateurs
  *
  * @swagger
- * /api/v1/super-admin/workspaces/{id}:
+ * /api/v1/admin/workspaces/{id}:
  *   get:
  *     summary: Obtenir un workspace spécifique
  *     description: Récupère les détails d'un workspace par son ID, peu importe sa visibilité
- *     tags: [SuperAdmin]
+ *     tags: [Admin]
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -60,13 +60,13 @@
  *       401:
  *         description: Non authentifié
  *       403:
- *         description: Non autorisé - Réservé aux super administrateurs
+ *         description: Non autorisé - Réservé aux administrateurs
  *       404:
  *         description: Workspace non trouvé
  *   patch:
  *     summary: Modifier un workspace
  *     description: Modifie les informations d'un workspace existant
- *     tags: [SuperAdmin]
+ *     tags: [Admin]
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -94,13 +94,13 @@
  *       401:
  *         description: Non authentifié
  *       403:
- *         description: Non autorisé - Réservé aux super administrateurs
+ *         description: Non autorisé - Réservé aux administrateurs
  *       404:
  *         description: Workspace non trouvé
  *   delete:
  *     summary: Supprimer un workspace
  *     description: Supprime un workspace existant et tous ses canaux
- *     tags: [SuperAdmin]
+ *     tags: [Admin]
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -115,16 +115,16 @@
  *       401:
  *         description: Non authentifié
  *       403:
- *         description: Non autorisé - Réservé aux super administrateurs
+ *         description: Non autorisé - Réservé aux administrateurs
  *       404:
  *         description: Workspace non trouvé
  *
  * @swagger
- * /api/v1/super-admin/workspaces/{workspaceId}/canaux:
+ * /api/v1/admin/workspaces/{workspaceId}/canaux:
  *   get:
  *     summary: Obtenir tous les canaux d'un workspace
  *     description: Récupère tous les canaux d'un workspace, peu importe leur visibilité
- *     tags: [SuperAdmin]
+ *     tags: [Admin]
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -139,16 +139,16 @@
  *       401:
  *         description: Non authentifié
  *       403:
- *         description: Non autorisé - Réservé aux super administrateurs
+ *         description: Non autorisé - Réservé aux administrateurs
  *       404:
  *         description: Workspace non trouvé
  *
  * @swagger
- * /api/v1/super-admin/canaux/{canalId}:
+ * /api/v1/admin/canaux/{canalId}:
  *   patch:
  *     summary: Modifier un canal
  *     description: Modifie les informations d'un canal existant
- *     tags: [SuperAdmin]
+ *     tags: [Admin]
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -172,20 +172,20 @@
  *                 enum: [public, prive]
  *               type:
  *                 type: string
- *                 enum: [texte, vocal]
+ *                 enum: [text, vocal]
  *     responses:
  *       200:
  *         description: Canal mis à jour avec succès
  *       401:
  *         description: Non authentifié
  *       403:
- *         description: Non autorisé - Réservé aux super administrateurs
+ *         description: Non autorisé - Réservé aux administrateurs
  *       404:
  *         description: Canal non trouvé
  *   delete:
  *     summary: Supprimer un canal
  *     description: Supprime un canal existant et tous ses messages
- *     tags: [SuperAdmin]
+ *     tags: [Admin]
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -200,16 +200,16 @@
  *       401:
  *         description: Non authentifié
  *       403:
- *         description: Non autorisé - Réservé aux super administrateurs
+ *         description: Non autorisé - Réservé aux administrateurs
  *       404:
  *         description: Canal non trouvé
  *
  * @swagger
- * /api/v1/super-admin/utilisateurs:
+ * /api/v1/admin/utilisateurs:
  *   get:
  *     summary: Obtenir tous les utilisateurs
  *     description: Récupère la liste de tous les utilisateurs de l'application
- *     tags: [SuperAdmin]
+ *     tags: [Admin]
  *     security:
  *       - BearerAuth: []
  *     responses:
@@ -218,14 +218,14 @@
  *       401:
  *         description: Non authentifié
  *       403:
- *         description: Non autorisé - Réservé aux super administrateurs
+ *         description: Non autorisé - Réservé aux administrateurs
  *
  * @swagger
- * /api/v1/super-admin/utilisateurs/{id}:
+ * /api/v1/admin/utilisateurs/{id}:
  *   delete:
  *     summary: Supprimer un utilisateur
  *     description: Supprime un utilisateur et toutes ses données associées
- *     tags: [SuperAdmin]
+ *     tags: [Admin]
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -240,16 +240,16 @@
  *       401:
  *         description: Non authentifié
  *       403:
- *         description: Non autorisé - Réservé aux super administrateurs
+ *         description: Non autorisé - Réservé aux administrateurs
  *       404:
  *         description: Utilisateur non trouvé
  *
  * @swagger
- * /api/v1/super-admin/utilisateurs/{id}/promouvoir:
+ * /api/v1/admin/utilisateurs/{id}/promouvoir:
  *   patch:
- *     summary: Promouvoir un utilisateur au rang de super admin
- *     description: Change le rôle d'un utilisateur en super_admin
- *     tags: [SuperAdmin]
+ *     summary: Promouvoir un utilisateur au rang d'admin
+ *     description: Change le rôle d'un utilisateur en admin
+ *     tags: [Admin]
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -264,40 +264,16 @@
  *       401:
  *         description: Non authentifié
  *       403:
- *         description: Non autorisé - Réservé aux super administrateurs
+ *         description: Non autorisé - Réservé aux administrateurs
  *       404:
  *         description: Utilisateur non trouvé
  *
  * @swagger
- * /api/v1/super-admin/utilisateurs/{id}/retrograder:
- *   patch:
- *     summary: Rétrograder un super admin au rang d'admin
- *     description: Change le rôle d'un super_admin en admin (uniquement pour son propre compte)
- *     tags: [SuperAdmin]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Utilisateur rétrogradé avec succès
- *       401:
- *         description: Non authentifié
- *       403:
- *         description: Non autorisé - Réservé aux super administrateurs
- *       404:
- *         description: Utilisateur non trouvé
- *
- * @swagger
- * /api/v1/super-admin/messages/{messageId}:
+ * /api/v1/admin/messages/{messageId}:
  *   delete:
  *     summary: Supprimer un message
  *     description: Supprime un message dans un canal
- *     tags: [SuperAdmin]
+ *     tags: [Admin]
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -312,16 +288,16 @@
  *       401:
  *         description: Non authentifié
  *       403:
- *         description: Non autorisé - Réservé aux super administrateurs
+ *         description: Non autorisé - Réservé aux administrateurs
  *       404:
  *         description: Message non trouvé
  *
  * @swagger
- * /api/v1/super-admin/messages-prives/{messageId}:
+ * /api/v1/admin/messages-prives/{messageId}:
  *   delete:
  *     summary: Supprimer un message privé
  *     description: Supprime un message dans une conversation privée
- *     tags: [SuperAdmin]
+ *     tags: [Admin]
  *     security:
  *       - BearerAuth: []
  *     parameters:
@@ -336,7 +312,7 @@
  *       401:
  *         description: Non authentifié
  *       403:
- *         description: Non autorisé - Réservé aux super administrateurs
+ *         description: Non autorisé - Réservé aux administrateurs
  *       404:
  *         description: Message privé non trouvé
  */

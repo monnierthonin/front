@@ -84,7 +84,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin', 'super_admin'],
+    enum: ['user', 'admin'],
     default: 'user'
   },
   isVerified: {
@@ -122,7 +122,7 @@ const userSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['en ligne', 'absent', 'ne pas déranger'],
+    enum: ['en ligne', 'absent', 'ne pas déranger', 'offline'],
     default: 'en ligne'
   },
   dernierActivite: {

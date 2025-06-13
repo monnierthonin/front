@@ -7,7 +7,7 @@ const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 
 /**
- * Contrôleur pour les fonctionnalités réservées aux super administrateurs
+ * Contrôleur pour les fonctionnalités réservées aux administrateurs
  */
 
 // Récupérer tous les workspaces (peu importe la visibilité)
@@ -162,15 +162,15 @@ exports.obtenirTousLesUtilisateurs = catchAsync(async (req, res) => {
 
 // Supprimer un utilisateur
 exports.supprimerUtilisateur = catchAsync(async (req, res, next) => {
-    // Empêcher la suppression d'un super admin par un autre super admin
+    // Vérifier si l'utilisateur existe
     const utilisateur = await User.findById(req.params.id);
     
     if (!utilisateur) {
         return next(new AppError('Utilisateur non trouvé', 404));
     }
 
-    if (utilisateur.role === 'super_admin' && req.user.id !== req.params.id) {
-        return next(new AppError('Vous ne pouvez pas supprimer un autre super administrateur', 403));
+    if (utilisateur.role === 'admin' && req.user.id !== req.params.id) {
+        return next(new AppError('Vous ne pouvez pas supprimer un autre administrateur', 403));
     }
 
     // Supprimer l'utilisateur
@@ -199,33 +199,8 @@ exports.supprimerUtilisateur = catchAsync(async (req, res, next) => {
     });
 });
 
-// Promouvoir un utilisateur au rang de super admin
-exports.promouvoirSuperAdmin = catchAsync(async (req, res, next) => {
-    const utilisateur = await User.findByIdAndUpdate(
-        req.params.id,
-        { role: 'super_admin' },
-        { new: true, runValidators: true }
-    ).select('-password -resetPasswordToken -resetPasswordExpires -verificationToken -verificationTokenExpires');
-
-    if (!utilisateur) {
-        return next(new AppError('Utilisateur non trouvé', 404));
-    }
-
-    res.status(200).json({
-        status: 'success',
-        data: {
-            utilisateur
-        }
-    });
-});
-
-// Rétrograder un super admin au rang d'admin
-exports.retrograderSuperAdmin = catchAsync(async (req, res, next) => {
-    // Empêcher la rétrogradation d'un super admin par un autre super admin
-    if (req.user.id !== req.params.id) {
-        return next(new AppError('Vous ne pouvez rétrograder que votre propre compte super admin', 403));
-    }
-
+// Promouvoir un utilisateur au rang d'admin
+exports.promouvoirAdmin = catchAsync(async (req, res, next) => {
     const utilisateur = await User.findByIdAndUpdate(
         req.params.id,
         { role: 'admin' },

@@ -296,19 +296,13 @@ exports.repondreMessage = catchAsync(async (req, res, next) => {
         return next(new AppError('Canal non trouvé', 404));
     }
 
-    // Pour les canaux privés, vérifier si l'utilisateur est membre
-    if (canal.visibilite === 'prive') {
-        const estMembre = canal.membres.some(membre => 
-            membre.utilisateur && membre.utilisateur.toString() === req.user._id.toString()
-        );
-
-        if (!estMembre) {
-            return next(new AppError('Vous n\'avez pas accès à ce canal privé', 403));
-        }
+    // Vérifier l'accès au canal
+    const estMembre = canal.membres.some(membre => 
+        membre.utilisateur && membre.utilisateur.toString() === req.user._id.toString()
+    );
+    if (!estMembre) {
+        return next(new AppError('Vous n\'avez pas accès à ce canal', 403));
     }
-    
-    // Pour les canaux publics, permettre l'accès même si l'utilisateur n'est pas membre
-    // comme dans la fonction envoyerMessageGroupe
 
     const message = await Message.create({
         contenu,
