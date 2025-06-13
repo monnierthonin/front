@@ -24,20 +24,52 @@
         <div v-if="!loading && !workspaces.length" class="no-results">Aucun workspace trouvé</div>
       </div>
     </div>
+    
+    <!-- Modal pour afficher les membres du workspace -->
+    <workspace-members-modal
+      :show="showMembersModal"
+      :workspace-name="selectedWorkspace ? selectedWorkspace.name : ''"
+      :members="workspaceMembers"
+      :loading="loadingMembers"
+      @close="closeMembersModal"
+    />
+    
+    <!-- Modal pour afficher les canaux du workspace -->
+    <workspace-channels-modal
+      :show="showChannelsModal"
+      :workspace-name="selectedWorkspace ? selectedWorkspace.name : ''"
+      :channels="workspaceChannels"
+      :loading="loadingChannels"
+      @close="closeChannelsModal"
+      @delete-channel="deleteChannel"
+    />
   </div>
 </template>
 
 <script>
 import adminService from '../../services/adminService';
+import WorkspaceMembersModal from './WorkspaceMembersModal.vue';
+import WorkspaceChannelsModal from './WorkspaceChannelsModal.vue';
 
 export default {
   name: 'AdminWorkspaceManager',
+  components: {
+    WorkspaceMembersModal,
+    WorkspaceChannelsModal
+  },
   data() {
     return {
       workspaceSearchQuery: '',
       loading: false,
       error: null,
-      workspaces: []
+      workspaces: [],
+      showMembersModal: false,
+      showChannelsModal: false,
+      selectedWorkspace: null,
+      workspaceMembers: [],
+      loadingMembers: false,
+      workspaceChannels: [],
+      loadingChannels: false
     };
   },
   computed: {
@@ -68,23 +100,69 @@ export default {
     
     async findWorkspaceUsers(workspace) {
       try {
+        this.selectedWorkspace = workspace;
+        this.showMembersModal = true;
+        this.loadingMembers = true;
+        this.workspaceMembers = [];
+        
         const workspaceId = workspace._id || workspace.id;
         const users = await adminService.getWorkspaceUsers(workspaceId);
+        this.workspaceMembers = users;
+        
         console.log(`Utilisateurs du workspace ${workspace.name}:`, users);
-        // Ici vous pourriez afficher les utilisateurs dans un modal
+        this.loadingMembers = false;
       } catch (error) {
         console.error('Erreur lors de la récupération des utilisateurs du workspace:', error);
+        this.loadingMembers = false;
       }
+    },
+    
+    closeMembersModal() {
+      this.showMembersModal = false;
+      this.selectedWorkspace = null;
+      this.workspaceMembers = [];
     },
     
     async findWorkspaceChannels(workspace) {
       try {
+        this.selectedWorkspace = workspace;
+        this.showChannelsModal = true;
+        this.loadingChannels = true;
+        this.workspaceChannels = [];
+        
         const workspaceId = workspace._id || workspace.id;
         const channels = await adminService.getWorkspaceChannels(workspaceId);
+        this.workspaceChannels = channels;
+        
         console.log(`Canaux du workspace ${workspace.name}:`, channels);
-        // Ici vous pourriez afficher les canaux dans un modal
+        this.loadingChannels = false;
       } catch (error) {
         console.error('Erreur lors de la récupération des canaux du workspace:', error);
+        this.loadingChannels = false;
+      }
+    },
+    
+    closeChannelsModal() {
+      this.showChannelsModal = false;
+      this.selectedWorkspace = null;
+      this.workspaceChannels = [];
+    },
+    
+    async deleteChannel(channel) {
+      if (!confirm(`Êtes-vous sûr de vouloir supprimer le canal "${channel.name || channel.nom}"?`)) {
+        return;
+      }
+      
+      try {
+        const channelId = channel._id || channel.id;
+        await adminService.deleteChannel(channelId);
+        
+        // Supprimer le canal de la liste locale
+        this.workspaceChannels = this.workspaceChannels.filter(c => c.id !== channelId);
+        console.log(`Canal ${channel.name || channel.nom} supprimé avec succès`);
+      } catch (error) {
+        console.error('Erreur lors de la suppression du canal:', error);
+        alert(`Erreur lors de la suppression: ${error.message}`);
       }
     },
     
