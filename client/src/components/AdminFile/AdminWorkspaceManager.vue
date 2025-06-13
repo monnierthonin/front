@@ -497,11 +497,9 @@ export default {
 
 .clickable {
   cursor: pointer;
-  text-decoration: underline;
-}
-
-.clickable:hover {
-  color: #a0a0ff;
+  border-radius: 4px;
+  padding: 2px 4px;
+  transition: background-color 0.2s ease;
 }
 
 

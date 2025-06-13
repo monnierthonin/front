@@ -40,7 +40,22 @@
       <!-- Channels list -->
       <div v-else class="channels-list">
         <div v-for="channel in filteredChannels" :key="channel.id" class="channel-item">
-          <span class="channel-name"># {{ channel.nom }}</span>
+          <span class="channel-name clickable" @click="startEditing(channel)">
+            <template v-if="editingChannel && editingChannel.id === channel.id">
+              <input 
+                type="text" 
+                v-model="editingName" 
+                @keyup.enter="saveChannelName(channel)" 
+                @blur="saveChannelName(channel)" 
+                @click.stop 
+                class="channel-name-input" 
+                ref="channelNameInput"
+              />
+            </template>
+            <template v-else>
+              # {{ channel.nom }}
+            </template>
+          </span>
           <select v-model="channel.visibilite" class="status-select" @change="updateChannelVisibility(channel)">
             <option value="public">Public</option>
             <option value="prive">Privé</option>
@@ -74,6 +89,7 @@
 <script>
 import ChannelUsersModal from './ChannelUsersModal.vue';
 import CreateChannelModal from './CreateChannelModal.vue';
+import canalService from '../../services/canalService';
 
 export default {
   name: 'ChannelManager',
@@ -98,7 +114,10 @@ export default {
       showUserModal: false,
       selectedChannel: null,
       // Données pour le modal de création de canal
-      showCreateChannelModal: false
+      showCreateChannelModal: false,
+      // Données pour l'édition du nom d'un canal
+      editingChannel: null,
+      editingName: ''
     }
   },
   computed: {
@@ -319,6 +338,64 @@ export default {
       console.log('Canal créé avec succès:', newChannel);
       // Ajouter le nouveau canal à la liste sans avoir à recharger tous les canaux
       this.channels.push(newChannel);
+    },
+    
+    /**
+     * Démarrer l'édition du nom d'un canal
+     * @param {Object} channel - Canal à éditer
+     */
+    startEditing(channel) {
+      this.editingChannel = channel;
+      this.editingName = channel.nom || '';
+      // Attendre que l'input soit rendu
+      this.$nextTick(() => {
+        if (this.$refs.channelNameInput) {
+          this.$refs.channelNameInput.focus();
+        }
+      });
+    },
+    
+    /**
+     * Sauvegarder le nouveau nom du canal
+     * @param {Object} channel - Canal à mettre à jour
+     */
+    async saveChannelName(channel) {
+      // Stocker le nom à mettre à jour
+      const newName = this.editingName;
+      
+      // Réinitialiser l'état d'édition avant tout pour une meilleure expérience utilisateur
+      this.editingChannel = null;
+      
+      // Vérifier si le nom a été modifié et n'est pas vide
+      if (newName && newName.trim() && newName !== channel.nom) {
+        console.log(`Mise à jour du nom du canal ${channel.id} : ${newName}`);
+        
+        // Mettre à jour l'interface avant même de contacter l'API
+        const index = this.channels.findIndex(c => c.id === channel.id);
+        if (index !== -1) {
+          // Sauvegarder l'ancien nom au cas où
+          const oldName = this.channels[index].nom;
+          this.channels[index].nom = newName;
+          
+          try {
+            // Appel à l'API pour mettre à jour le nom (mais on n'attend pas la réponse)
+            await canalService.updateCanalName(
+              this.workspaceId,
+              channel.id,
+              { nom: newName }
+            );
+            
+            console.log('Canal mis à jour avec succès')
+          } catch (error) {
+            console.error('Erreur lors de la mise à jour du nom du canal sur le serveur:', error);
+            // Afficher une notification moins intrusive qu'une alerte
+            console.warn('La modification a été appliquée localement mais non sauvegardée sur le serveur');
+          }
+        }
+      }
+      
+      // Réinitialiser le nom d'édition
+      this.editingName = '';
     }
   }
 }
@@ -442,6 +519,29 @@ export default {
 .channel-name {
   color: var(--text-color);
   flex: 1;
+}
+
+.clickable {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  transition: background-color 0.2s ease;
+}
+
+.channel-name-input {
+  background-color: var(--background-recherche-filtre);
+  color: var(--text-color);
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 2px 4px;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 1em;
+  outline: none;
+}
+
+.channel-name-input:focus {
+  border-color: #7289da;
 }
 
 .status-select {
