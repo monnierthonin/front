@@ -214,7 +214,7 @@ export default {
     },
     
     /**
-     * Invite l'utilisateur sélectionné au workspace
+     * Invite l'utilisateur sélectionné au workspace par email
      */
     async inviteUser() {
       if (!this.selectedUser) return;
@@ -223,39 +223,33 @@ export default {
       this.error = null;
       
       try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('Vous devez être connecté pour inviter un utilisateur');
-        }
-
-        // Extraire l'ID utilisateur du résultat de recherche
-        // Le backend attend "utilisateurId" (vérifié dans workspaceController.js)
-        const utilisateurId = this.selectedUser._id || this.selectedUser.id;
+        // Récupérer l'email de l'utilisateur sélectionné
+        const email = this.selectedUser.email;
         
-        if (!utilisateurId) {
-          throw new Error('Impossible d\'identifier l\'utilisateur sélectionné');
+        if (!email) {
+          throw new Error('L\'email de l\'utilisateur est manquant');
         }
         
-        console.log('Invitation avec utilisateurId:', utilisateurId);
+        console.log('Envoi d\'invitation par email à:', email);
         
         if (!this.workspaceId) {
           throw new Error('ID de workspace manquant');
         }
         
-        // Envoi de la requête avec meilleure gestion des erreurs
-        const url = `http://localhost:3000/api/v1/workspaces/${this.workspaceId}/membres`;
+        // Utiliser l'endpoint d'invitation par email
+        const url = `http://localhost:3000/api/v1/workspaces/${this.workspaceId}/inviter`;
         console.log('URL de la requête:', url);
         
         try {
           const response = await fetch(url, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             },
+            // Inclure les cookies pour l'authentification HTTP-only
+            credentials: 'include',
             body: JSON.stringify({
-              utilisateurId: utilisateurId,
-              role: 'membre' // Valeur par défaut dans le backend
+              email: email
             })
           });
           
@@ -266,7 +260,7 @@ export default {
             try {
               // Essayer de récupérer un message d'erreur du backend
               const errorData = await response.json();
-              errorMessage += (errorData.message || errorData.error || 'Erreur lors de l\'invitation');
+              errorMessage += (errorData.message || errorData.error || 'Erreur lors de l\'envoi de l\'invitation');
               console.error('Détails de l\'erreur:', errorData);
             } catch (e) {
               // Si la réponse n'est pas du JSON valide
@@ -284,10 +278,10 @@ export default {
             console.log('Réponse d\'invitation réussie:', responseData);
           } catch (e) {
             // Réponse non-JSON mais la requête est réussie quand même
-            console.log('Invitation réussie, pas de données JSON en réponse');
+            console.log('Invitation envoyée avec succès, pas de données JSON en réponse');
           }
         } catch (fetchError) {
-          console.error('Erreur de réseau lors de l\'invitation:', fetchError);
+          console.error('Erreur de réseau lors de l\'envoi de l\'invitation:', fetchError);
           throw fetchError;
         }
         

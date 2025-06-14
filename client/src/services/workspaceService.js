@@ -203,6 +203,62 @@ const workspaceService = {
       console.error('Erreur lors de la récupération de l\'ID utilisateur:', error);
       return null;
     }
+  },
+  
+  /**
+   * Vérifier une invitation à un workspace
+   * @param {String} workspaceId - ID du workspace
+   * @param {String} token - Token d'invitation
+   * @returns {Promise} Promesse avec les informations de l'invitation
+   */
+  async verifyInvitation(workspaceId, token) {
+    try {
+      const response = await fetch(`${API_URL}/workspaces/invitation/${workspaceId}/${token}/verifier`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Erreur lors de la vérification de l'invitation: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+  
+  /**
+   * Accepter une invitation à un workspace
+   * @param {String} workspaceId - ID du workspace
+   * @param {String} token - Token d'invitation
+   * @returns {Promise} Promesse avec les informations du workspace rejoint
+   */
+  async acceptInvitation(workspaceId, token) {
+    try {
+      const response = await fetch(`${API_URL}/workspaces/invitation/${workspaceId}/${token}/accepter`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Erreur lors de l'acceptation de l'invitation: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 

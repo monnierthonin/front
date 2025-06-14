@@ -43,8 +43,9 @@ exports.uploadFichierCanal = catchAsync(async (req, res, next) => {
     console.log('Informations du fichier sauvegardé:', JSON.stringify(fichierInfo));
 
     try {
-        // Si un ID de message est fourni, ajouter le fichier à ce message
-        if (messageId) {
+        // Si un ID de message valide est fourni, ajouter le fichier à ce message
+        // Vérifier que messageId est une chaîne valide pour MongoDB ObjectId
+        if (messageId && messageId !== 'string' && /^[0-9a-fA-F]{24}$/.test(messageId)) {
             const message = await Message.findById(messageId);
             if (!message) {
                 return next(new AppError('Message non trouvé', 404));
@@ -151,8 +152,9 @@ exports.uploadFichierConversation = catchAsync(async (req, res, next) => {
     console.log('Informations du fichier conversation:', JSON.stringify(fichierInfo));
 
     try {
-        // Si un ID de message est fourni, ajouter le fichier à ce message
-        if (messageId) {
+        // Si un ID de message valide est fourni, ajouter le fichier à ce message
+        // Vérifier que messageId est une chaîne valide pour MongoDB ObjectId
+        if (messageId && messageId !== 'string' && /^[0-9a-fA-F]{24}$/.test(messageId)) {
             const message = await MessagePrivate.findById(messageId);
             if (!message) {
                 return next(new AppError('Message non trouvé', 404));

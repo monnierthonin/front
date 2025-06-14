@@ -81,6 +81,11 @@ const routes = [
     path: '/auth/callback',
     name: 'AuthCallback',
     component: () => import('@/views/AuthCallback.vue')
+  },
+  {
+    path: '/workspaces/invitation/:workspaceId/:token',
+    name: 'WorkspaceInvitation',
+    component: () => import('@/pages/WorkspaceInvitation.vue')
   }
 ]
 
