@@ -201,29 +201,40 @@ exports.uploadFichierConversation = catchAsync(async (req, res, next) => {
         // Note: conversationId peut être soit un ID d'utilisateur (1:1) soit un ID de conversation (groupe)
         console.log(`Détermination du type de contexte pour l'ID: ${conversationId}`);
         
-        // Vérifier si l'ID correspond à une conversation de groupe existante
-        const ConversationPrivee = require('../models/conversationPrivee');
-        const isConversationGroup = await ConversationPrivee.exists({ _id: conversationId });
-        
-        const contextType = isConversationGroup ? 'conversation' : 'user';
-        console.log(`Type de contexte déterminé: ${contextType}`);
-        
-        const nouveauMessage = await MessagePrivate.create({
-            contenu: req.body.contenu || '',
-            expediteur: req.user.id,
-            // Structure standardisée avec le champ contexte
-            contexte: {
-                type: contextType,
-                id: conversationId
-            },
-            fichiers: [{
-                nom: fichierInfo.nom,
-                type: fichierInfo.type,
-                url: fichierInfo.url,
-                urlPreview: fichierInfo.urlPreview,
-                taille: fichierInfo.taille
-            }]
-        });
+       // Vérifier que l'ID correspond à une conversation existante
+       const ConversationPrivee = require('../models/conversationPrivee');
+       const conversation = await ConversationPrivee.findById(conversationId);
+       
+       if (!conversation) {
+           return next(new AppError('Conversation non trouvée', 404));
+       }
+       
+       console.log(`Conversation trouvée avec ID: ${conversationId}`);
+       
+       // Vérifier que l'utilisateur fait partie de la conversation
+       const estParticipant = conversation.participants.some(
+           p => p.utilisateur && p.utilisateur.toString() === req.user.id
+       );
+       
+       if (!estParticipant) {
+           return next(new AppError('Vous n\'êtes pas autorisé à envoyer des messages dans cette conversation', 403));
+       }
+       
+       // Créer le message avec le champ conversation requis par le modèle
+       const messageData = {
+           contenu: req.body.contenu || '',
+           expediteur: req.user.id,
+           conversation: conversationId,  // Utiliser directement l'ID de conversation
+           fichiers: [{
+               nom: fichierInfo.nom,
+               type: fichierInfo.type,
+               url: fichierInfo.url,
+               urlPreview: fichierInfo.urlPreview,
+               taille: fichierInfo.taille
+           }]
+       };
+       
+       const nouveauMessage = await MessagePrivate.create(messageData);
 
         res.status(201).json({
             success: true,
