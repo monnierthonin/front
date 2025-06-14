@@ -71,7 +71,26 @@ export default {
         const invitationData = await workspaceService.verifyInvitation(workspaceId, token);
         
         // Extraire les informations du workspace
-        workspaceName.value = invitationData.workspace?.nom || 'Workspace sans nom';
+        // L'API renvoie workspaceNom dans la réponse
+        workspaceName.value = invitationData.workspaceNom || 'Workspace sans nom';
+        
+        console.log('Données d\'invitation reçues:', invitationData);
+        
+        // S'assurer que nous avons un nom
+        if (!workspaceName.value || workspaceName.value === 'Workspace sans nom') {
+          console.warn('Nom du workspace manquant dans les données de l\'invitation');
+          
+          // Tentative de récupération du nom via l'API si nécessaire
+          try {
+            const workspaceDetails = await workspaceService.getWorkspaceById(workspaceId);
+            if (workspaceDetails && workspaceDetails.nom) {
+              workspaceName.value = workspaceDetails.nom;
+              console.log('Nom du workspace récupéré:', workspaceName.value);
+            }
+          } catch (e) {
+            console.warn('Impossible de récupérer le nom du workspace:', e);
+          }
+        }
         
         console.log('Invitation valide pour le workspace:', workspaceName.value);
       } catch (e) {
@@ -134,12 +153,12 @@ export default {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--background-color);
   padding: 20px;
 }
 
 .invitation-card {
-  background-color: #fff;
+  background-color: var(--background-list-message);
   border-radius: 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   width: 100%;
@@ -150,7 +169,7 @@ export default {
 
 .invitation-icon, .error-icon {
   font-size: 48px;
-  color: #5865f2;
+  color: var(--primary-color);
   margin-bottom: 20px;
 }
 
@@ -165,13 +184,13 @@ export default {
 h1 {
   font-size: 24px;
   margin-bottom: 16px;
-  color: #333;
+  color: var(--text-primary);
 }
 
 h2 {
   font-size: 28px;
   font-weight: 600;
-  color: #5865f2;
+  color: var(--primary-color);
   margin: 10px 0;
 }
 
@@ -198,13 +217,13 @@ p {
 }
 
 .btn-primary {
-  background-color: #5865f2;
-  color: white;
+  background-color: var(--primary-color);
+  color: var(--text-color);
 }
 
 .btn-success {
-  background-color: #43b581;
-  color: white;
+  background-color: var(--hover-color);
+  color: var(--text-color);
 }
 
 .btn-secondary {
@@ -232,7 +251,7 @@ p {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border-top: 4px solid #5865f2;
+  border-top: 4px solid var(--primary-color);
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
 }
