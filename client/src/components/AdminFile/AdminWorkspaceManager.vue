@@ -491,7 +491,7 @@ export default {
 }
 
 .workspace-name {
-  color: #fff;
+  color: var(--text-color);
   flex: 1;
 }
 

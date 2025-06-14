@@ -144,7 +144,7 @@ export default {
   padding: 8px;
   border-radius: 4px;
   transition: background-color 0.2s;
-  background: var(--background-list-message);
+  background: #39393f;
 }
 
 .user-item:hover {

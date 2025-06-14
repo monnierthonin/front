@@ -118,7 +118,7 @@ export default {
   justify-content: center;
 }
 .containerSettingUserChanel {
-  border: 5px solid #443E3E;
+  border: 5px solid var(--background-list-message);
   border-radius: 10px;
   width: 70%;
   scrollbar-width: thin;
@@ -221,15 +221,15 @@ export default {
 }
 
 .username {
-  color: #fff;
+  color: var(--text-color);
   flex: 1;
 }
 
 .role-select {
   padding: 0.3rem;
   border-radius: 4px;
-  background: #333;
-  color: #fff;
+  background: var(--background-recherche-filtre);
+  color: var(--text-color);
   border: 1px solid #555;
   margin-right: 10px;
 }
