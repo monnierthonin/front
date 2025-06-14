@@ -24,8 +24,9 @@
             :altText="getContactName(contact)"
             imageClass="profile-image"
           />
-          <div class="status-indicator" :class="contact.status || 'offline'"></div>
+          <!-- Indicateur de statut déplacé hors du conteneur ProfilePicture mais avec position absolue -->
         </div>
+        <div class="status-indicator" :class="getUserStatusClass(contact)"></div>
         <div class="friend-name">{{ getContactName(contact) }}</div>
       </div>
     </div>
@@ -56,6 +57,8 @@ export default {
     const loading = ref(true);
     const error = ref(null);
     const currentUserId = ref(null);
+    const userProfiles = ref({});
+    const fetchingProfiles = ref(false);
 
     // Récupérer l'ID de l'utilisateur connecté en utilisant authService
     const getCurrentUserId = async () => {
@@ -452,13 +455,110 @@ export default {
     // Charger les contacts au montage du composant
     onMounted(() => {
       loadContacts();
+      // Démarrer un intervalle pour rafraîchir les statuts des utilisateurs
+      const statusInterval = setInterval(() => {
+        refreshUserProfiles();
+      }, 60000); // Rafraîchir toutes les 60 secondes
+      
+      // Nettoyer l'intervalle quand le composant est démonté
+      return () => clearInterval(statusInterval);
     });
     
     // Réexposer loadContacts pour pouvoir le rappeler si nécessaire depuis l'extérieur
     const refreshContacts = () => {
       loadContacts();
+      // Rafraîchir les profils en même temps
+      refreshUserProfiles();
     };
 
+    /**
+     * Récupère les données de profil d'un utilisateur via l'API
+     * @param {String} userId - L'identifiant de l'utilisateur
+     * @returns {Promise} - Promesse résolue avec les données de profil
+     */
+    const fetchUserProfile = async (userId) => {
+      try {
+        const response = await fetch(`http://localhost:3000/api/v1/users/profile/${userId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Erreur lors de la récupération du profil utilisateur');
+        }
+        
+        const data = await response.json();
+        if (data.success && data.data && data.data.user) {
+          // Mettre à jour le cache des profils utilisateurs
+          userProfiles.value[userId] = data.data.user;
+          return data.data.user;
+        }
+      } catch (error) {
+        console.error('Erreur:', error);
+        return null;
+      }
+    };
+    
+    /**
+     * Récupère les profils de tous les contacts
+     */
+    const refreshUserProfiles = async () => {
+      if (fetchingProfiles.value || contacts.value.length === 0) return;
+      
+      fetchingProfiles.value = true;
+      
+      try {
+        for (const contact of contacts.value) {
+          if (!contact || !contact._id) continue;
+          
+          const userId = contact._id;
+          
+          // Récupérer le profil utilisateur
+          await fetchUserProfile(userId);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération des profils:', error);
+      } finally {
+        fetchingProfiles.value = false;
+      }
+    };
+    
+    /**
+     * Détermine la classe CSS appropriée pour l'indicateur de statut
+     * @param {Object} contact - L'objet contact
+     * @returns {String} - Classe CSS correspondant au statut
+     */
+    const getUserStatusClass = (contact) => {
+      if (!contact || !contact._id) return 'offline';
+      
+      // Vérifie si on a récupéré le profil de cet utilisateur
+      const userProfile = userProfiles.value[contact._id];
+      if (!userProfile) return contact.status || 'offline'; // Utilise le statut de base si le profil n'est pas encore disponible
+      
+      // Vérification explicite de la connexion
+      const estConnecte = userProfile.estConnecte === true;
+      
+      // Si l'utilisateur n'est pas connecté, statut gris (offline)
+      if (!estConnecte) return 'offline';
+      
+      // Utilisateur connecté, détermine la couleur selon le statut
+      const status = userProfile.status || '';
+      
+      switch (status) {
+        case 'en ligne':
+          return 'online';  // Vert
+        case 'absent':
+          return 'idle';    // Orange 
+        case 'ne pas déranger':
+          return 'dnd';     // Rouge
+        default:
+          return 'online';  // Par défaut: Vert
+      }
+    };
+    
     return {
       contacts,
       loading,
@@ -467,7 +567,8 @@ export default {
       openConversation,
       showNewMessageModal,
       startConversation,
-      refreshContacts
+      refreshContacts,
+      getUserStatusClass
     };
   }
 }
@@ -521,7 +622,6 @@ export default {
   width: 40px;
   height: 40px;
   margin-right: 12px;
-  overflow: hidden;
   border-radius: 50%;
   background-color: #2f3136;
   display: flex;
@@ -538,14 +638,19 @@ export default {
   object-position: center;
 }
 
+.friend-item {
+  position: relative; /* Ajouté pour que le status-indicator puisse se positionner par rapport à cet élément */
+}
+
 .status-indicator {
   position: absolute;
-  bottom: -2px;
-  right: -2px;
+  bottom: 8px; /* Ajusté pour le bon positionnement */
+  left: 30px; /* Ajusté pour aligner avec le côté droit de l'avatar */
   width: 10px;
   height: 10px;
   border-radius: 50%;
   border: 2px solid var(--secondary-color);
+  z-index: 2; /* Assurer qu'il reste au-dessus des autres éléments */
 }
 
 .status-indicator.online {

@@ -11,7 +11,7 @@
                 :userId="membre.utilisateur._id" 
                 :altText="getUserName(membre.utilisateur)" 
               />
-              <div class="status-indicator" :class="membre.statut || 'online'"></div>
+              <div class="status-indicator" :class="getUserStatusClass(membre)"></div>
             </div>
             <div class="user-info">
               <div class="user-name">{{ getUserName(membre.utilisateur) }}</div>
@@ -39,7 +39,9 @@
     },
     data() {
       return {
-        isLoading: true
+        isLoading: true,
+        userProfiles: {}, // Stockage des profils utilisateurs récupérés
+        fetchingProfiles: false // Indicateur de chargement des profils
       }
     },
     computed: {
@@ -51,6 +53,100 @@
       getUserName(user) {
         if (!user) return 'Utilisateur inconnu'
         return user.username || user.firstName || user.email || 'Utilisateur sans nom'
+      },
+      
+      /**
+       * Récupère les données de profil d'un utilisateur via l'API
+       * @param {String} userId - L'identifiant de l'utilisateur
+       * @returns {Promise} - Promesse résolue avec les données de profil
+       */
+      async fetchUserProfile(userId) {
+        try {
+          const response = await fetch(`http://localhost:3000/api/v1/users/profile/${userId}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+          })
+          
+          if (!response.ok) {
+            throw new Error('Erreur lors de la récupération du profil utilisateur')
+          }
+          
+          const data = await response.json()
+          if (data.success && data.data && data.data.user) {
+            // Mettre à jour le cache des profils utilisateurs
+            this.userProfiles[userId] = data.data.user
+            return data.data.user
+          }
+        } catch (error) {
+          console.error('Erreur:', error)
+          return null
+        }
+      },
+      
+      /**
+       * Récupère les profils de tous les membres
+       */
+      async fetchAllUserProfiles() {
+        if (this.fetchingProfiles || !this.membresAffichage.length) return
+        
+        this.fetchingProfiles = true
+        
+        try {
+          for (const membre of this.membresAffichage) {
+            if (!membre.utilisateur || !membre.utilisateur._id) continue
+            
+            const userId = membre.utilisateur._id
+            
+            // Vérifie si on a déjà récupéré ce profil
+            if (!this.userProfiles[userId]) {
+              await this.fetchUserProfile(userId)
+            }
+          }
+        } catch (error) {
+          console.error('Erreur lors de la récupération des profils:', error)
+        } finally {
+          this.fetchingProfiles = false
+        }
+      },
+      
+      /**
+       * Détermine la classe CSS appropriée pour l'indicateur de statut
+       * @param {Object} membre - L'objet membre qui peut contenir des infos utilisateur
+       * @returns {String} - Classe CSS correspondant au statut
+       */
+      getUserStatusClass(membre) {
+        if (!membre) return 'offline'
+        
+        // Récupération de l'ID utilisateur
+        const userId = membre.utilisateur?._id
+        if (!userId) return 'offline'
+        
+        // Vérifie si on a récupéré le profil de cet utilisateur
+        const userProfile = this.userProfiles[userId]
+        if (!userProfile) return 'offline' // Par défaut offline si le profil n'est pas encore chargé
+        
+        // Vérification explicite de la connexion
+        const estConnecte = userProfile.estConnecte === true
+        
+        // Si l'utilisateur n'est pas connecté, statut gris (offline)
+        if (!estConnecte) return 'offline'
+        
+        // Utilisateur connecté, détermine la couleur selon le statut
+        const status = userProfile.status || ''
+        
+        switch (status) {
+          case 'en ligne':
+            return 'online'  // Vert
+          case 'absent':
+            return 'idle'    // Orange 
+          case 'ne pas déranger':
+            return 'dnd'     // Rouge
+          default:
+            return 'online'  // Par défaut: Vert
+        }
       }
     },
     watch: {
@@ -58,9 +154,20 @@
         handler(newVal) {
           if (newVal) {
             this.isLoading = false
+            // Récupère les profils utilisateurs quand la liste des membres change
+            this.$nextTick(() => {
+              this.fetchAllUserProfiles()
+            })
           }
         },
         immediate: true
+      }
+    },
+    
+    // Lors de la création du composant, récupérer les profils utilisateurs
+    mounted() {
+      if (this.membres && this.membres.length > 0) {
+        this.fetchAllUserProfiles()
       }
     }
   }
@@ -130,18 +237,22 @@
     border: 2px solid var(--secondary-color);
   }
   
+  /* Indicateur vert pour les utilisateurs en ligne */
   .status-indicator.online {
     background-color: #43b581;
   }
   
+  /* Indicateur gris pour les utilisateurs déconnectés */
   .status-indicator.offline {
     background-color: #747f8d;
   }
   
+  /* Indicateur orange pour les utilisateurs absents */
   .status-indicator.idle {
     background-color: #faa61a;
   }
   
+  /* Indicateur rouge pour les utilisateurs ne pas déranger */
   .status-indicator.dnd {
     background-color: #f04747;
   }
