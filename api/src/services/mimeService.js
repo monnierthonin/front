@@ -1,4 +1,22 @@
-const { fileTypeFromBuffer } = require('file-type');
+// Importer file-type
+const fileType = require('file-type');
+
+// Utiliser la bonne méthode selon celle qui est disponible
+const detectFileType = async (buffer) => {
+    if (fileType.fromBuffer) {
+        // Nouvelle syntaxe (fromBuffer)
+        return await fileType.fromBuffer(buffer);
+    } else if (fileType.fileTypeFromBuffer) {
+        // Ancienne syntaxe (fileTypeFromBuffer)
+        return await fileType.fileTypeFromBuffer(buffer);
+    } else if (typeof fileType === 'function') {
+        // Version très ancienne
+        return await fileType(buffer);
+    }
+    // Aucune méthode disponible
+    console.error('Aucune méthode de détection disponible dans file-type');
+    return null;
+};
 
 // Liste des types MIME autorisés avec leurs extensions correspondantes
 const MIME_TYPES_AUTORISES = {
@@ -92,7 +110,7 @@ const verifierFichier = async (buffer, nomFichier, taille) => {
         console.log(`Vérification du fichier: ${nomFichier}, taille: ${taille} octets`);
         
         // Détecter le vrai type MIME à partir du contenu
-        const typeDetecte = await fileTypeFromBuffer(buffer);
+        const typeDetecte = await fileType.fromBuffer(buffer);
         
         // Si le type n'est pas détecté, utiliser le type basé sur l'extension
         if (!typeDetecte) {

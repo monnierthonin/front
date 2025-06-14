@@ -28,15 +28,15 @@ const fichierService = {
         formData.append('contenu', contenu);
       }
       
-      const token = localStorage.getItem('token');
+      // Utiliser credentials: 'include' pour l'authentification par cookie HTTP-only
       const response = await axios.post(
         `${API_URL}/fichiers/canal/${canalId}`,
         formData,
         {
           headers: {
-            'Content-Type': 'multipart/form-data',
-            'Authorization': `Bearer ${token}`
-          }
+            'Content-Type': 'multipart/form-data'
+          },
+          withCredentials: true
         }
       );
       
@@ -68,15 +68,15 @@ const fichierService = {
         formData.append('contenu', contenu);
       }
       
-      const token = localStorage.getItem('token');
+      // Utiliser credentials: 'include' pour l'authentification par cookie HTTP-only
       const response = await axios.post(
         `${API_URL}/fichiers/conversation/${conversationId}`,
         formData,
         {
           headers: {
-            'Content-Type': 'multipart/form-data',
-            'Authorization': `Bearer ${token}`
-          }
+            'Content-Type': 'multipart/form-data'
+          },
+          withCredentials: true
         }
       );
       
@@ -96,13 +96,11 @@ const fichierService = {
    */
   supprimerFichier: async (messageType, messageId, fichierUrl) => {
     try {
-      const token = localStorage.getItem('token');
+      // Utiliser credentials: 'include' pour l'authentification par cookie HTTP-only
       const response = await axios.delete(
         `${API_URL}/fichiers/${messageType}/${messageId}/${encodeURIComponent(fichierUrl)}`,
         {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          withCredentials: true
         }
       );
       
@@ -120,13 +118,11 @@ const fichierService = {
    */
   listerFichiersCanal: async (canalId) => {
     try {
-      const token = localStorage.getItem('token');
+      // Utiliser credentials: 'include' pour l'authentification par cookie HTTP-only
       const response = await axios.get(
         `${API_URL}/fichiers/canal/${canalId}`,
         {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          withCredentials: true
         }
       );
       
@@ -144,13 +140,11 @@ const fichierService = {
    */
   listerFichiersConversation: async (conversationId) => {
     try {
-      const token = localStorage.getItem('token');
+      // Utiliser credentials: 'include' pour l'authentification par cookie HTTP-only
       const response = await axios.get(
         `${API_URL}/fichiers/conversation/${conversationId}`,
         {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          withCredentials: true
         }
       );
       

@@ -234,10 +234,14 @@ export default {
           this.selectedFile = file;
           console.log('Fichier prêt pour envoi:', this.selectedFile.name);
           
-          // Si le message ne contient pas déjà du texte, ajouter une description du fichier
-          if (!this.messageText.trim()) {
-            this.messageText = `Fichier: ${file.name}`;
-          }
+          // Si le message contient déjà du texte, on le conserve
+          // Sinon, on laisse vide car on envoie automatiquement
+          // (Le fichier sera attaché au message sans modifier le contenu du texte)
+          
+          // Envoyer automatiquement le message dès que le fichier est sélectionné
+          this.$nextTick(() => {
+            this.envoyerMessage();
+          });
         }
       });
       
