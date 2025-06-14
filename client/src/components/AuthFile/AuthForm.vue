@@ -34,6 +34,9 @@
         placeholder="Entrez votre mot de passe"
         :disabled="loading"
       >
+      <div v-if="isLogin" class="forgot-password">
+        <router-link to="/mot-de-passe-oublie">Mot de passe oublié</router-link>
+      </div>
     </div>
 
     <div class="form-group" v-if="!isLogin">
@@ -159,5 +162,20 @@ input:focus {
   color: rgb(239, 68, 68);
   font-size: 0.8rem;
   margin-top: 0.5rem;
+}
+
+.forgot-password {
+  text-align: right;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.forgot-password a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.forgot-password a:hover {
+  text-decoration: underline;
 }
 </style>

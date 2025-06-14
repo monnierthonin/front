@@ -114,8 +114,10 @@ export default {
   },
   computed: {
     isAuthPage() {
-      // Ne pas afficher le Header sur la page d'authentification
-      return this.$route.path === '/auth';
+      // Ne pas afficher le Header sur la page d'authentification et les pages de réinitialisation de mot de passe
+      return this.$route.path === '/auth' ||
+             this.$route.path === '/mot-de-passe-oublie' ||
+             this.$route.path.startsWith('/reinitialiser-mot-de-passe/');
     }
   }
 }

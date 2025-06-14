@@ -86,6 +86,16 @@ const routes = [
     path: '/workspaces/invitation/:workspaceId/:token',
     name: 'WorkspaceInvitation',
     component: () => import('@/pages/WorkspaceInvitation.vue')
+  },
+  {
+    path: '/mot-de-passe-oublie',
+    name: 'ForgotPassword',
+    component: () => import('@/pages/ForgotPassword.vue')
+  },
+  {
+    path: '/reinitialiser-mot-de-passe/:token',
+    name: 'ResetPassword',
+    component: () => import('@/pages/ResetPassword.vue')
   }
 ]
 
