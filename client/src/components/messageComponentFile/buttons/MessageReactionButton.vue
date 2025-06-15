@@ -53,47 +53,39 @@ export default {
   data() {
     return {
       showEmojiPicker: false,
-      // Liste d'emojis couramment utilisés
       emojis: ['👍', '❤️', '😂', '😮', '😢', '😡', '🎉', '👏', '🙏', '🤔', '👀', '🔥']
     };
   },
   mounted() {
-    // Ajouter un gestionnaire global pour fermer le picker lors d'un clic à l'extérieur
     document.addEventListener('click', this.handleClickOutside);
   },
   beforeUnmount() {
-    // Nettoyage de l'écouteur d'événements
     document.removeEventListener('click', this.handleClickOutside);
   },
   methods: {
     toggleEmojiPicker() {
-      console.log("MessageReactionButton: toggleEmojiPicker() appelé");
       this.showEmojiPicker = !this.showEmojiPicker;
     },
     closeEmojiPicker() {
       this.showEmojiPicker = false;
     },
     handleClickOutside(event) {
-      // Fermer le picker si le clic est en dehors du composant
       const container = this.$el;
       if (container && !container.contains(event.target) && this.showEmojiPicker) {
         this.closeEmojiPicker();
       }
     },
     async selectEmoji(emoji) {
-      console.log("MessageReactionButton: selectEmoji() appelé avec emoji:", emoji);
       try {
         let result;
         
         if (this.isPrivate) {
-          // Messages privés
           result = await messagePrivateService.reactToPrivateMessage(
             this.conversationId,
             this.message._id,
             emoji
           );
         } else {
-          // Messages de canal
           result = await messageService.reactToMessage(
             this.workspaceId,
             this.message.canal,
@@ -102,10 +94,8 @@ export default {
           );
         }
         
-        // Fermer le picker après sélection
         this.closeEmojiPicker();
         
-        // Émettre l'événement avec les données de la réaction
         this.$emit('reaction-added', {
           messageId: this.message._id,
           emoji,
@@ -114,10 +104,7 @@ export default {
         
       } catch (error) {
         console.error('Erreur lors de l\'ajout de la réaction:', error);
-        // Afficher l'erreur de manière moins intrusive
         if (error.message && error.message.includes('déjà réagi')) {
-          console.log('Vous avez déjà réagi avec cet emoji');
-          // On ferme quand même le picker
           this.closeEmojiPicker();
         } else {
           console.error(`Erreur de réaction: ${error.message}`);
