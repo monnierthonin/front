@@ -46,55 +46,36 @@ export default {
     const router = useRouter();
     const route = useRoute();
     
-    // États du composant
     const loading = ref(true);
     const error = ref(false);
     const errorMessage = ref('');
     const workspaceName = ref('');
     const processing = ref(false);
     
-    // Récupérer les paramètres de l'URL
     const workspaceId = route.params.workspaceId;
     const token = route.params.token;
     
-    // Vérifier l'invitation au chargement
     onMounted(async () => {
       try {
-        // Vérifier que l'on a bien un token et un ID de workspace
         if (!token || !workspaceId) {
           throw new Error("Lien d'invitation incomplet ou invalide");
         }
         
-        console.log(`Vérification de l'invitation pour workspace ${workspaceId} avec token ${token}`);
-        
-        // Vérifier la validité de l'invitation
         const invitationData = await workspaceService.verifyInvitation(workspaceId, token);
         
-        // Extraire les informations du workspace
-        // L'API renvoie workspaceNom dans la réponse
         workspaceName.value = invitationData.workspaceNom || 'Workspace sans nom';
         
-        console.log('Données d\'invitation reçues:', invitationData);
-        
-        // S'assurer que nous avons un nom
         if (!workspaceName.value || workspaceName.value === 'Workspace sans nom') {
-          console.warn('Nom du workspace manquant dans les données de l\'invitation');
-          
-          // Tentative de récupération du nom via l'API si nécessaire
           try {
             const workspaceDetails = await workspaceService.getWorkspaceById(workspaceId);
             if (workspaceDetails && workspaceDetails.nom) {
               workspaceName.value = workspaceDetails.nom;
-              console.log('Nom du workspace récupéré:', workspaceName.value);
             }
           } catch (e) {
             console.warn('Impossible de récupérer le nom du workspace:', e);
           }
         }
-        
-        console.log('Invitation valide pour le workspace:', workspaceName.value);
       } catch (e) {
-        console.error("Erreur lors de la vérification de l'invitation:", e);
         error.value = true;
         errorMessage.value = e.message || "Cette invitation n'est pas valide ou a expiré";
       } finally {
@@ -102,33 +83,23 @@ export default {
       }
     });
     
-    // Accepter l'invitation
     const acceptInvitation = async () => {
       processing.value = true;
       try {
-        console.log(`Acceptation de l'invitation pour workspace ${workspaceId}`);
-        
-        // Appel à l'API pour accepter l'invitation
         const response = await workspaceService.acceptInvitation(workspaceId, token);
         
-        // Redirection vers le workspace rejoint
-        console.log('Invitation acceptée avec succès:', response);
         router.push(`/workspace/${workspaceId}`);
       } catch (e) {
-        console.error("Erreur lors de l'acceptation de l'invitation:", e);
         error.value = true;
         errorMessage.value = e.message || "Impossible d'accepter cette invitation";
         processing.value = false;
       }
     };
     
-    // Refuser l'invitation
     const rejectInvitation = () => {
-      console.log("Invitation refusée");
       router.push('/');
     };
     
-    // Redirection vers la page d'accueil
     const goToHome = () => {
       router.push('/');
     };
