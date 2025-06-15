@@ -87,13 +87,12 @@ export default {
       this.error = null;
       
       try {
-        // Utilisation des cookies HTTP-only au lieu du token dans localStorage
         const response = await fetch(`http://localhost:3000/api/v1/workspaces/${this.workspaceId}/canaux`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          credentials: 'include', // Pour envoyer automatiquement le cookie HTTP-only
+          credentials: 'include',
           body: JSON.stringify({
             nom: this.channelName,
             type: this.channelType,
@@ -110,13 +109,10 @@ export default {
         
         const newChannel = await response.json();
         
-        // Émettre l'événement pour informer le parent
         this.$emit('channel-created', newChannel);
         
-        // Réinitialiser le formulaire
         this.resetForm();
         
-        // Fermer le modal
         this.closeModal();
       } catch (err) {
         console.error('Erreur lors de la création du canal:', err);
@@ -129,7 +125,6 @@ export default {
   watch: {
     show(newValue) {
       if (newValue) {
-        // Réinitialiser le formulaire quand le modal s'ouvre
         this.resetForm();
       }
     }

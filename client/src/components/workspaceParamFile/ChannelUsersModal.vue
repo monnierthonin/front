@@ -81,7 +81,7 @@ export default {
       workspaceUsers: [],
       selectedUsers: [],
       saving: false,
-      processingUsers: {},  // Pour suivre les utilisateurs en cours de traitement
+      processingUsers: {},
       defaultAvatar: '../assets/styles/image/profilDelault.png'
     }
   },
@@ -99,33 +99,23 @@ export default {
     async toggleUserPermission(userId, event) {
       const isChecked = event.target.checked;
       
-      // Marquer cet utilisateur comme étant en cours de traitement
       this.processingUsers[userId] = true;
-      // Forcer la réactivité en créant un nouvel objet
       this.processingUsers = { ...this.processingUsers };
       
       try {
         if (isChecked) {
-          // Ajouter l'utilisateur aux autorisations
           await this.addUserToChannel(userId);
-          // Mettre à jour la liste locale uniquement en cas de succès
           this.selectedUsers.push(userId);
         } else {
-          // Retirer l'utilisateur des autorisations
           await this.removeUserFromChannel(userId);
-          // Mettre à jour la liste locale uniquement en cas de succès
           this.selectedUsers = this.selectedUsers.filter(id => id !== userId);
         }
       } catch (err) {
         console.error('Erreur lors de la modification des permissions:', err);
         this.error = err.message || `Impossible de ${isChecked ? 'ajouter' : 'retirer'} cet utilisateur`;
-        
-        // En cas d'erreur, rétablir l'état de la case à cocher
         event.target.checked = !isChecked;
       } finally {
-        // Fin du traitement pour cet utilisateur
         this.processingUsers[userId] = false;
-        // Forcer la réactivité en créant un nouvel objet
         this.processingUsers = { ...this.processingUsers };
       }
     },
@@ -272,7 +262,6 @@ export default {
           throw new Error('Aucun token d\'authentification trouvé');
         }
         
-        // Au lieu de chercher un endpoint spécifique pour les utilisateurs, on récupère les détails du canal
         const response = await fetch(`http://localhost:3000/api/v1/workspaces/${this.workspaceId}/canaux/${this.channel.id}`, {
           method: 'GET',
           headers: {
@@ -285,9 +274,7 @@ export default {
         if (response.ok) {
           const data = await response.json();
           
-          // Vérifie si le canal contient une propriété utilisateurs_autorises
           if (data?.data?.canal?.utilisateurs_autorises) {
-            // Mettre à jour les utilisateurs sélectionnés
             this.selectedUsers = data.data.canal.utilisateurs_autorises.map(user => 
               typeof user === 'object' ? user._id || user.id : user
             );
@@ -298,16 +285,12 @@ export default {
           throw new Error('Session expirée, veuillez vous reconnecter');
         } else {
           console.warn(`Erreur lors de la récupération du canal: ${response.status}`);
-          // On continue avec une liste vide
           this.selectedUsers = [];
         }
       } catch (err) {
         console.error('Erreur lors du chargement des utilisateurs du canal:', err);
-        // Ne pas afficher d'erreur pour ne pas bloquer l'interface
       }
     },
-    
-    // La méthode savePermissions n'est plus nécessaire car les modifications sont appliquées en temps réel,
     
     /**
      * Récupère l'avatar d'un utilisateur
@@ -346,7 +329,6 @@ export default {
 </script>
 
 <style scoped>
-/* Styles pour le modal */
 .modal-overlay {
   position: fixed;
   top: 0;

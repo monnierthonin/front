@@ -8,7 +8,6 @@
       </div>
       
       <div class="modal-body">
-        <!-- Partie gauche : Création d'un workspace -->
         <div class="create-workspace">
           <h3>Créer un nouveau workspace</h3>
           <form @submit.prevent="createWorkspace">
@@ -50,7 +49,6 @@
           <div v-if="createError" class="error-message">{{ createError }}</div>
         </div>
         
-        <!-- Partie droite : Recherche de workspaces existants -->
         <div class="search-workspace">
           <h3>Rechercher un workspace</h3>
           <div class="search-bar">
@@ -104,7 +102,6 @@ export default {
   setup(props, { emit }) {
     const router = useRouter();
     
-    // État pour la création de workspace
     const newWorkspace = ref({ 
       nom: '',
       description: '' 
@@ -112,19 +109,16 @@ export default {
     const isPublic = ref(false);
     const createError = ref('');
     
-    // État pour la recherche de workspaces
     const searchQuery = ref('');
     const searchResults = ref([]);
     const searchPerformed = ref(false);
     const searchError = ref('');
     const loading = ref(false);
     
-    // Calculer la visibilité pour l'API
     const workspaceVisibility = computed(() => {
       return isPublic.value ? 'public' : 'prive';
     });
     
-    // Créer un nouveau workspace
     const createWorkspace = async () => {
       createError.value = '';
       
@@ -142,24 +136,19 @@ export default {
         
         const createdWorkspace = await workspaceService.createWorkspace(workspaceData);
         
-        // Réinitialiser le formulaire
         newWorkspace.value = { nom: '', description: '' };
         isPublic.value = false;
         
-        // Emettre un événement pour informer le parent
         emit('workspace-created', createdWorkspace);
         
-        // Fermer le modal
         emit('close');
         
-        // Rediriger vers le workspace créé
         router.push(`/workspace/${createdWorkspace._id}`);
       } catch (error) {
         createError.value = error.message || 'Erreur lors de la création du workspace';
       }
     };
     
-    // Rechercher des workspaces publics
     const searchWorkspaces = async () => {
       searchError.value = '';
       loading.value = true;
@@ -175,27 +164,20 @@ export default {
       }
     };
     
-    // Rejoindre un workspace
     const joinWorkspace = async (workspaceId) => {
       try {
-        // Pour rejoindre un workspace public, il suffit de récupérer ses détails
-        // L'API gère automatiquement l'ajout de l'utilisateur comme membre
         const workspace = await workspaceService.getWorkspaceById(workspaceId);
         
-        // Emettre un événement pour informer le parent
         emit('workspace-joined', workspace);
         
-        // Fermer le modal
         emit('close');
         
-        // Rediriger vers le workspace rejoint
         router.push(`/workspace/${workspaceId}`);
       } catch (error) {
         searchError.value = error.message || 'Erreur lors de la tentative de rejoindre le workspace';
       }
     };
     
-    // Fermer le modal
     const closeModal = () => {
       emit('close');
     };
@@ -243,7 +225,7 @@ export default {
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   overflow: hidden;
   position: relative;
-  z-index: 10000; /* Ensure it's above the overlay */
+  z-index: 10000;
 }
 
 .modal-header {

@@ -19,17 +19,14 @@
         </button>
       </div>
       
-      <!-- Loading state -->
       <div v-if="loading" class="loading-message">
         Chargement des canaux...
       </div>
       
-      <!-- Error state -->
       <div v-else-if="error" class="error-message">
         {{ error }}
       </div>
       
-      <!-- Empty state -->
       <div v-else-if="filteredChannels.length === 0" class="empty-message">
         <p v-if="channelSearchQuery || channelFilter !== 'all'">
           Aucun canal ne correspond aux critères de recherche.
@@ -37,7 +34,6 @@
         <p v-else>Aucun canal dans ce workspace.</p>
       </div>
       
-      <!-- Channels list -->
       <div v-else class="channels-list">
         <div v-for="channel in filteredChannels" :key="channel.id" class="channel-item">
           <span class="channel-name clickable" @click="startEditing(channel)">
@@ -68,7 +64,6 @@
       </div>
     </div>
   </div>
-  <!-- Utilisation du composant modal pour la gestion des utilisateurs -->
   <ChannelUsersModal 
     :show="showUserModal" 
     :channel="selectedChannel" 
@@ -77,7 +72,6 @@
     @saved="handleUserPermissionsSaved"
   />
   
-  <!-- Modal pour créer un nouveau canal -->
   <CreateChannelModal
     :show="showCreateChannelModal"
     :workspaceId="workspaceId"
@@ -110,12 +104,9 @@ export default {
       channels: [],
       loading: true,
       error: null,
-      // Données pour le modal d'utilisateurs
       showUserModal: false,
       selectedChannel: null,
-      // Données pour le modal de création de canal
       showCreateChannelModal: false,
-      // Données pour l'édition du nom d'un canal
       editingChannel: null,
       editingName: ''
     }
@@ -127,7 +118,6 @@ export default {
     filteredChannels() {
       let result = [...this.channels];
       
-      // Filtrer par terme de recherche
       if (this.channelSearchQuery) {
         const searchTerm = this.channelSearchQuery.toLowerCase();
         result = result.filter(channel => {
@@ -136,18 +126,14 @@ export default {
         });
       }
       
-      // Filtrer par statut
       if (this.channelFilter !== 'all') {
         result = result.filter(channel => channel.visibilite === this.channelFilter);
       }
       
-      // Trier par nom
       return result.sort((a, b) => {
-        // Canal général toujours en premier
         if (a.nom.toLowerCase() === 'général' || a.nom.toLowerCase() === 'general') return -1;
         if (b.nom.toLowerCase() === 'général' || b.nom.toLowerCase() === 'general') return 1;
         
-        // Ensuite par ordre alphabétique
         return a.nom.localeCompare(b.nom);
       });
     }
@@ -165,13 +151,12 @@ export default {
       this.channels = [];
       
       try {
-        // Utiliser les cookies HTTP-only pour l'authentification sans avoir besoin du token explicite
         const response = await fetch(`http://localhost:3000/api/v1/workspaces/${this.workspaceId}/canaux`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json'
           },
-          credentials: 'include' // Pour envoyer automatiquement le cookie HTTP-only
+          credentials: 'include'
         });
         
         if (!response.ok) {
@@ -183,19 +168,16 @@ export default {
         
         const data = await response.json();
         
-        // Vérifier que les données reçues ont la structure attendue
         if (data && data.status === 'success') {
-          // Récupérer les canaux depuis la structure de réponse
           const canaux = data.data && data.data.canaux ? data.data.canaux : [];
           
           this.channels = canaux.map(canal => ({
             id: canal._id || canal.id,
             nom: canal.nom || 'Sans nom',
-            visibilite: canal.visibilite || 'public', // défaut à 'public' si non spécifié
-            acces: canal.acces || 'tous' // défaut à 'tous' si non spécifié
+            visibilite: canal.visibilite || 'public',
+            acces: canal.acces || 'tous'
           }));
           
-          // Restaurer les visibilités stockées localement après le chargement
           this.restoreChannelVisibilities();
         } else {
           this.channels = [];
@@ -209,32 +191,19 @@ export default {
       }
     },
 
-    /**
-   * Solution temporaire pour la mise à jour de la visibilité des canaux
-   * Enregistre la visibilité dans le localStorage en attendant une correction du backend
-   */
-  async updateChannelVisibility(channel) {
-    try {
-      // Stockage de la modification dans le localStorage
+    async updateChannelVisibility(channel) {
+      try {
       const storageKey = `channel_visibility_${this.workspaceId}_${channel.id}`;
       localStorage.setItem(storageKey, channel.visibilite);
       
       console.log(`[LOCAL] Visibilité du canal ${channel.id} enregistrée comme ${channel.visibilite} dans le stockage local`);
       
-      // NOTE: Cette solution est temporaire.
-      // L'API backend renvoie systématiquement une erreur 500 lorsqu'on tente de mettre à jour la visibilité.
-      // Le changement sera visible pour l'utilisateur tant qu'il ne rafraîchit pas la page.
-      // Une correction du backend sera nécessaire pour rendre cela permanent.
     } catch (err) {
       console.error('Erreur lors de la mise à jour de la visibilité du canal:', err);
       this.error = err.message || "Impossible de modifier la visibilité du canal";
     }
   },
 
-  /**
-   * Restaure les visibilités des canaux depuis le localStorage
-   * Cette fonction permet de conserver les changements de visibilité après un rafraîchissement
-   */
   restoreChannelVisibilities() {
     if (!this.channels || !this.channels.length) return;
     
@@ -243,7 +212,6 @@ export default {
       const savedVisibility = localStorage.getItem(storageKey);
       
       if (savedVisibility) {
-        // Vérifier que la valeur est valide ('public' ou 'prive')
         if (savedVisibility === 'public' || savedVisibility === 'prive') {
           console.log(`[LOCAL] Restauration de la visibilité du canal ${channel.id} à ${savedVisibility}`);
           channel.visibilite = savedVisibility;
@@ -282,9 +250,7 @@ export default {
           throw new Error(`Erreur lors de la suppression du canal: ${response.status}`);
         }
         
-        // Supprimer le canal de la liste sans avoir à recharger tous les canaux
         this.channels = this.channels.filter(c => c.id !== channel.id);
-        console.log(`Canal ${channel.id} supprimé avec succès`);
       } catch (err) {
         console.error('Erreur lors de la suppression du canal:', err);
         this.error = err.message || "Impossible de supprimer le canal";
@@ -335,8 +301,6 @@ export default {
      * @param {Object} newChannel - Le nouveau canal créé
      */
     handleChannelCreated(newChannel) {
-      console.log('Canal créé avec succès:', newChannel);
-      // Ajouter le nouveau canal à la liste sans avoir à recharger tous les canaux
       this.channels.push(newChannel);
     },
     
@@ -347,7 +311,6 @@ export default {
     startEditing(channel) {
       this.editingChannel = channel;
       this.editingName = channel.nom || '';
-      // Attendre que l'input soit rendu
       this.$nextTick(() => {
         if (this.$refs.channelNameInput) {
           this.$refs.channelNameInput.focus();
@@ -360,41 +323,30 @@ export default {
      * @param {Object} channel - Canal à mettre à jour
      */
     async saveChannelName(channel) {
-      // Stocker le nom à mettre à jour
       const newName = this.editingName;
       
-      // Réinitialiser l'état d'édition avant tout pour une meilleure expérience utilisateur
       this.editingChannel = null;
       
-      // Vérifier si le nom a été modifié et n'est pas vide
       if (newName && newName.trim() && newName !== channel.nom) {
-        console.log(`Mise à jour du nom du canal ${channel.id} : ${newName}`);
         
-        // Mettre à jour l'interface avant même de contacter l'API
         const index = this.channels.findIndex(c => c.id === channel.id);
         if (index !== -1) {
-          // Sauvegarder l'ancien nom au cas où
           const oldName = this.channels[index].nom;
           this.channels[index].nom = newName;
           
           try {
-            // Appel à l'API pour mettre à jour le nom (mais on n'attend pas la réponse)
             await canalService.updateCanalName(
               this.workspaceId,
               channel.id,
               { nom: newName }
             );
-            
-            console.log('Canal mis à jour avec succès')
           } catch (error) {
             console.error('Erreur lors de la mise à jour du nom du canal sur le serveur:', error);
-            // Afficher une notification moins intrusive qu'une alerte
             console.warn('La modification a été appliquée localement mais non sauvegardée sur le serveur');
           }
         }
       }
       
-      // Réinitialiser le nom d'édition
       this.editingName = '';
     }
   }

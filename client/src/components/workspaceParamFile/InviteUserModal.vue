@@ -16,17 +16,14 @@
           >
         </div>
         
-        <!-- État de chargement -->
         <div v-if="loading" class="loading-message">
           Recherche en cours...
         </div>
         
-        <!-- Message d'erreur -->
         <div v-else-if="error" class="error-message">
           {{ error }}
         </div>
         
-        <!-- Liste des utilisateurs -->
         <div v-else-if="users.length > 0" class="users-search-list">
           <div 
             v-for="user in users" 
@@ -43,12 +40,10 @@
           </div>
         </div>
         
-        <!-- Message si aucun résultat -->
         <div v-else-if="searchPerformed" class="empty-message">
           Aucun utilisateur trouvé pour cette recherche.
         </div>
         
-        <!-- Message d'instructions -->
         <div v-else class="instructions-message">
           Recherchez un utilisateur pour l'inviter au workspace.
         </div>
@@ -144,17 +139,11 @@ export default {
       this.searchPerformed = true;
       
       try {
-        console.log('Recherche d\'utilisateurs avec la requête:', this.searchQuery);
         
-        // Utiliser le service de recherche existant
         const results = await searchService.searchUsers(this.searchQuery);
         
-        console.log('Résultats de recherche obtenus:', results);
-        
-        // Log détaillé de chaque utilisateur pour déboguer la structure
         if (results && results.length > 0) {
           results.forEach((user, index) => {
-            console.log(`User ${index}:`, user);
             console.log(`  - ID properties: _id=${user._id}, id=${user.id}`);
             console.log(`  - Name properties: username=${user.username}, name=${user.name}, nom=${user.nom}`);
           });
@@ -189,13 +178,11 @@ export default {
         }
         return `http://localhost:3000/uploads/profiles/${user.profilePicture}`;
       } else if (user.photo) {
-        // Vérifier une autre propriété possible pour l'avatar
         if (user.photo.startsWith('http')) {
           return user.photo;
         }
         return `http://localhost:3000/uploads/profiles/${user.photo}`;
       } else if (user.avatar) {
-        // Encore une autre propriété possible pour l'avatar
         if (user.avatar.startsWith('http')) {
           return user.avatar;
         }
@@ -223,22 +210,17 @@ export default {
       this.error = null;
       
       try {
-        // Récupérer l'email de l'utilisateur sélectionné
         const email = this.selectedUser.email;
         
         if (!email) {
           throw new Error('L\'email de l\'utilisateur est manquant');
         }
         
-        console.log('Envoi d\'invitation par email à:', email);
-        
         if (!this.workspaceId) {
           throw new Error('ID de workspace manquant');
         }
         
-        // Utiliser l'endpoint d'invitation par email
         const url = `http://localhost:3000/api/v1/workspaces/${this.workspaceId}/inviter`;
-        console.log('URL de la requête:', url);
         
         try {
           const response = await fetch(url, {
@@ -246,24 +228,20 @@ export default {
             headers: {
               'Content-Type': 'application/json'
             },
-            // Inclure les cookies pour l'authentification HTTP-only
             credentials: 'include',
             body: JSON.stringify({
               email: email
             })
           });
           
-          // Traitement complet de la réponse
           if (!response.ok) {
             let errorMessage = `Erreur ${response.status}: `;
             
             try {
-              // Essayer de récupérer un message d'erreur du backend
               const errorData = await response.json();
               errorMessage += (errorData.message || errorData.error || 'Erreur lors de l\'envoi de l\'invitation');
               console.error('Détails de l\'erreur:', errorData);
             } catch (e) {
-              // Si la réponse n'est pas du JSON valide
               const textError = await response.text();
               errorMessage += textError || 'Erreur inconnue';
               console.error('Texte de l\'erreur brut:', textError);
@@ -272,12 +250,9 @@ export default {
             throw new Error(errorMessage);
           }
           
-          // Tentative de récupération de la réponse
           try {
             const responseData = await response.json();
-            console.log('Réponse d\'invitation réussie:', responseData);
           } catch (e) {
-            // Réponse non-JSON mais la requête est réussie quand même
             console.log('Invitation envoyée avec succès, pas de données JSON en réponse');
           }
         } catch (fetchError) {
@@ -285,7 +260,6 @@ export default {
           throw fetchError;
         }
         
-        // Signaler le succès et fermer le modal
         this.$emit('user-invited', this.selectedUser);
         setTimeout(() => {
           this.close();
