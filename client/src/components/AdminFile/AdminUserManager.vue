@@ -69,10 +69,8 @@ export default {
       try {
         const userId = user._id || user.id;
         await adminService.updateUserRole(userId, user.role);
-        console.log(`Rôle de ${user.username} mis à jour avec succès à ${user.role}`);
       } catch (error) {
         console.error('Erreur lors de la mise à jour du rôle:', error);
-        // Réinitialiser le rôle précédent en cas d'erreur
       }
     },
     
@@ -85,9 +83,7 @@ export default {
         const userId = user._id || user.id;
         await adminService.deleteUser(userId);
         
-        // Supprimer l'utilisateur de la liste locale
         this.users = this.users.filter(u => u.id !== user.id);
-        console.log(`Utilisateur ${user.username} supprimé avec succès`);
       } catch (error) {
         console.error('Erreur lors de la suppression de l\'utilisateur:', error);
       }

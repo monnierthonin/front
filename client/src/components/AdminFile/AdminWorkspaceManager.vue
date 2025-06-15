@@ -139,8 +139,6 @@ export default {
         const workspaceId = workspace._id || workspace.id;
         const users = await adminService.getWorkspaceUsers(workspaceId);
         this.workspaceMembers = users;
-        
-        console.log(`Utilisateurs du workspace ${workspace.name}:`, users);
         this.loadingMembers = false;
       } catch (error) {
         console.error('Erreur lors de la récupération des utilisateurs du workspace:', error);
@@ -164,8 +162,6 @@ export default {
         const workspaceId = workspace._id || workspace.id;
         const channels = await adminService.getWorkspaceChannels(workspaceId);
         this.workspaceChannels = channels;
-        
-        console.log(`Canaux du workspace ${workspace.name}:`, channels);
         this.loadingChannels = false;
       } catch (error) {
         console.error('Erreur lors de la récupération des canaux du workspace:', error);
@@ -188,7 +184,6 @@ export default {
         this.loadingChannels = true;
         await adminService.deleteChannel(this.selectedWorkspace.id, channel.id);
         
-        // Filtrer les canaux pour enlever celui qui a été supprimé
         this.workspaceChannels = this.workspaceChannels.filter(c => c.id !== channel.id);
         this.$toast.success('Canal supprimé avec succès');
       } catch (error) {
@@ -202,19 +197,16 @@ export default {
     async updateChannel(channel) {
       try {
         this.loadingChannels = true;
-        console.log('Mise à jour du canal:', channel);
         
         const updatedChannel = await adminService.updateChannel(
           channel.id, 
           { nom: channel.nom }
         );
         
-        // Mettre à jour le canal dans la liste
         this.workspaceChannels = this.workspaceChannels.map(c => 
           c.id === updatedChannel.id ? { ...c, ...updatedChannel } : c
         );
         
-        // Si le canal mis à jour est le canal sélectionné pour les messages, mettre à jour son nom
         if (this.selectedChannel && this.selectedChannel.id === updatedChannel.id) {
           this.selectedChannel = { ...this.selectedChannel, ...updatedChannel };
         }
@@ -240,7 +232,6 @@ export default {
         const messages = await adminService.getChannelMessages(workspaceId, channelId);
         this.channelMessages = messages;
         
-        console.log(`Messages du canal ${channel.name || channel.nom}:`, messages);
         this.loadingMessages = false;
       } catch (error) {
         console.error('Erreur lors du chargement des messages:', error);
@@ -256,11 +247,9 @@ export default {
     
     async deleteMessage(message) {
       try {
-        console.log('Suppression du message:', message.id);
         this.loadingMessages = true;
         await adminService.deleteMessage(message.id);
         
-        // Retirer le message de la liste sans avoir à recharger tous les messages
         this.channelMessages = this.channelMessages.filter(m => m.id !== message.id);
         this.$toast.success('Message supprimé avec succès');
       } catch (error) {
@@ -280,9 +269,7 @@ export default {
         const workspaceId = workspace._id || workspace.id;
         await adminService.deleteWorkspace(workspaceId);
         
-        // Supprimer le workspace de la liste locale
         this.workspaces = this.workspaces.filter(w => w.id !== workspace.id);
-        console.log(`Workspace ${workspace.name} supprimé avec succès`);
       } catch (error) {
         console.error('Erreur lors de la suppression du workspace:', error);
       }
@@ -320,7 +307,6 @@ export default {
           visibility: updatedWorkspace.visibility
         });
         
-        // Mettre à jour le workspace dans la liste locale
         const index = this.workspaces.findIndex(w => w.id === workspaceId);
         if (index !== -1) {
           this.workspaces[index] = { 
