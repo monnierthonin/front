@@ -1,0 +1,81 @@
+<!-- Modifications pour Header.vue -->
+
+<!-- 1. Imports à ajouter -->
+import NotificationBadge from '@/components/common/NotificationBadge.vue';
+import { useNotificationStore } from '@/stores/notificationStore';
+
+<!-- 2. Component à ajouter -->
+components: {
+  WorkspaceModal,
+  NotificationBadge
+}
+
+<!-- 3. Template à modifier pour ajouter la pastille de notification -->
+<div 
+  v-else-if="workspaces.length > 0" 
+  v-for="workspace in workspaces" 
+  :key="workspace._id"
+  class="workspace-item" 
+  :style="getWorkspaceColor(workspace)" 
+  :title="workspace.nom"
+  @click="goToWorkspace(workspace._id)"
+>
+  <div class="workspace-initiale">{{ getWorkspaceInitiale(workspace) }}</div>
+  <!-- Pastille de notification -->
+  <NotificationBadge v-if="hasUnreadNotifications(workspace._id)" />
+</div>
+
+<!-- 4. Style CSS à ajouter -->
+.workspace-item {
+  /* Styles existants... */
+  position: relative; /* Pour positionner la pastille de notification */
+}
+
+<!-- 5. Méthodes à ajouter -->
+// Configuration du système de notification
+setupNotifications() {
+  const notificationStore = useNotificationStore();
+  
+  // Initialiser les écouteurs de notifications
+  notificationStore.initNotificationListeners();
+  
+  // Charger les notifications non lues
+  notificationStore.fetchTotalNonLus();
+  
+  // Pour chaque workspace, charger ses notifications
+  if (this.workspaces && this.workspaces.length > 0) {
+    this.workspaces.forEach(workspace => {
+      notificationStore.fetchWorkspaceNotifications(workspace._id);
+    });
+  }
+},
+
+// Vérifier si un workspace a des notifications non lues
+hasUnreadNotifications(workspaceId) {
+  const notificationStore = useNotificationStore();
+  return notificationStore.hasUnreadNotifications(workspaceId);
+}
+
+<!-- 6. Modification de la méthode mounted -->
+mounted() {
+  // Vérifier si l'utilisateur est superadmin
+  this.checkSuperAdminRole();
+  
+  // Si connecté, charger les workspaces et écouter les événements
+  if (localStorage.getItem('token')) {
+    this.isAuthenticated = true;
+    this.loadUserProfile();
+    this.loadWorkspaces();
+    
+    // Initialiser les notifications
+    this.setupNotifications();
+    
+    // Écouter les événements liés aux workspaces
+    eventBus.on(APP_EVENTS.WORKSPACE_UPDATED, () => {
+      this.loadWorkspaces();
+    });
+    eventBus.on(APP_EVENTS.WORKSPACE_DELETED, () => {
+      this.loadWorkspaces();
+    });
+  }
+}

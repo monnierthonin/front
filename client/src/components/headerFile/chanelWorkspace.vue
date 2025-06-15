@@ -25,6 +25,8 @@
               <span v-else class="icon-voice">🔊</span>
             </div>
             <div class="chanel-name">{{ canal.nom }}</div>
+            <!-- Pastille de notification -->
+            <NotificationBadge v-if="hasUnreadNotifications(canal._id)" class="channel-notification" />
           </div>
         </div>
       </div>
@@ -32,8 +34,14 @@
   </template>
   
   <script>
-  export default {
+import NotificationBadge from '@/components/common/NotificationBadge.vue';
+import { useNotificationStore } from '@/stores/notificationStore';
+
+export default {
     name: 'chanelWorkspace',
+    components: {
+      NotificationBadge
+    },
     props: {
       canaux: {
         type: Array,
@@ -199,6 +207,38 @@
         .catch(error => {
           console.error('Erreur:', error);
         });
+      },
+
+      /**
+       * Initialise le système de notification pour les canaux
+       */
+      setupChannelNotifications() {
+        if (!this.workspaceId) return;
+        
+        const notificationStore = useNotificationStore();
+        
+        // Initialiser les écouteurs de notifications si pas déjà fait dans le store
+        notificationStore.initNotificationListeners();
+        
+        // Charger les notifications pour ce workspace spécifiquement
+        notificationStore.fetchWorkspaceNotifications(this.workspaceId);
+        
+        // Charger les notifications spécifiques pour chaque canal
+        if (this.canaux && this.canaux.length > 0) {
+          this.canaux.forEach(canal => {
+            notificationStore.fetchChannelNotifications(this.workspaceId, canal._id);
+          });
+        }
+      },
+      
+      /**
+       * Vérifie si un canal a des notifications non lues
+       * @param {String} canalId - L'ID du canal à vérifier
+       * @returns {Boolean} - True si le canal a des notifications non lues
+       */
+      hasUnreadNotifications(canalId) {
+        const notificationStore = useNotificationStore();
+        return notificationStore.hasChannelNotifications(this.workspaceId, canalId);
       }
     },
     created() {
@@ -207,6 +247,9 @@
       
       // Récupérer les informations du workspace
       this.fetchWorkspaceInfo();
+
+      // Initialiser les notifications des canaux
+      this.setupChannelNotifications();
     },
     watch: {
       canaux: {
@@ -221,6 +264,9 @@
                 this.selectionnerCanal(newVal[0]);
               });
             }
+            
+            // Mettre à jour les notifications pour les nouveaux canaux
+            this.setupChannelNotifications();
           }
         },
         immediate: true
@@ -265,6 +311,7 @@
     cursor: pointer;
     background-color:var(--secondary-color);
     transition: background-color 0.2s ease;
+    position: relative; /* Pour positionner la pastille de notification */
   }
   
   .chanel-item:hover {
@@ -307,6 +354,14 @@
   .chanel-name {
     color: var(--text-color);
     font-size: 14px;
+    flex: 1; /* Pour que le nom prenne tout l'espace disponible */
+  }
+  
+  /* Style pour la pastille de notification dans les canaux */
+  .channel-notification {
+    position: absolute;
+    right: 10px;
+    margin-left: auto;
   }
   
   .loading-message, .empty-message {

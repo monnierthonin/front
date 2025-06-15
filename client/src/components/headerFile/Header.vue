@@ -23,6 +23,8 @@
                 @click="goToWorkspace(workspace._id)"
               >
                 <div class="workspace-initiale">{{ getWorkspaceInitiale(workspace) }}</div>
+                <!-- Pastille de notification -->
+                <NotificationBadge v-if="hasWorkspaceNotifications(workspace._id)" />
               </div>
               <div v-else class="empty-workspace">Aucun workspace</div>
             </div>
@@ -61,10 +63,13 @@ import defaultProfileImg from '../../assets/styles/image/profilDelault.png';
 import { eventBus, APP_EVENTS } from '../../utils/eventBus.js';
 import { ref, onMounted } from 'vue'
 import WorkspaceModal from '@/components/workspace/WorkspaceModal.vue'
+import NotificationBadge from '@/components/common/NotificationBadge.vue'
+import { useNotificationStore } from '@/stores/notificationStore'
 
 export default {
   components: {
-    WorkspaceModal
+    WorkspaceModal,
+    NotificationBadge
   },
   data() {
     return {
@@ -146,6 +151,9 @@ export default {
         console.log('État isAdmin après loadUserProfile:', this.isAdmin);
         // Charger les workspaces
         await this.loadWorkspaces();
+        
+        // Initialiser les notifications
+        this.setupNotifications();
       }
     } catch (error) {
       console.error('Erreur lors de la vérification de l\'authentification:', error);
@@ -248,7 +256,6 @@ export default {
         }
       } catch (error) {
         console.error('Erreur lors de la vérification du rôle admin:', error);
-        console.error('Erreur lors de la vérification du rôle superadmin:', error);
         this.isAdmin = false;
       }
     },
@@ -338,9 +345,34 @@ export default {
     goToWorkspace(id) {
       // Naviguer vers la page dédiée au workspace avec l'ID spécifié
       this.$router.push({ name: 'Workspace', params: { id } });
+    },
+
+    // Configuration du système de notification
+    setupNotifications() {
+      const notificationStore = useNotificationStore();
+      
+      // Initialiser les écouteurs de notifications
+      notificationStore.initNotificationListeners();
+      
+      // Charger les notifications non lues
+      notificationStore.fetchTotalNonLus();
+      
+      // Pour chaque workspace, charger ses notifications
+      if (this.workspaces && this.workspaces.length > 0) {
+        this.workspaces.forEach(workspace => {
+          notificationStore.fetchWorkspaceNotifications(workspace._id);
+        });
+      }
+    },
+    
+    // Vérifier si un workspace a des notifications non lues
+    hasWorkspaceNotifications(workspaceId) {
+      const notificationStore = useNotificationStore();
+      return notificationStore.hasWorkspaceNotifications(workspaceId);
     }
   }
 }
+
 </script>
 
 <style scoped>
@@ -473,6 +505,7 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
+  position: relative; /* Pour positionner la pastille de notification */
 }
 
 .workspace-initiale {

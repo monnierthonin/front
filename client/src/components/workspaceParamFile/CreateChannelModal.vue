@@ -87,18 +87,13 @@ export default {
       this.error = null;
       
       try {
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          throw new Error('Aucun token d\'authentification trouvé');
-        }
-        
+        // Utilisation des cookies HTTP-only au lieu du token dans localStorage
         const response = await fetch(`http://localhost:3000/api/v1/workspaces/${this.workspaceId}/canaux`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
+          credentials: 'include', // Pour envoyer automatiquement le cookie HTTP-only
           body: JSON.stringify({
             nom: this.channelName,
             type: this.channelType,

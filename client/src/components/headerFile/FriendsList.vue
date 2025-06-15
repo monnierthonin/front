@@ -30,11 +30,6 @@
         <div class="friend-name">{{ getContactName(contact) }}</div>
       </div>
     </div>
-    <div class="add-friend">
-      <button class="add-friend-button" @click="showNewMessageModal">
-        <img src="../../assets/styles/image/logoAjout.png" alt="Nouvelle conversation">
-      </button>
-    </div>
   </div>
 </template>
 
