@@ -1,4 +1,3 @@
-// URL de base de l'API avec le préfixe correct v1
 const API_URL = 'http://localhost:3000/api/v1';
 import authService from './authService';
 
@@ -12,19 +11,14 @@ const messagePrivateService = {
    */
   async getAllPrivateConversations() {
     try {
-      // Vérifier si l'utilisateur est authentifié (via cookie)
       const isAuthenticated = await authService.isAuthenticated();
       
       if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour accéder aux conversations');
       }
       
-      // Construire l'URL pour l'endpoint des conversations privées
       const url = `${API_URL}/conversations/`;
       
-      console.log('Appel API:', url);
-      
-      // Appeler l'API pour récupérer les conversations
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -32,9 +26,6 @@ const messagePrivateService = {
         },
         credentials: 'include',
       });
-
-      // Pour débogage - afficher le statut de la réponse
-      console.log('Statut de la réponse API:', response.status);
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -46,9 +37,7 @@ const messagePrivateService = {
         throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
       }
 
-      // Convertir la réponse en JSON
       const responseText = await response.text();
-      console.log('Réponse brute API:', responseText);
       
       let data;
       try {
@@ -58,27 +47,20 @@ const messagePrivateService = {
         throw new Error('Impossible de parser la réponse du serveur');
       }
       
-      console.log('Données reçues de l\'API:', data);
-      
-      // Vérifier que les données reçues ont la structure attendue
       if (data && data.status === 'success' && data.data && data.data.conversations) {
         return data.data.conversations;
       } else if (data && data.success && data.data) {
         return data.data;
       } else if (data && Array.isArray(data)) {
-        // Si la réponse est directement un tableau
         return data;
       } else if (data && typeof data === 'object') {
-        // Fallback: retourner l'objet de réponse complet
         return [data];
       }
       
       return [];
     } catch (error) {
       console.error('Erreur lors de la récupération des conversations:', error);
-      // Pour les tests, retourner un tableau vide au lieu de propager l'erreur
       return [];
-      // throw error; // Décommenter cette ligne en production
     }
   },
 
@@ -89,14 +71,12 @@ const messagePrivateService = {
    */
   async getPrivateMessages(userId) {
     try {
-      // Vérifier si l'utilisateur est authentifié (via cookie)
       const isAuthenticated = await authService.isAuthenticated();
       
       if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour accéder aux messages');
       }
       
-      // Construire l'URL
       const url = `${API_URL}/conversations/user/${userId}/messages`;
       
       const response = await fetch(url, {
@@ -116,7 +96,6 @@ const messagePrivateService = {
         throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
       }
 
-      // Convertir la réponse en JSON
       const responseText = await response.text();
       
       let data;
@@ -126,7 +105,6 @@ const messagePrivateService = {
         throw new Error('Impossible de parser la réponse du serveur');
       }
       
-      // Vérifier la structure de la réponse et extraire les messages
       if (data && data.success && data.data) {
         return data.data;
       }
@@ -147,26 +125,18 @@ const messagePrivateService = {
    */
   async sendPrivateMessage(targetId, contenu, targetType = 'user') {
     try {
-      // Vérifier si l'utilisateur est authentifié (via cookie)
       const isAuthenticated = await authService.isAuthenticated();
       
       if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour envoyer un message');
       }
       
-      // Construire l'URL en fonction du type de cible
       let url;
       if (targetType === 'conversation') {
-        // Si c'est une conversation existante
         url = `${API_URL}/conversations/${targetId}/messages`;
       } else {
-        // Si c'est un nouvel utilisateur
         url = `${API_URL}/conversations/user/${targetId}/messages`;
       }
-      
-      console.log(`Envoi de message privé à ${targetType} (ID: ${targetId}) via URL: ${url}`);
-      
-      // Construire le corps de la requête
       const requestBody = JSON.stringify({ contenu });
       
       const response = await fetch(url, {
@@ -187,9 +157,7 @@ const messagePrivateService = {
         throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
       }
 
-      // Convertir la réponse en JSON
       const responseText = await response.text();
-      console.log('Réponse du serveur pour l\'envoi de message privé:', responseText);
       
       let data;
       try {
@@ -199,7 +167,6 @@ const messagePrivateService = {
         throw new Error('Impossible de parser la réponse du serveur');
       }
       
-      // Extraire le message de la réponse selon différentes structures possibles
       let message;
       if (data && data.data && data.data.message) {
         message = data.data.message;
@@ -211,16 +178,13 @@ const messagePrivateService = {
         message = data;
       }
       
-      // Normaliser la structure du message avant de le retourner
       if (message) {
-        // S'assurer que les IDs sont présents en format string
         const messageId = message._id || message.id;
         if (messageId) {
           message._id = messageId.toString();
           message.id = messageId.toString();
         }
         
-        // Normaliser l'expéditeur
         if (message.expediteur) {
           const expediteurId = message.expediteur._id || message.expediteur.id;
           if (expediteurId) {
@@ -229,17 +193,14 @@ const messagePrivateService = {
           }
         }
         
-        // Normaliser la conversation
         if (message.conversation && typeof message.conversation !== 'string') {
           message.conversation = message.conversation.toString();
         } else if (message.conversationId && typeof message.conversationId !== 'string') {
           message.conversationId = message.conversationId.toString();
-          // Assurer la compatibilité
           message.conversation = message.conversationId;
         }
       }
       
-      console.log('Message normalisé:', message);
       return message;
     } catch (error) {
       console.error('Erreur lors de l\'envoi du message privé:', error);
@@ -254,14 +215,12 @@ const messagePrivateService = {
    */
   async markMessageAsRead(messageId) {
     try {
-      // Vérifier si l'utilisateur est authentifié (via cookie)
       const isAuthenticated = await authService.isAuthenticated();
       
       if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour marquer un message comme lu');
       }
       
-      // Construire l'URL
       const url = `${API_URL}/conversations/messages/${messageId}/read`;
       
       const response = await fetch(url, {
@@ -281,7 +240,6 @@ const messagePrivateService = {
         throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
       }
 
-      // Convertir la réponse en JSON
       const responseText = await response.text();
       
       let data;
@@ -308,18 +266,13 @@ const messagePrivateService = {
    */
   async getConversationMessages(conversationId, page = 1, limit = 50) {
     try {
-      // Vérifier si l'utilisateur est authentifié (via cookie)
       const isAuthenticated = await authService.isAuthenticated();
       
       if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour accéder aux messages');
       }
       
-      // Construire l'URL pour récupérer les messages d'une conversation spécifique
-      // Utilisation du nouvel endpoint correct: /conversations/{id}/messages
       const url = `${API_URL}/conversations/${conversationId}/messages?page=${page}&limit=${limit}`;
-      
-      console.log('Appel API conversation messages:', url);
       
       const response = await fetch(url, {
         method: 'GET',
@@ -337,9 +290,7 @@ const messagePrivateService = {
         throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
       }
 
-      // Convertir la réponse en JSON
       const responseText = await response.text();
-      console.log('Réponse brute API conversation messages:', responseText);
       
       let data;
       try {
@@ -349,16 +300,6 @@ const messagePrivateService = {
         throw new Error('Impossible de parser la réponse du serveur');
       }
       
-      console.log('Structure de la réponse:', {
-        hasStatus: data && data.status ? true : false,
-        hasData: data && data.data ? true : false,
-        hasMessages: data && data.data && data.data.messages ? true : false,
-        hasResultats: data && data.resultats ? true : false,
-        dataType: data ? typeof data : 'undefined',
-        isArray: Array.isArray(data)
-      });
-      
-      // Vérifier la structure de la réponse et extraire les messages
       if (data && data.status === 'success' && data.data && data.data.messages) {
         return data.data.messages;
       } else if (data && data.status === 'success' && Array.isArray(data.data)) {
@@ -385,7 +326,6 @@ const messagePrivateService = {
    */
   async updatePrivateMessage(conversationId, messageId, contenu) {
     try {
-      // Vérifier si l'utilisateur est authentifié (via cookie)
       const isAuthenticated = await authService.isAuthenticated();
       
       if (!isAuthenticated) {
@@ -396,12 +336,8 @@ const messagePrivateService = {
         throw new Error('ID du message manquant');
       }
       
-      // Construire l'URL selon l'API
       const url = `${API_URL}/conversations/${conversationId}/messages/${messageId}`;
       
-      console.log('Modification du message:', { conversationId, messageId, contenu });
-      
-      // Construire le corps de la requête
       const requestBody = JSON.stringify({ contenu });
       
       const response = await fetch(url, {
@@ -423,14 +359,9 @@ const messagePrivateService = {
         throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
       }
 
-      // Récupérer le texte de la réponse
       const responseText = await response.text();
-      console.log('Réponse de modification:', responseText);
       
-      // Si la réponse est vide ou juste des espaces blancs, construire une réponse par défaut
       if (!responseText || responseText.trim() === '') {
-        console.log('Modification réussie avec réponse vide');
-        // Créer un objet avec le nouveau contenu pour simuler la réponse attendue
         return {
           _id: messageId,
           id: messageId,
@@ -440,13 +371,10 @@ const messagePrivateService = {
         };
       }
       
-      // Sinon, essayer de parser la réponse JSON
       let data;
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
-        console.log('Réponse non-JSON mais modification réussie:', responseText);
-        // Même si ce n'est pas du JSON, la modification a réussi car response.ok est true
         return {
           _id: messageId,
           id: messageId,
@@ -456,7 +384,6 @@ const messagePrivateService = {
         };
       } 
       
-      // Vérifier la structure de la réponse et extraire le message modifié
       if (data && data.data && data.data.message) {
         return data.data.message;
       } else if (data && data.message) {
@@ -478,7 +405,6 @@ const messagePrivateService = {
    */
   async deletePrivateMessage(conversationId, messageId) {
     try {
-      // Vérifier si l'utilisateur est authentifié (via cookie)
       const isAuthenticated = await authService.isAuthenticated();
       
       if (!isAuthenticated) {
@@ -489,10 +415,7 @@ const messagePrivateService = {
         throw new Error('ID du message manquant');
       }
       
-      // Construire l'URL selon l'API
       const url = `${API_URL}/conversations/${conversationId}/messages/${messageId}`;
-      
-      console.log('Suppression du message:', { conversationId, messageId });
       
       const response = await fetch(url, {
         method: 'DELETE',
@@ -512,29 +435,21 @@ const messagePrivateService = {
         throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
       }
 
-      // Récupérer le texte de la réponse
       const responseText = await response.text();
-      console.log('Réponse de suppression:', responseText);
       
-      // Si la réponse est vide ou juste des espaces blancs, c'est normal pour une suppression
       if (!responseText || responseText.trim() === '') {
-        console.log('Suppression réussie avec réponse vide');
         return { success: true, message: 'Message supprimé avec succès' };
       }
       
-      // Sinon, essayer de parser la réponse JSON
       try {
         const data = JSON.parse(responseText);
         
-        // Vérifier la structure de la réponse
         if (data && data.data) {
           return data.data;
         }
         
         return data;
       } catch (parseError) {
-        console.log('Réponse non-JSON mais suppression réussie:', responseText);
-        // Même si ce n'est pas du JSON, la suppression a réussi car response.ok est true
         return { success: true, message: 'Message supprimé avec succès' };
       }
     } catch (error) {
@@ -552,19 +467,14 @@ const messagePrivateService = {
    */
   async sendPrivateReply(conversationId, messageId, contenu) {
     try {
-      // Vérifier si l'utilisateur est authentifié (via cookie)
       const isAuthenticated = await authService.isAuthenticated();
       
       if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour répondre à un message');
       }
       
-      // Construire l'URL - URL pour les réponses aux messages privés
       const url = `${API_URL}/conversations/${conversationId}/messages/${messageId}/reply`;
       
-      console.log('Répondre à un message privé, URL:', url);
-      
-      // Construire le corps de la requête
       const requestBody = JSON.stringify({ contenu });
       
       const response = await fetch(url, {
@@ -587,9 +497,7 @@ const messagePrivateService = {
         throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
       }
 
-      // Convertir la réponse en JSON
       const responseText = await response.text();
-      console.log('Réponse pour la réponse à un message privé:', responseText);
       
       let data;
       try {
@@ -599,7 +507,6 @@ const messagePrivateService = {
         throw new Error('Impossible de parser la réponse du serveur');
       }
       
-      // Extraire le message de la réponse selon différentes structures possibles
       let message;
       if (data && data.data && data.data.message) {
         message = data.data.message;
@@ -611,16 +518,13 @@ const messagePrivateService = {
         message = data;
       }
       
-      // Normaliser la structure du message avant de le retourner
       if (message) {
-        // S'assurer que les IDs sont présents en format string
         const messageId = message._id || message.id;
         if (messageId) {
           message._id = messageId.toString();
           message.id = messageId.toString();
         }
         
-        // Normaliser l'expéditeur
         if (message.expediteur) {
           const expediteurId = message.expediteur._id || message.expediteur.id;
           if (expediteurId) {
@@ -629,7 +533,6 @@ const messagePrivateService = {
           }
         }
         
-        // Normaliser la référence au message parent (reponseA)
         if (message.reponseA) {
           if (typeof message.reponseA === 'string') {
             // Déjà au bon format
@@ -641,17 +544,14 @@ const messagePrivateService = {
           }
         }
         
-        // Normaliser la conversation
         if (message.conversation && typeof message.conversation !== 'string') {
           message.conversation = message.conversation.toString();
         } else if (message.conversationId && typeof message.conversationId !== 'string') {
           message.conversationId = message.conversationId.toString();
-          // Assurer la compatibilité
           message.conversation = message.conversationId;
         }
       }
       
-      console.log('Message normalisé:', message);
       return message;
     } catch (error) {
       console.error('Erreur lors de la réponse au message privé:', error);
@@ -668,17 +568,14 @@ const messagePrivateService = {
    */
   async reactToPrivateMessage(conversationId, messageId, emoji) {
     try {
-      // Vérifier si l'utilisateur est authentifié (via cookie)
       const isAuthenticated = await authService.isAuthenticated();
       
       if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour réagir à un message');
       }
       
-      // Construire l'URL
       const url = `${API_URL}/conversations/${conversationId}/messages/${messageId}/reactions`;
       
-      // Construire le corps de la requête
       const requestBody = JSON.stringify({ emoji });
       
       const response = await fetch(url, {
@@ -700,7 +597,6 @@ const messagePrivateService = {
         throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
       }
 
-      // Convertir la réponse en JSON
       const responseText = await response.text();
       
       let data;
@@ -710,7 +606,6 @@ const messagePrivateService = {
         throw new Error('Impossible de parser la réponse du serveur');
       }
       
-      // Vérifier la structure de la réponse et extraire le message mis à jour avec les réactions
       if (data && data.data && data.data.message) {
         return data.data.message;
       } else if (data && data.message) {
@@ -737,19 +632,13 @@ const messagePrivateService = {
    */
   async getPrivateMessage(conversationId, messageId) {
     try {
-      // Vérifier si l'utilisateur est authentifié (via cookie)
       const isAuthenticated = await authService.isAuthenticated();
       
       if (!isAuthenticated) {
         throw new Error('Vous devez être connecté pour accéder aux messages');
       }
       
-      // Construire l'URL pour l'endpoint d'un message spécifique
       const url = `${API_URL}/conversations/${conversationId}/messages/${messageId}`;
-      
-      console.log('Appel API pour récupérer un message:', url);
-      
-      // Appeler l'API pour récupérer le message
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -757,8 +646,6 @@ const messagePrivateService = {
         },
         credentials: 'include',
       });
-
-      console.log('Statut de la réponse API (getPrivateMessage):', response.status);
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -771,8 +658,6 @@ const messagePrivateService = {
       }
 
       const responseText = await response.text();
-      console.log('Réponse brute API (getPrivateMessage):', responseText);
-
       let data;
       try {
         data = JSON.parse(responseText);
@@ -781,9 +666,6 @@ const messagePrivateService = {
         throw new Error('Impossible de parser la réponse du serveur');
       }
 
-      console.log('Données reçues de l\'API (getPrivateMessage):', data);
-
-      // Extraire le message de la réponse selon le format attendu
       if (data && data.status === 'success' && data.data && data.data.message) {
         return data.data.message;
       } else if (data && data.message) {
@@ -792,8 +674,6 @@ const messagePrivateService = {
         return data.data;
       }
       
-      // Si aucun message n'est trouvé dans la réponse, essayer de récupérer via l'API de réaction
-      // et utiliser les données de réaction à la place
       const reactionUrl = `${API_URL}/conversations/${conversationId}/messages/${messageId}/reactions`;
       const reactionResponse = await fetch(reactionUrl, {
         method: 'GET',
@@ -803,7 +683,6 @@ const messagePrivateService = {
 
       if (reactionResponse.ok) {
         const reactionData = await reactionResponse.json();
-        console.log('Données de réaction reçues:', reactionData);
         
         if (reactionData && reactionData.data && reactionData.data.message) {
           return reactionData.data.message;
@@ -823,7 +702,6 @@ const messagePrivateService = {
 
   async createOrGetConversation(participantId) {
     try {
-      // Vérifier si l'utilisateur est authentifié (via cookie)
       const isAuthenticated = await authService.isAuthenticated();
       
       if (!isAuthenticated) {
@@ -832,8 +710,6 @@ const messagePrivateService = {
 
       const url = `${API_URL}/conversations/`;
       const body = JSON.stringify({ participants: [participantId] });
-
-      console.log('Appel API pour créer/récupérer conversation:', url, 'avec body:', body);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -844,11 +720,8 @@ const messagePrivateService = {
         body: body
       });
 
-      console.log('Statut de la réponse API (createOrGetConversation):', response.status);
-
       if (!response.ok) {
         if (response.status === 401) {
-          console.warn('Erreur 401: Session expirée ou cookie non valide');
           throw new Error('Session expirée, veuillez vous reconnecter');
         }
         const responseText = await response.text();
@@ -857,22 +730,16 @@ const messagePrivateService = {
       }
 
       const responseText = await response.text();
-      console.log('Réponse brute API (createOrGetConversation):', responseText);
-
       let data;
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('Erreur de parsing JSON (createOrGetConversation):', parseError);
         throw new Error('Impossible de parser la réponse du serveur');
       }
-
-      console.log('Données reçues de l\'API (createOrGetConversation):', data);
 
       if (data && data.status === 'success' && data.data && data.data.conversation) {
         return data.data.conversation;
       }
-      // Gérer le cas où la conversation existante est retournée directement dans data
       if (data && data.status === 'success' && data.data) { 
         return data.data;
       }

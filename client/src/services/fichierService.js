@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-// URL de base de l'API avec le préfixe correct v1
 const API_URL = 'http://localhost:3000/api/v1';
 
 /**
@@ -28,7 +27,6 @@ const fichierService = {
         formData.append('contenu', contenu);
       }
       
-      // Utiliser credentials: 'include' pour l'authentification par cookie HTTP-only
       const response = await axios.post(
         `${API_URL}/fichiers/canal/${canalId}`,
         formData,
@@ -68,7 +66,6 @@ const fichierService = {
         formData.append('contenu', contenu);
       }
       
-      // Utiliser credentials: 'include' pour l'authentification par cookie HTTP-only
       const response = await axios.post(
         `${API_URL}/fichiers/conversation/${conversationId}`,
         formData,
@@ -96,7 +93,6 @@ const fichierService = {
    */
   supprimerFichier: async (messageType, messageId, fichierUrl) => {
     try {
-      // Utiliser credentials: 'include' pour l'authentification par cookie HTTP-only
       const response = await axios.delete(
         `${API_URL}/fichiers/${messageType}/${messageId}/${encodeURIComponent(fichierUrl)}`,
         {
@@ -118,7 +114,6 @@ const fichierService = {
    */
   listerFichiersCanal: async (canalId) => {
     try {
-      // Utiliser credentials: 'include' pour l'authentification par cookie HTTP-only
       const response = await axios.get(
         `${API_URL}/fichiers/canal/${canalId}`,
         {
@@ -140,7 +135,6 @@ const fichierService = {
    */
   listerFichiersConversation: async (conversationId) => {
     try {
-      // Utiliser credentials: 'include' pour l'authentification par cookie HTTP-only
       const response = await axios.get(
         `${API_URL}/fichiers/conversation/${conversationId}`,
         {
@@ -163,21 +157,16 @@ const fichierService = {
   getFullFileUrl: (fichierUrl) => {
     if (!fichierUrl) return '';
     
-    // Si l'URL est déjà absolue, la retourner telle quelle
     if (fichierUrl.startsWith('http')) {
       return fichierUrl;
     }
     
-    // Le serveur Express sert les fichiers directement depuis la racine et non depuis l'API
-    // Donc il faut utiliser l'URL de base du serveur sans le préfixe /api/v1
     const BASE_URL = API_URL.replace('/api/v1', '');
     
-    // Si l'URL est une URL d'icône par défaut (assets/icons/...)
     if (fichierUrl.startsWith('assets/')) {
       return `${BASE_URL}/${fichierUrl}`;
     }
     
-    // Pour les fichiers téléchargés dans uploads/
     return `${BASE_URL}/${fichierUrl}`;
   }
 };

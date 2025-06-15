@@ -3,18 +3,13 @@
  * Gère les appels API pour les fonctionnalités réservées aux administrateurs
  */
 
-// URL de base de l'API
 const API_URL = 'http://localhost:3000/api/v1';
 
-// Chemins possibles pour les endpoints d'administration
 const ADMIN_PATHS = [
-  '/admin/',     // Route confirmée
+  '/admin/',
 ];
 
-// Chemin actuellement utilisé (sera déterminé dynamiquement)
 let currentAdminPath = ADMIN_PATHS[0];
-
-// Options communes pour les requêtes fetch
 const defaultOptions = {
   credentials: 'include',
   headers: {
@@ -29,20 +24,16 @@ const defaultOptions = {
  * @returns {Promise<Object>} - Données de la réponse
  */
 const tryMultiplePaths = async (endpoint, options = {}) => {
-  console.log(`Tentative d'accès à l'endpoint: ${endpoint}`);
   
-  // Si nous avons déjà trouvé un chemin qui fonctionne, utilisons-le d'abord
   if (currentAdminPath) {
     try {
       const url = `${API_URL}${currentAdminPath}${endpoint}`;
-      console.log(`Essai avec le chemin connu: ${url}`);
       const response = await fetch(url, {
         ...defaultOptions,
         ...options
       });
       
       if (response.ok) {
-        console.log(`Succès avec: ${url}`);
         return await response.json();
       }
     } catch (error) {
@@ -50,21 +41,18 @@ const tryMultiplePaths = async (endpoint, options = {}) => {
     }
   }
   
-  // Essayer tous les chemins possibles
   for (const path of ADMIN_PATHS) {
-    if (path === currentAdminPath) continue; // Déjà essayé
+    if (path === currentAdminPath) continue;
     
     try {
       const url = `${API_URL}${path}${endpoint}`;
-      console.log(`Essai avec: ${url}`);
       const response = await fetch(url, {
         ...defaultOptions,
         ...options
       });
       
       if (response.ok) {
-        console.log(`Succès avec: ${url}`);
-        currentAdminPath = path; // Mémoriser le chemin qui fonctionne
+        currentAdminPath = path;
         return await response.json();
       }
     } catch (error) {
@@ -103,14 +91,10 @@ const adminService = {
   async getUsers() {
     try {
       const response = await tryMultiplePaths('utilisateurs', { method: 'GET' });
-      console.log('Réponse API utilisateurs:', response);
       
-      // Format de réponse: {status: 'success', resultats: 20, data: {...}}
       if (response && response.status === 'success') {
-        // Vérifier si data est un objet ou un tableau
         const usersData = response.data;
         
-        // Si c'est un objet avec une propriété utilisateurs
         if (usersData && typeof usersData === 'object') {
           const users = Array.isArray(usersData) ? usersData : 
                        (usersData.utilisateurs || Object.values(usersData));
@@ -138,16 +122,13 @@ const adminService = {
    */
   async updateUserRole(userId, role) {
     try {
-      // Utilisation de l'endpoint spécifique pour la promotion
       const response = await tryMultiplePaths(`utilisateurs/${userId}/promouvoir`, {
         method: 'PATCH',
         body: JSON.stringify({ role })
       });
       
-      console.log(`Rôle mis à jour avec succès pour l'utilisateur ${userId}:`, response);
       return response;
     } catch (error) {
-      console.error(`Échec de la mise à jour du rôle pour l'utilisateur ${userId}:`, error);
       throw error;
     }
   },
@@ -191,9 +172,7 @@ const adminService = {
    */
   async deleteUser(userId) {
     try {
-      console.log(`Tentative de suppression de l'utilisateur avec ID: ${userId}`);
       const url = `${API_URL}${currentAdminPath}utilisateurs/${userId}`;
-      console.log(`URL de suppression: ${url}`);
       
       const response = await fetch(url, {
         ...defaultOptions,
@@ -204,20 +183,16 @@ const adminService = {
         throw new Error(`Erreur lors de la suppression: ${response.status} ${response.statusText}`);
       }
       
-      // Si la réponse est vide (204 No Content), on retourne un objet avec statut success
       if (response.status === 204) {
         return { status: 'success', message: 'Utilisateur supprimé avec succès' };
       }
       
-      // Sinon on tente de parser le JSON
       try {
         return await response.json();
       } catch (e) {
-        // Si pas de JSON, on retourne un succès par défaut
         return { status: 'success', message: 'Utilisateur supprimé' };
       }
     } catch (error) {
-      console.error(`Échec de la suppression de l'utilisateur ${userId}:`, error);
       throw error;
     }
   },
@@ -229,14 +204,10 @@ const adminService = {
   async getWorkspaces() {
     try {
       const response = await tryMultiplePaths('workspaces', { method: 'GET' });
-      console.log('Réponse API workspaces:', response);
       
-      // Format de réponse: {status: 'success', resultats: 8, data: {...}}
       if (response && response.status === 'success') {
-        // Vérifier si data est un objet ou un tableau
         const workspacesData = response.data;
         
-        // Si c'est un objet avec des workspaces
         if (workspacesData && typeof workspacesData === 'object') {
           const workspaces = Array.isArray(workspacesData) ? workspacesData : 
                            (workspacesData.workspaces || Object.values(workspacesData));
@@ -244,14 +215,13 @@ const adminService = {
           return workspaces.map(workspace => ({
             ...workspace,
             id: workspace._id || workspace.id,
-            name: workspace.nom || workspace.name // Gérer les différences de nommage
+            name: workspace.nom || workspace.name
           }));
         }
       }
       
       throw new Error('Format de réponse inattendu');
     } catch (error) {
-      console.error('Erreur lors de la récupération des workspaces:', error);
       throw error;
     }
   },
@@ -263,10 +233,7 @@ const adminService = {
    */
   async getWorkspaceUsers(workspaceId) {
     try {
-      console.log(`Récupération du workspace ${workspaceId} pour obtenir ses membres`);
-      // Utiliser directement l'endpoint utilisateur standard /api/v1/workspaces/{id}
       const url = `${API_URL}/workspaces/${workspaceId}`;
-      console.log(`URL utilisée: ${url}`);
       
       const response = await fetch(url, {
         ...defaultOptions,
@@ -278,30 +245,21 @@ const adminService = {
       }
       
       const data = await response.json();
-      console.log('Réponse du workspace:', data);
       
       if (!data || !data.data) {
         console.warn('Pas de données de workspace disponibles');
         return [];
       }
       
-      // Extraire les informations du workspace
-      // La structure est data.data.workspace selon les logs
       const workspace = data.data.workspace || data.data;
       
-      // Chercher les membres dans différentes propriétés possibles
       const members = workspace.membres || workspace.members || workspace.users || [];
-      console.log(`Membres bruts trouvés:`, members);
       
       if (!members || !Array.isArray(members) || members.length === 0) {
         return [];
       }
       
-      console.log('Structure d\'un membre:', members[0]);
-      
-      // Format spécifique de l'API: {utilisateur: {...}, role: '...'}
       return members.map(member => {
-        // Récupérer les infos de l'utilisateur, qui peut être soit un objet complet, soit juste un ID
         const userInfo = member.utilisateur || {};
         
         return {
@@ -324,10 +282,7 @@ const adminService = {
    */
   async getWorkspaceChannels(workspaceId) {
     try {
-      console.log(`Récupération des canaux du workspace ${workspaceId}`);
-      // Utiliser l'endpoint admin pour les canaux
       const url = `${API_URL}${currentAdminPath}workspaces/${workspaceId}/canaux`;
-      console.log(`URL utilisée: ${url}`);
       
       const response = await fetch(url, {
         ...defaultOptions,
@@ -339,20 +294,14 @@ const adminService = {
       }
       
       const data = await response.json();
-      console.log('Réponse des canaux:', data);
       
       if (!data || !data.status === 'success' || !data.data) {
-        console.warn('Pas de données de canaux disponibles');
         return [];
       }
       
-      // Extraire les informations des canaux
       const channels = Array.isArray(data.data) ? data.data : 
                       (data.data.canaux || data.data.channels || Object.values(data.data));
       
-      console.log(`Canaux bruts trouvés:`, channels);
-      
-      // Normaliser les canaux
       return channels.map(channel => ({
         ...channel,
         id: channel._id || channel.id,
@@ -372,9 +321,7 @@ const adminService = {
    */
   async deleteWorkspace(workspaceId) {
     try {
-      console.log(`Tentative de suppression du workspace avec ID: ${workspaceId}`);
       const url = `${API_URL}${currentAdminPath}workspaces/${workspaceId}`;
-      console.log(`URL de suppression: ${url}`);
       
       const response = await fetch(url, {
         ...defaultOptions,
@@ -385,16 +332,13 @@ const adminService = {
         throw new Error(`Erreur lors de la suppression: ${response.status} ${response.statusText}`);
       }
       
-      // Si la réponse est vide (204 No Content), on retourne un objet avec statut success
       if (response.status === 204) {
         return { status: 'success', message: 'Workspace supprimé avec succès' };
       }
       
-      // Sinon on tente de parser le JSON
       try {
         return await response.json();
       } catch (e) {
-        // Si pas de JSON, on retourne un succès par défaut
         return { status: 'success', message: 'Workspace supprimé' };
       }
     } catch (error) {
@@ -411,9 +355,7 @@ const adminService = {
    */
   async deleteChannel(workspaceId, channelId) {
     try {
-      console.log(`Tentative de suppression du canal ${channelId} du workspace ${workspaceId}`);
       const url = `${API_URL}/workspaces/${workspaceId}/canaux/${channelId}`;
-      console.log(`URL de suppression: ${url}`);
       
       const response = await fetch(url, {
         ...defaultOptions,
@@ -424,16 +366,13 @@ const adminService = {
         throw new Error(`Erreur lors de la suppression du canal: ${response.status} ${response.statusText}`);
       }
       
-      // Si la réponse est vide (204 No Content), on retourne un objet avec statut success
       if (response.status === 204) {
         return { status: 'success', message: 'Canal supprimé avec succès' };
       }
       
-      // Sinon on tente de parser le JSON
       try {
         return await response.json();
       } catch (e) {
-        // Si pas de JSON, on retourne un succès par défaut
         return { status: 'success', message: 'Canal supprimé' };
       }
     } catch (error) {
@@ -450,10 +389,7 @@ const adminService = {
    */
   async updateChannel(channelId, channelData) {
     try {
-      console.log(`Mise à jour du canal ${channelId}`);
       const url = `${API_URL}${currentAdminPath}canaux/${channelId}`;
-      console.log(`URL de mise à jour: ${url}`);
-      console.log('Données envoyées:', channelData);
       
       const response = await fetch(url, {
         ...defaultOptions,
@@ -469,14 +405,13 @@ const adminService = {
         throw new Error(`Erreur lors de la mise à jour du canal: ${response.status} ${response.statusText}`);
       }
       
-      // Si la réponse est vide (204 No Content), on retourne un objet avec statut success
       if (response.status === 204) {
         return { 
           status: 'success', 
           message: 'Canal mis à jour avec succès', 
           id: channelId,
           nom: channelData.nom,
-          name: channelData.nom  // Pour normalisation
+          name: channelData.nom
         };
       }
       
@@ -484,20 +419,19 @@ const adminService = {
         const responseData = await response.json();
         return {
           ...responseData,
-          status: 'success',  // Assurer qu'on a toujours un statut
+          status: 'success',
           id: responseData._id || responseData.id || channelId,
           name: responseData.nom || responseData.name || channelData.nom || 'Canal sans nom',
           nom: responseData.nom || responseData.name || channelData.nom || 'Canal sans nom',
           type: responseData.type || responseData.visibility || 'public'
         };
       } catch (e) {
-        // Si pas de JSON, on retourne un succès par défaut avec les données qu'on avait envoyées
         return { 
           status: 'success', 
           message: 'Canal mis à jour avec succès',
           id: channelId,
           nom: channelData.nom,
-          name: channelData.nom  // Pour normalisation
+          name: channelData.nom
         };
       }
     } catch (error) {
@@ -514,9 +448,7 @@ const adminService = {
    */
   async getChannelMessages(workspaceId, channelId) {
     try {
-      console.log(`Récupération des messages du canal ${channelId} dans le workspace ${workspaceId}`);
       const url = `${API_URL}/workspaces/${workspaceId}/canaux/${channelId}/messages`;
-      console.log(`URL utilisée: ${url}`);
       
       const response = await fetch(url, {
         ...defaultOptions,
@@ -528,20 +460,15 @@ const adminService = {
       }
       
       const data = await response.json();
-      console.log('Réponse des messages:', data);
       
       if (!data || !data.status === 'success' || !data.data) {
         console.warn('Pas de données de messages disponibles');
         return [];
       }
       
-      // Extraire les informations des messages
       const messages = Array.isArray(data.data) ? data.data : 
                       (data.data.messages || Object.values(data.data));
       
-      console.log(`Messages trouvés:`, messages);
-      
-      // Normaliser les messages
       return messages.map(message => ({
         ...message,
         id: message._id || message.id,
@@ -562,9 +489,7 @@ const adminService = {
    */
   async deleteMessage(messageId) {
     try {
-      console.log(`Tentative de suppression du message avec ID: ${messageId}`);
       const url = `${API_URL}${currentAdminPath}messages/${messageId}`;
-      console.log(`URL de suppression: ${url}`);
       
       const response = await fetch(url, {
         ...defaultOptions,
@@ -575,16 +500,13 @@ const adminService = {
         throw new Error(`Erreur lors de la suppression du message: ${response.status} ${response.statusText}`);
       }
       
-      // Si la réponse est vide (204 No Content), on retourne un objet avec statut success
       if (response.status === 204) {
         return { status: 'success', message: 'Message supprimé avec succès' };
       }
       
-      // Sinon on tente de parser le JSON
       try {
         return await response.json();
       } catch (e) {
-        // Si pas de JSON, on retourne un succès par défaut
         return { status: 'success', message: 'Message supprimé' };
       }
     } catch (error) {
@@ -601,9 +523,7 @@ const adminService = {
    */
   async updateWorkspace(workspaceId, workspaceData) {
     try {
-      console.log(`Mise à jour du workspace ${workspaceId} avec:`, workspaceData);
       const url = `${API_URL}${currentAdminPath}workspaces/${workspaceId}`;
-      console.log(`URL de mise à jour: ${url}`);
       
       const response = await fetch(url, {
         ...defaultOptions,
@@ -615,12 +535,9 @@ const adminService = {
         throw new Error(`Erreur lors de la mise à jour du workspace: ${response.status} ${response.statusText}`);
       }
       
-      // Tenter de parser le JSON
       try {
         const responseData = await response.json();
-        console.log('Réponse mise à jour workspace:', responseData);
         
-        // Normalisation et retour des données
         return {
           status: 'success',
           id: responseData._id || responseData.id || workspaceId,
@@ -629,7 +546,6 @@ const adminService = {
           visibility: responseData.visibility || workspaceData.visibility || 'public'
         };
       } catch (e) {
-        // Si pas de JSON, on retourne un succès par défaut avec les données qu'on avait envoyées
         return { 
           status: 'success', 
           message: 'Workspace mis à jour avec succès',
