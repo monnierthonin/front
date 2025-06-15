@@ -9,13 +9,10 @@ import authService from '../services/authService';
  */
 export function getCurrentUserId() {
   try {
-    // D'abord, essayer de récupérer l'ID depuis localStorage (cache temporaire)
     const cachedUserId = localStorage.getItem('userId');
     if (cachedUserId) {
       return cachedUserId;
     }
-
-    // Si userId n'est pas en cache, renvoyer null et l'appelant devra utiliser la version async
     return null;
   } catch (err) {
     console.error('Erreur lors de la récupération de l\'ID utilisateur:', err);
@@ -29,19 +26,15 @@ export function getCurrentUserId() {
  */
 export async function getCurrentUserIdAsync() {
   try {
-    // Vérifier si l'utilisateur est authentifié
     const isAuthenticated = await authService.isAuthenticated();
     if (!isAuthenticated) {
       console.warn('Utilisateur non authentifié lors de la tentative de récupération de son ID');
       return null;
     }
-
-    // Récupérer les données de l'utilisateur via authService
     const userData = await authService.checkAuthStatus();
     
     if (userData && userData.data && userData.data.user) {
       const userId = userData.data.user.id || userData.data.user._id;
-      // Stocker l'ID dans localStorage pour une récupération plus rapide ultérieurement
       localStorage.setItem('userId', userId);
       return userId;
     }
