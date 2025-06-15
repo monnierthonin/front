@@ -3,7 +3,6 @@
     <button class="deco-button" @click="disconnect">Déconnection</button>
     <button class="suppr-button" @click="showDeleteConfirm">Supprimer</button>
 
-    <!-- Modal de confirmation de suppression -->
     <div v-if="showDeleteModal" class="modal">
       <div class="modal-content">
         <h3>Supprimer le compte</h3>

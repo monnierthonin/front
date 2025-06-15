@@ -74,34 +74,22 @@ export default {
     }
   },
   created() {
-    // S'abonner à l'événement de mise à jour de la photo de profil
     eventBus.on(APP_EVENTS.PROFILE_PICTURE_UPDATED, (newProfilePicture) => {
-      console.log('ProfileInfo a reçu l\'\u00e9vénement de mise à jour de la photo de profil:', newProfilePicture);
       this.currentProfilePicture = newProfilePicture;
     });
     
-    // S'abonner à l'événement de connexion
     eventBus.on(APP_EVENTS.USER_LOGGED_IN, () => {
-      console.log('ProfileInfo a reçu l\'\u00e9vénement de connexion');
-      // Recharger les données du profil après connexion
       this.fetchUserProfile();
-      // Récupérer la nouvelle photo de profil du localStorage
       this.currentProfilePicture = localStorage.getItem('profilePicture') || 'default.jpg';
     });
     
-    // S'abonner à l'événement de déconnexion
     eventBus.on(APP_EVENTS.USER_LOGGED_OUT, () => {
-      console.log('ProfileInfo a reçu l\'\u00e9vénement de déconnexion');
-      // Réinitialiser les données du profil sauf la photo
-      // La photo sera correctement actualisée lors de la prochaine connexion
       this.currentUsername = '';
       this.currentEmail = '';
       this.username = '';
       this.email = '';
     });
     
-    console.log('Component created, fetching profile...');
-    // Utilisation de then/catch au lieu de async/await pour s'assurer que le cycle de vie est complet
     this.fetchUserProfile()
       .then(() => {
         console.log('Profil chargé avec succès dans created!');
@@ -114,17 +102,8 @@ export default {
       });
   },
 
-
-  
-  // S'assurer que les données sont bien mises à jour après le montage du composant
   mounted() {
-    console.log('Component mounted, verifying profile data...');
-    console.log('Username après montage:', this.currentUsername);
-    console.log('Email après montage:', this.currentEmail);
-    
-    // Si les données ne sont pas disponibles après le montage, essayer de les récupérer à nouveau
     if (!this.currentUsername || !this.currentEmail) {
-      console.log('Données manquantes, nouvel essai...');
       this.fetchUserProfile();
     }
   },
@@ -137,15 +116,13 @@ export default {
       const file = event.target.files[0];
       if (!file) return;
 
-      // Vérifier le type de fichier (comme dans multer.js)
       const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
       if (!allowedTypes.includes(file.type)) {
         this.errorMessage = 'Seules les images JPG, JPEG, PNG, WEBP et SVG sont acceptées.';
         return;
       }
 
-      // Vérifier la taille du fichier (max 5MB comme dans multer.js)
-      const maxSize = 5 * 1024 * 1024; // 5MB
+      const maxSize = 5 * 1024 * 1024; 
       if (file.size > maxSize) {
         this.errorMessage = 'L\'image ne doit pas dépasser 5MB.';
         return;
@@ -160,15 +137,11 @@ export default {
       if (!this.selectedFile) return false;
 
       try {
-        // Créer un nouveau FormData pour l'envoi
         const formData = new FormData();
         formData.append('profilePicture', this.selectedFile);
 
-        // Appel à l'API
         const response = await fetch('http://localhost:3000/api/v1/users/profile/picture', {
           method: 'PUT',
-          // Suppression de l'en-tête Authorization avec token JWT
-          // Utilisation du cookie HTTP-only qui est envoyé automatiquement
           credentials: 'include',
           body: formData
         });
@@ -179,18 +152,13 @@ export default {
         }
 
         const data = await response.json();
-        console.log('Photo de profil mise à jour:', data);
         
-        // Mettre à jour le localStorage avec la nouvelle photo de profil
         if (data.success && data.data && data.data.profilePicture) {
           const newProfilePicture = data.data.profilePicture;
           localStorage.setItem('profilePicture', newProfilePicture);
-          console.log('localStorage mis à jour avec la nouvelle photo:', newProfilePicture);
           
-          // Mettre à jour notre propre composant en même temps
           this.currentProfilePicture = newProfilePicture;
           
-          // Émettre un événement pour informer les autres composants
           eventBus.emit(APP_EVENTS.PROFILE_PICTURE_UPDATED, newProfilePicture);
         }
         
@@ -204,18 +172,12 @@ export default {
     },
     async fetchUserProfile() {
       try {
-        console.log('Exécution de fetchUserProfile...');
         const profile = await userService.getProfile();
-        console.log('Données du profil reçues:', profile);
         
-        // Vérifier la structure de la réponse et accéder aux données correctement
-        // La réponse semble être au format {success: true, data: {...}}
         if (profile && profile.data) {
-          console.log('Contenu de profile.data:', profile.data);
           
           if (profile.data.username) {
             this.currentUsername = profile.data.username;
-            console.log('Username assigné:', this.currentUsername);
           } else {
             console.warn('Propriété username manquante dans profile.data');
             this.currentUsername = 'Utilisateur';
@@ -223,7 +185,6 @@ export default {
           
           if (profile.data.email) {
             this.currentEmail = profile.data.email;
-            console.log('Email assigné:', this.currentEmail);
           } else {
             console.warn('Propriété email manquante dans profile.data');
             this.currentEmail = 'email@exemple.com';
@@ -234,13 +195,11 @@ export default {
           this.currentEmail = 'email@exemple.com';
         }
         
-        // Forcer la mise à jour du DOM
         this.$forceUpdate();
         
         return profile;
       } catch (error) {
         console.error('Erreur lors de la récupération du profil:', error);
-        // Définir des valeurs par défaut en cas d'erreur
         this.currentUsername = 'Erreur de chargement';
         this.currentEmail = 'Erreur de chargement';
         throw error;
@@ -250,55 +209,41 @@ export default {
       this.showPassword = !this.showPassword;
     },
     async saveSettings() {
-      console.log('ProfileInfo.vue: Début de saveSettings');
       this.errorMessage = '';
       this.successMessage = '';
       
       try {
-        // Si une image a été sélectionnée, la télécharger d'abord
         if (this.selectedFile) {
-          console.log('ProfileInfo.vue: Téléchargement de l\'image de profil');
           const success = await this.uploadProfileImage();
           if (success) {
             this.successMessage = 'Photo de profil mise à jour avec succès';
-            console.log('ProfileInfo.vue: Photo de profil mise à jour avec succès');
           }
         }
 
-        // Gestion de la mise à jour du profil (email et/ou username)
         if (this.username || this.email) {
-          console.log('ProfileInfo.vue: Mise à jour du profil (username et/ou email)');
           const profileData = {};
           
           if (this.username) {
             profileData.username = this.username;
-            console.log('ProfileInfo.vue: Username à mettre à jour:', this.username);
           }
           
           if (this.email) {
             profileData.email = this.email;
-            console.log('ProfileInfo.vue: Email à mettre à jour:', this.email);
           }
-          
-          console.log('ProfileInfo.vue: Données à envoyer:', profileData);
           
           try {
             const result = await userService.updateProfile(profileData);
-            console.log('ProfileInfo.vue: Résultat de la mise à jour:', result);
             
-            // Mise à jour des informations affichées
             await this.fetchUserProfile();
             this.username = '';
             this.email = '';
             this.successMessage = 'Profil mis à jour avec succès';
           } catch (err) {
-            console.error('ProfileInfo.vue: Erreur lors de la mise à jour du profil:', err);
             this.errorMessage = `Erreur lors de la mise à jour du profil: ${err.message}`;
-            throw err; // Propager l'erreur pour arrêter le traitement
+            throw err;
           }
         }
         
-        // Gestion du changement de mot de passe
         const passwordFieldsFilled = [this.password, this.confirmPassword, this.oldPassword].filter(Boolean).length;
         
         if (passwordFieldsFilled > 0 && passwordFieldsFilled < 3) {
@@ -312,26 +257,22 @@ export default {
             return;
           }
           
-          console.log('Tentative de mise à jour du mot de passe via le composant');
           try {
             await userService.updatePassword({
               oldPassword: this.oldPassword,
               newPassword: this.password
             });
             
-            // Réinitialisation des champs de mot de passe
             this.password = '';
             this.confirmPassword = '';
             this.oldPassword = '';
             this.successMessage = 'Mot de passe modifié avec succès';
           } catch (error) {
-            console.error('Erreur attrapée dans le composant:', error);
             this.errorMessage = error.message || 'Erreur lors du changement de mot de passe';
           }
         }
       } catch (error) {
         this.errorMessage = error.message || 'Une erreur est survenue';
-        console.error('Erreur lors de la sauvegarde des paramètres:', error);
       }
     }
   }

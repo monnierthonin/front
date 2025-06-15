@@ -44,17 +44,13 @@ export default {
   },
   async created() {
     try {
-      // Vérifier d'abord s'il y a un statut dans le localStorage
       const savedStatus = localStorage.getItem('userStatus');
       if (savedStatus) {
         this.status = savedStatus;
-        console.log('Statut récupéré depuis localStorage:', this.status);
       }
       
-      // Récupérer le profil de l'utilisateur pour obtenir son statut et son thème actuels
       const response = await userService.getProfile();
       if (response && response.data) {
-        // Convertir le statut du français à l'anglais pour l'affichage
         if (response.data.status) {
           let newStatus;
           switch(response.data.status) {
@@ -71,31 +67,25 @@ export default {
               newStatus = 'online';
           }
           
-          // Mettre à jour le statut et le sauvegarder dans localStorage
           this.status = newStatus;
           localStorage.setItem('userStatus', newStatus);
-          console.log('Statut mis à jour depuis l\'API:', this.status);
         } else {
-          this.status = 'online'; // Valeur par défaut
+          this.status = 'online';
           localStorage.setItem('userStatus', 'online');
         }
         
-        // Récupérer le thème (en français dans l'API)
         this.darkMode = response.data.theme === 'sombre';
-        
-        // Le thème est déjà appliqué par App.vue lors du chargement initial
       }
     } catch (error) {
       console.error('Erreur lors de la récupération du profil:', error);
       this.error = 'Impossible de charger vos préférences';
       
-      // En cas d'erreur, utiliser le statut du localStorage s'il existe
       if (!this.status || this.status === '') {
         const savedStatus = localStorage.getItem('userStatus');
         if (savedStatus) {
           this.status = savedStatus;
         } else {
-          this.status = 'online'; // Valeur par défaut
+          this.status = 'online';
         }
       }
     }
@@ -129,20 +119,15 @@ export default {
         this.status = status;
         this.showStatusMenu = false;
         
-        // Sauvegarder le statut dans localStorage
         localStorage.setItem('userStatus', status);
         
-        // Log pour débugger la réponse de l'API
-        console.log('Statut mis à jour avec succès, API retourne:', response);
       } catch (error) {
-        console.error('Erreur lors de la mise à jour du statut:', error);
         this.error = 'Impossible de mettre à jour votre statut';
       } finally {
         this.loading = false;
       }
     },
     async updateThemePreference() {
-      // Le service userService s'attend à des valeurs en français
       const theme = this.darkMode ? 'sombre' : 'clair';
       this.loading = true;
       this.error = null;
@@ -150,11 +135,9 @@ export default {
       try {
         await userService.updateTheme(theme);
         
-        // Sauvegarder le thème en anglais dans le localStorage pour la cohérence avec App.vue
         const localTheme = this.darkMode ? 'dark' : 'light';
         localStorage.setItem('theme', localTheme);
         
-        // Appliquer le thème à l'application
         if (this.darkMode) {
           document.documentElement.classList.remove('light-theme');
           document.documentElement.classList.add('dark-theme');
@@ -163,9 +146,7 @@ export default {
           document.documentElement.classList.add('light-theme');
         }
       } catch (error) {
-        console.error('Erreur lors de la mise à jour du thème:', error);
         this.error = 'Impossible de mettre à jour votre thème';
-        // Revenir à l'état précédent en cas d'erreur
         this.darkMode = !this.darkMode;
       } finally {
         this.loading = false;
