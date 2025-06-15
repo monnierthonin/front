@@ -198,21 +198,17 @@ export default {
       editingMessageId: null,
       userId: '',
       localCurrentUserId: this.currentUserId || getCurrentUserId() || '',
-      localMessages: [], // Copie locale des messages pour le rendu optimisé
-      userAuthenticated: false  // Flag pour indiquer si l'authentification a été vérifiée
+      localMessages: [],
+      userAuthenticated: false
     };
   },
   async created() {
-    // Récupérer l'ID de l'utilisateur connecté s'il n'est pas fourni via les props
     if (!this.currentUserId) {
       try {
-        // Récupérer l'ID via l'API auth/me avec cookie HTTP-only
         const userId = await getCurrentUserIdAsync();
         if (userId) {
-          console.log('Message.vue: ID utilisateur récupéré via API:', userId);
           this.userId = userId;
         } else {
-          console.warn('Message.vue: Impossible de récupérer l\'ID utilisateur');
           this.userId = '';
         }
       } catch (error) {
@@ -224,7 +220,6 @@ export default {
     }
   },
   updated() {
-    // Faire défiler vers le bas pour voir les derniers messages
     this.scrollToBottom();
   },
   methods: {
@@ -234,8 +229,6 @@ export default {
      * @returns {Boolean} True si c'est l'utilisateur actuel, false sinon
      */
     isCurrentUser(userId) {
-      // Utilise l'ID utilisateur récupéré lors de l'initialisation du composant
-      // ou fourni par le parent via les props
       return userId === this.userId || userId === this.localCurrentUserId;
     },
     
@@ -280,10 +273,8 @@ export default {
      * @returns {String} Nom de l'auteur du message parent
      */
     getParentMessageAuthorName(message) {
-      // S'il n'y a pas de référence à un message parent
       if (!message || !message.reponseA) return 'Utilisateur';
       
-      // Si nous avons déjà récupéré les détails du message parent
       if (message.reponseA.expediteur) {
         const author = message.reponseA.expediteur;
         return author.username || author.nom || author.prenom || 'Utilisateur';
@@ -292,7 +283,6 @@ export default {
         return author.username || author.nom || author.prenom || 'Utilisateur';
       }
       
-      // Si nous n'avons que l'ID du message parent
       return 'Utilisateur';
     },
     
@@ -304,9 +294,7 @@ export default {
     getParentMessagePreview(message) {
       if (!message || !message.reponseA) return '';
       
-      // Si nous avons déjà récupéré les détails du message parent
       if (message.reponseA.contenu) {
-        // Limiter la longueur du texte pour l'aperçu
         const maxLength = 50;
         const content = message.reponseA.contenu;
         return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
@@ -329,7 +317,7 @@ export default {
       } else if (message.auteur && message.auteur.profilePicture) {
         return message.auteur.profilePicture;
       }
-      return null; // Image par défaut gérée par le composant ProfilePicture
+      return null;
     },
     
     /**
@@ -338,7 +326,6 @@ export default {
      * @returns {Boolean} true si c'est l'utilisateur actuel
      */
     isCurrentUser(authorId) {
-      // Utiliser la propriété reçue ou la valeur locale ou la fonction utilitaire
       const currentUserId = this.currentUserId || this.localCurrentUserId || getCurrentUserId();
       return authorId === currentUserId;
     },
@@ -379,19 +366,18 @@ export default {
       const importFileIcon = new URL('../../assets/styles/image/importFile.png', import.meta.url).href;
       const reactIcon = new URL('../../assets/styles/image/react.png', import.meta.url).href;
       
-      // Utilisons des icônes existantes déjà dans le projet
       if (!mimeType) return importFileIcon;
       
       if (mimeType.startsWith('image/')) {
-        return reactIcon; // Icône par défaut pour les images
+        return reactIcon;
       } else if (mimeType === 'application/pdf' || mimeType.includes('word') || 
                 mimeType.includes('excel') || mimeType.includes('spreadsheet') || 
                 mimeType.includes('powerpoint') || mimeType.includes('presentation')) {
-        return importFileIcon; // Icône par défaut pour les documents
+        return importFileIcon;
       } else if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('compressed')) {
-        return importFileIcon; // Icône par défaut pour les archives
+        return importFileIcon;
       } else if (mimeType.includes('text/')) {
-        return importFileIcon; // Icône par défaut pour les textes
+        return importFileIcon;
       }
       
       return importFileIcon;
@@ -467,20 +453,15 @@ export default {
     getMessageAuthorName(messageRef) {
       if (!messageRef) return 'Message supprimé';
       
-      // Si messageRef est un objet complet avec les infos du message parent
       if (typeof messageRef === 'object' && messageRef.auteur) {
         return this.getUserName(messageRef.auteur);
       }
       
-      // Si messageRef est un objet mais sans les infos de l'auteur
       if (typeof messageRef === 'object' && messageRef._id) {
-        // Ici on pourrait faire une requête pour obtenir les détails du message
         return 'Utilisateur';
       }
       
-      // Si messageRef est juste un ID de message
       if (typeof messageRef === 'string') {
-        // Ici on pourrait aussi faire une requête pour obtenir les détails
         return 'Utilisateur';
       }
       
@@ -495,9 +476,7 @@ export default {
     getMessagePreview(messageRef) {
       if (!messageRef) return 'Message supprimé';
       
-      // Si messageRef est un objet complet avec le contenu
       if (typeof messageRef === 'object' && messageRef.contenu) {
-        // Tronquer le contenu s'il est trop long (max 40 caractères)
         const maxLength = 40;
         if (messageRef.contenu.length > maxLength) {
           return messageRef.contenu.substring(0, maxLength) + '...';
@@ -517,22 +496,17 @@ export default {
         return;
       }
       
-      // Trouver l'élément du message parent dans le DOM
       const parentMessageElement = document.querySelector(`[data-message-id="${messageRef._id}"]`);
       
-      // Si l'élément existe, faire défiler jusqu'à lui
       if (parentMessageElement) {
         parentMessageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         
-        // Ajouter une classe pour mettre en évidence le message parent pendant quelques secondes
         parentMessageElement.classList.add('highlight-message');
         setTimeout(() => {
           parentMessageElement.classList.remove('highlight-message');
         }, 2000);
       }
     },
-    
-    // La méthode getProfilePicture a été remplacée par le composant ProfilePicture
     
     /**
      * Faire défiler vers le bas pour voir les derniers messages
@@ -550,16 +524,12 @@ export default {
      * @param {Object} message - Message normalisé auquel répondre
      */
     handleReplyStarted(message) {
-      console.log('Message.vue: handleReplyStarted reçu le message', message);
-      
-      // Vérifier que le message a un ID valide
       const messageId = message._id || message.id;
       if (!messageId) {
         console.error('handleReplyStarted: Message sans ID valide', message);
         return;
       }
       
-      // Émettre l'événement reply-to-message vers le composant parent (Workspace.vue)
       this.$emit('reply-to-message', message);
     },
     
@@ -568,7 +538,6 @@ export default {
      * @param {Object} message - Message auquel répondre
      */
     handleReply(message) {
-      // Appeler la nouvelle méthode avec le message
       this.handleReplyStarted(message);
     },
     
@@ -585,7 +554,6 @@ export default {
      * @param {Object} message - Message à modifier
      */
     handleEdit(message) {
-      // Ouvrir le widget d'édition pour ce message
       this.editingMessage = { ...message };
       this.editContent = message.contenu;
       this.showEditModal = true;
@@ -596,7 +564,6 @@ export default {
      * @param {Object} message - Message à supprimer
      */
     handleDelete(message) {
-      // Confirmer avant de supprimer
       if (confirm('Êtes-vous sûr de vouloir supprimer ce message ?')) {
         this.deleteMessage(message);
       }
@@ -608,12 +575,11 @@ export default {
      */
     async deleteMessage(message) {
       try {
-        const workspaceId = this.$route.params.id; // ID du workspace depuis l'URL
-        const canalId = message.canal; // ID du canal depuis le message
+        const workspaceId = this.$route.params.id;
+        const canalId = message.canal;
         
         await messageService.deleteMessage(workspaceId, canalId, message._id);
         
-        // Supprimer le message de la liste locale
         const index = this.messages.findIndex(m => m._id === message._id);
         if (index !== -1) {
           this.messages.splice(index, 1);
@@ -640,21 +606,17 @@ export default {
       });
     },
     
-    // Méthode temporaire pour tester directement les réactions
     async testEmojiReaction(message, emoji) {
       try {
-        console.log('Test de réaction avec emoji:', emoji, 'pour le message:', message._id);
         let result;
         
         if (this.isPrivate) {
-          // Messages privés
           result = await messagePrivateService.reactToPrivateMessage(
             this.conversationId,
             message._id,
             emoji
           );
         } else {
-          // Messages de canal
           result = await messageService.reactToMessage(
             this.$route.params.id,
             message.canal,
@@ -663,27 +625,20 @@ export default {
           );
         }
         
-        console.log('Résultats de la réaction:', result);
-        
-        // Vue 3 compatible - Modification directe du tableau réactif
         if (result && result.reactions) {
           const index = this.messages.findIndex(m => m._id === message._id);
           if (index !== -1) {
-            // Créer une nouvelle copie du message avec les réactions mises à jour
             const updatedMessages = [...this.messages];
             updatedMessages[index] = { ...this.messages[index], reactions: result.reactions };
             this.messages = updatedMessages;
           }
         }
         
-        // Emettre l'événement
         this.$emit('reaction-added', { messageId: message._id, emoji });
       } catch (error) {
         console.error('Erreur lors de l\'ajout de la réaction:', error);
         
-        // Gérer le cas où l'utilisateur a déjà réagi avec cet emoji
         if (error.message && error.message.includes('déjà réagi')) {
-          console.log('Vous avez déjà réagi avec cet emoji');
         } else {
           alert(`Erreur: ${error.message}`);
         }
@@ -701,36 +656,20 @@ export default {
       try {
         let updatedMessage;
         
-        // Déterminer si nous sommes dans un contexte de message privé ou de canal
         if (this.isPrivate) {
-          // Contexte de message privé
-          console.log('Modification d\'un message privé:', {
-            conversationId: this.conversationId,
-            messageId: this.editingMessage._id || this.editingMessage.id
-          });
-          
           if (!this.conversationId) {
             throw new Error('ID de conversation manquant pour la modification du message privé');
           }
           
-          // Utiliser messagePrivateService pour les messages privés
           updatedMessage = await messagePrivateService.updatePrivateMessage(
             this.conversationId,
             this.editingMessage._id || this.editingMessage.id,
             this.editContent.trim()
           );
         } else {
-          // Contexte de message de canal
-          const workspaceId = this.$route.params.id; // ID du workspace depuis l'URL
-          const canalId = this.editingMessage.canal; // ID du canal depuis le message
+          const workspaceId = this.$route.params.id;
+          const canalId = this.editingMessage.canal; 
           
-          console.log('Modification d\'un message de canal:', {
-            workspaceId,
-            canalId,
-            messageId: this.editingMessage._id
-          });
-          
-          // Utiliser messageService pour les messages de canal
           updatedMessage = await messageService.updateMessage(
             workspaceId,
             canalId,
@@ -739,14 +678,11 @@ export default {
           );
         }
         
-        // Mettre à jour le message dans la liste locale
         const index = this.messages.findIndex(m => m._id === this.editingMessage._id);
         if (index !== -1) {
-          // Fusionner les propriétés pour conserver les informations qui n'ont pas été mises à jour
           this.messages[index] = { ...this.messages[index], ...updatedMessage, modifie: true };
         }
         
-        // Fermer le modal
         this.closeEditModal();
       } catch (error) {
         console.error('Erreur lors de la modification du message:', error);
@@ -873,27 +809,21 @@ export default {
      * @returns {Array} Liste des réactions ou null si pas de réactions
      */
     getMessageReactions(message) {
-      console.log('getMessageReactions appelé avec message.reactions:', JSON.stringify(message.reactions));
       
-      // Aucune réaction
       if (!message.reactions) {
         return null;
       }
       
-      // Messages de canal standards avec tableau de réactions
       if (Array.isArray(message.reactions) && message.reactions.length > 0) {
         return message.reactions;
       }
       
-      // Messages privés (structure potentiellement différente)
       if (typeof message.reactions === 'object') {
-        // Si les réactions sont stockées comme un objet avec emojis comme clés
         const reactionsArray = [];
         for (const emoji in message.reactions) {
           if (Object.prototype.hasOwnProperty.call(message.reactions, emoji)) {
             const reaction = message.reactions[emoji];
             
-            // Gérer tous les formats possibles
             reactionsArray.push({
               emoji: emoji,
               utilisateurs: Array.isArray(reaction) ? reaction : 
@@ -902,11 +832,9 @@ export default {
             });
           }
         }
-        console.log('reactionsArray après conversion:', reactionsArray);
         return reactionsArray.length > 0 ? reactionsArray : null;
       }
       
-      // Aucune réaction
       return null;
     },
 
@@ -916,19 +844,16 @@ export default {
      * @param {String} emoji - L'emoji sur lequel on a cliqué
      */
     async handleReaction(message, emoji) {
-      console.log('handleReaction appelé avec le message:', message._id, 'et emoji:', emoji);
       try {
         let result;
         
         if (this.isPrivate) {
-          // Messages privés
           result = await messagePrivateService.reactToPrivateMessage(
             this.conversationId,
             message._id,
             emoji
           );
         } else {
-          // Messages de canal
           result = await messageService.reactToMessage(
             this.$route.params.id,
             message.canal,
@@ -937,9 +862,6 @@ export default {
           );
         }
         
-        console.log('Résultat de l\'API après réaction:', result);
-        
-        // Mettre à jour l'interface avec les résultats
         this.handleReactionAdded({
           messageId: message._id,
           emoji,
@@ -948,9 +870,7 @@ export default {
         
       } catch (error) {
         console.error('Erreur lors du clic sur une réaction:', error);
-        // Gérer l'erreur si l'utilisateur a déjà réagi
         if (error.message && error.message.includes('déjà réagi')) {
-          console.log('Vous avez déjà réagi avec cet emoji');
         }
       }
     },
@@ -963,15 +883,11 @@ export default {
      * @param {Object} params.result - Résultat de l'API contenant les réactions mises à jour
      */
     async handleReactionAdded({ messageId, emoji, result }) {
-      console.log('handleReactionAdded appelé avec messageId:', messageId, 'emoji:', emoji, 'et résultat:', result);
-      
       try {
         let updatedMessage = null;
         let index = -1;
         
-        // Trouver l'index du message dans le tableau
         index = this.messages.findIndex(m => this.getMessageId(m) === messageId);
-        console.log('Index du message trouvé:', index);
         
         if (index === -1) {
           console.warn(`Message avec ID ${messageId} non trouvé dans le tableau`);
@@ -979,17 +895,12 @@ export default {
         }
         
         const originalMessage = this.messages[index];
-        console.log('Message original:', originalMessage);
         
-        // Copie complète du message original pour éviter les modifications directes
         updatedMessage = JSON.parse(JSON.stringify(originalMessage));
         
-        // Si le résultat de l'API contient directement les données mises à jour, on les utilise
         if (result && result.reactions) {
           updatedMessage.reactions = result.reactions;
-          console.log('Structure des réactions après mise à jour API:', JSON.stringify(result.reactions));
         } else {
-          // Sinon, mettre à jour manuellement en ajoutant l'emoji au message
           const currentUserId = this.currentUserId || this.getAuthorId();
           
           if (!currentUserId) {
@@ -997,14 +908,10 @@ export default {
             return;
           }
           
-          // Gérer différents formats de réactions selon le type de message
           if (this.isPrivate) {
-            // Format pour messages privés (objet avec clés d'emoji)
             if (!updatedMessage.reactions) updatedMessage.reactions = {};
             
-            // S'assurer que la structure est correcte
             if (Array.isArray(updatedMessage.reactions)) {
-              // Convertir de tableau à objet si nécessaire
               const reactionsObj = {};
               updatedMessage.reactions.forEach(r => {
                 if (r.emoji) {
@@ -1016,28 +923,22 @@ export default {
               updatedMessage.reactions = reactionsObj;
             }
             
-            // Initialiser l'emoji s'il n'existe pas encore
             if (!updatedMessage.reactions[emoji]) {
-          updatedMessage.reactions[emoji] = { utilisateurs: [] };
-        }
+              updatedMessage.reactions[emoji] = { utilisateurs: [] };
+            }
         
-        // S'assurer que utilisateurs est un tableau
         if (!Array.isArray(updatedMessage.reactions[emoji].utilisateurs)) {
           updatedMessage.reactions[emoji].utilisateurs = [];
         }
         
-        // Ajouter l'utilisateur courant s'il n'a pas déjà réagi
         const users = updatedMessage.reactions[emoji].utilisateurs;
         if (!users.includes(currentUserId)) {
           updatedMessage.reactions[emoji].utilisateurs = [...users, currentUserId];
         }
       } else {
-        // Format pour messages de canal (tableau de réactions)
         if (!updatedMessage.reactions) updatedMessage.reactions = [];
         
-        // S'assurer que la structure est correcte
         if (!Array.isArray(updatedMessage.reactions)) {
-          // Convertir d'objet à tableau si nécessaire
           const reactionsArray = [];
           for (const key in updatedMessage.reactions) {
             if (Object.prototype.hasOwnProperty.call(updatedMessage.reactions, key)) {
@@ -1051,38 +952,28 @@ export default {
           updatedMessage.reactions = reactionsArray;
         }
         
-        // Rechercher si cet emoji existe déjà
         const existingReaction = updatedMessage.reactions.find(r => r.emoji === emoji);
         
         if (existingReaction) {
-          // S'assurer que utilisateurs est un tableau
           if (!Array.isArray(existingReaction.utilisateurs)) {
             existingReaction.utilisateurs = [];
           }
           
-          // Ajouter l'utilisateur s'il n'a pas déjà réagi
           if (!existingReaction.utilisateurs.includes(currentUserId)) {
             existingReaction.utilisateurs = [...existingReaction.utilisateurs, currentUserId];
           }
         } else {
-          // Créer une nouvelle réaction
+          
           updatedMessage.reactions.push({
             emoji,
             utilisateurs: [currentUserId]
           });
         }
       }
-      
-      console.log(`Réaction ${emoji} ajoutée manuellement au message ${messageId}`);
     }
     
-    // Au lieu de modifier la prop directement, on émet un événement pour que le parent fasse la mise à jour
-    console.log('Message mis à jour:', JSON.stringify(updatedMessage.reactions));
-    
-    // Émettre un événement pour mettre à jour le message dans le composant parent
     this.$emit('update-message', { index, message: updatedMessage });
     
-    // Également émettre l'événement reaction-added pour la compatibilité avec le code existant
     this.$emit('reaction-added', { messageId, emoji, updatedMessage });
   } catch (error) {
     console.error('Erreur lors de la mise à jour des réactions:', error);
@@ -1107,14 +998,10 @@ closeEditModal() {
   overflow-y: auto;
   padding: 1rem;
   scroll-behavior: smooth;
-  margin-bottom: 70px; /* Espace pour la zone de texte */
-  
-  /* Masquer la barre de défilement tout en gardant la fonctionnalité */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* Internet Explorer et Edge */
+  margin-bottom: 70px; 
+  scrollbar-width: none; 
+  -ms-overflow-style: none; 
 }
-
-/* Masquer la barre de défilement pour Chrome, Safari et Opera */
 .messages-list::-webkit-scrollbar {
   display: none;
 }
@@ -1135,7 +1022,6 @@ closeEditModal() {
   margin-bottom: 1rem;
 }
 
-/* Message de l'utilisateur actuel à droite */
 .message-container.current-user {
   justify-content: flex-end;
 }
@@ -1150,7 +1036,6 @@ closeEditModal() {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-/* Style spécifique pour les messages de l'utilisateur actuel */
 .current-user .message-content {
   background-color: var(--accent-color-light, --background-message);
   color: var(--text-color);
@@ -1177,7 +1062,7 @@ closeEditModal() {
 
 .message-body {
   flex: 1;
-  min-width: 0; /* Pour éviter le débordement du contenu */
+  min-width: 0; 
 }
 
 .message-header {

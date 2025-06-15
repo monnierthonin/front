@@ -60,7 +60,7 @@ export default {
     return {
       messagesData: [],
       isLoading: true,
-      currentUserId: getCurrentUserId() || '', // Initialisation synchrone avec valeur potentiellement en cache
+      currentUserId: getCurrentUserId() || '', 
       privateMessageTarget: null,
       replyingToMessage: null,
       currentPage: 1,
@@ -70,11 +70,9 @@ export default {
   },
   
   async created() {
-    // Initialisation asynchrone de l'ID utilisateur lors de la création du composant
     try {
       const userId = await getCurrentUserIdAsync();
       if (userId) {
-        console.log('ID utilisateur récupéré via API dans PrivateMessage:', userId);
         this.currentUserId = userId;
       } else {
         console.warn('Impossible de récupérer l\'ID utilisateur via l\'API dans PrivateMessage');
@@ -99,7 +97,6 @@ export default {
      */
     async initializeMessages() {
       if ((!this.userId && !this.conversationId) || !this.targetUser) {
-        console.log('Impossible d\'initialiser les messages : informations manquantes');
         this.messagesData = [];
         this.isLoading = false;
         return;
@@ -107,10 +104,7 @@ export default {
 
       this.isLoading = true;
       
-      // Si l'ID de conversation est déjà fourni, l'utiliser directement
       if (this.conversationId) {
-        console.log('ID de conversation déjà fourni:', this.conversationId);
-        // Mettre à jour la propriété interne
         this.privateMessageTarget = {
           _id: this.conversationId,
           nom: this.getAuthorName(this.targetUser),
@@ -118,8 +112,6 @@ export default {
         };
         this.loadPrivateMessages();
       } else {
-        // Sinon, chercher l'ID de conversation
-        console.log('Recherche de l\'ID de conversation pour l\'utilisateur:', this.userId);
         await this.findOrCreateConversation();
       }
     },
@@ -129,78 +121,58 @@ export default {
      */
     async findOrCreateConversation() {
       try {
-        console.log('==================== DÉBUT RECHERCHE CONVERSATION ====================');
-        console.log('Recherche d\'une conversation avec l\'utilisateur:', this.userId);
         
-        // Récupérer toutes les conversations de l'utilisateur
+        
         const conversations = await messagePrivateService.getAllPrivateConversations();
-        console.log('Conversations récupérées:', conversations);
-        console.log('Nombre de conversations:', Array.isArray(conversations) ? conversations.length : 'N/A');
 
-        // Chercher une conversation existante avec l'utilisateur cible
         const targetConversation = conversations.find(conv => {
           if (!conv || !conv.participants) return false;
           return conv.participants.some(p => p._id === this.userId);
         });
 
-        console.log('Recherche de conversation pour userId:', this.userId);
-        console.log('Conversation trouvée:', targetConversation);
 
         if (targetConversation && targetConversation._id) {
-          console.log('Conversation existante trouvée:', targetConversation);
-          // Mettre à jour la propriété interne
           this.privateMessageTarget = {
             _id: targetConversation._id,
             nom: this.getAuthorName(this.targetUser),
             type: 'conversation'
           };
           
-          // Charger les messages de cette conversation
           this.loadPrivateMessages(targetConversation._id);
           
-          // Mettre à jour la prop conversationId dans le parent
           this.$emit('update:conversationId', targetConversation._id);
         } else {
-          console.log('Aucune conversation trouvée, création d\'une nouvelle conversation');
-          // Créer une nouvelle conversation
           const newConversation = await messagePrivateService.sendPrivateMessage(
             this.userId,
             "Bonjour, je vous ai ajouté à mes contacts.",
             'user'
           );
           
-          console.log('Nouvelle conversation créée:', newConversation);
+          
           
           if (newConversation && newConversation.conversation) {
             const conversationId = newConversation.conversation._id || newConversation.conversation;
             
-            // Mettre à jour la propriété interne
             this.privateMessageTarget = {
               _id: conversationId.toString(),
               nom: this.getAuthorName(this.targetUser),
               type: 'conversation'
             };
             
-            // Charger les messages de cette conversation
             this.loadPrivateMessages(conversationId.toString());
             
-            // Mettre à jour la prop conversationId dans le parent
             this.$emit('update:conversationId', conversationId.toString());
           } else {
-            console.error('Impossible de créer une nouvelle conversation');
             this.isLoading = false;
           }
         }
         
-        console.log('==================== FIN RECHERCHE CONVERSATION ====================');
       } catch (error) {
-        console.error('Erreur lors de la recherche de la conversation:', error);
         this.privateMessageTarget = {
           _id: this.userId,
           nom: this.getAuthorName(this.targetUser),
           type: 'user'
         };
-        // Réinitialiser la prop conversationId dans le parent
         this.$emit('update:conversationId', '');
       }
     },
@@ -211,40 +183,29 @@ export default {
      */
     async loadPrivateMessages(specificConversationId = null) {
       try {
-        console.log('==================== DÉBUT CHARGEMENT MESSAGES ====================');
         this.isLoading = true;
 
         const conversationId = specificConversationId || this.conversationId;
-
-        // Vérifier si nous avons un ID de conversation valide
         if (!conversationId) {
-          console.log('Pas d\'ID de conversation, chargement des messages impossible');
           this.messagesData = [];
           this.hasMoreMessages = false;
           return;
         }
-
-        console.log('Chargement des messages pour la conversation:', conversationId);
         
-        // Récupérer les messages de la conversation via le service
         const messages = await messagePrivateService.getConversationMessages(
           conversationId,
           this.currentPage,
           this.messagesPerPage
         );
         
-        console.log('Messages reçus:', messages);
         
-        // Vérifier si nous avons reçu des messages
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
-          console.log('Aucun message trouvé pour cette conversation');
           this.messagesData = [];
           this.hasMoreMessages = false;
           this.isLoading = false;
           return;
         }
 
-        // Normaliser la structure des messages pour la compatibilité avec le composant Message
         const normalizedMessages = messages.map(message => {
           const messageId = message._id || message.id;
           return {
@@ -261,23 +222,15 @@ export default {
           };
         });
 
-        console.log('Messages normalisés:', normalizedMessages);
-
-        // Mettre à jour la liste des messages
         if (this.currentPage === 1) {
-          // Première page, remplacer tous les messages
           this.messagesData = normalizedMessages;
         } else {
-          // Pages suivantes, ajouter au début
           this.messagesData = [...normalizedMessages, ...this.messagesData];
         }
 
-        // Mettre à jour le statut de pagination
         this.hasMoreMessages = normalizedMessages.length >= this.messagesPerPage;
         
-        console.log('==================== FIN CHARGEMENT MESSAGES ====================');
       } catch (error) {
-        console.error('Erreur lors du chargement des messages:', error);
         this.messagesData = [];
         this.hasMoreMessages = false;
       } finally {
@@ -303,26 +256,16 @@ export default {
           throw new Error('ID de cible manquant');
         }
 
-        console.log('Envoi de message privé:', {
-          targetId,
-          targetType,
-          contenu: messageData.contenu
-        });
-
-        // Envoyer le message via le service
         const response = await messagePrivateService.sendPrivateMessage(
           targetId,
           messageData.contenu,
           targetType
         );
 
-        console.log('Réponse du serveur:', response);
-
         if (!response) {
           throw new Error('Aucune réponse reçue du serveur');
         }
 
-        // Extraire le message envoyé de la réponse
         let sentMessage;
         if (response.data && response.data.message) {
           sentMessage = response.data.message;
@@ -334,16 +277,12 @@ export default {
           sentMessage = response;
         }
 
-        // Vérifier si le message a une conversation associée et la mettre à jour si nécessaire
         const newConversationId = sentMessage.conversation || sentMessage.conversationId;
         
         if (newConversationId && (!this.conversationId || this.conversationId !== newConversationId.toString())) {
-          console.log('Mise à jour de l\'ID de conversation:', newConversationId);
           
-          // Mettre à jour la prop conversationId dans le parent
           this.$emit('update:conversationId', newConversationId.toString());
           
-          // Mettre à jour la propriété interne
           this.privateMessageTarget = {
             ...this.privateMessageTarget,
             _id: newConversationId.toString(),
@@ -351,9 +290,7 @@ export default {
           };
         }
 
-        // Ajouter le message à la liste si la page est la première (messages les plus récents)
         if (this.currentPage === 1) {
-          // Normaliser la structure du message
           const messageId = sentMessage._id || sentMessage.id;
           const normalizedMessage = {
             ...sentMessage,
@@ -370,12 +307,9 @@ export default {
 
           this.messagesData.push(normalizedMessage);
         } else {
-          // Recharger tous les messages pour être sûr
           this.currentPage = 1;
           this.loadPrivateMessages();
         }
-
-        // Afficher une notification de succès
         this.$toast.success('Message envoyé avec succès');
       } catch (error) {
         console.error('Erreur lors de l\'envoi du message:', error);
@@ -389,11 +323,8 @@ export default {
      */
     async replyToMessage(messageData) {
       try {
-        console.log('replyToMessage appelé avec les données:', messageData);
         
-        // Vérifier que les données nécessaires sont présentes
         if (!messageData || !messageData.parentMessageId) {
-          console.error('ID du message parent manquant');
           throw new Error('Impossible de répondre: ID du message parent manquant');
         }
 
@@ -401,33 +332,22 @@ export default {
           throw new Error('Le contenu de la réponse ne peut pas être vide');
         }
 
-        // Déterminer l'ID de conversation à utiliser
         const conversationId = this.conversationId || (this.privateMessageTarget ? this.privateMessageTarget._id : null);
 
         if (!conversationId) {
           throw new Error('ID de conversation manquant');
         }
 
-        console.log('Envoi de réponse au message:', { 
-          conversationId: conversationId, 
-          messageId: messageData.parentMessageId, 
-          contenu: messageData.contenu
-        });
-
-        // Envoyer la réponse via le service
         const response = await messagePrivateService.sendPrivateReply(
           conversationId, 
           messageData.parentMessageId,
           messageData.contenu
         );
 
-        console.log('Réponse du serveur pour le message privé:', response);
-
         if (!response) {
           throw new Error('Aucune réponse reçue du serveur');
         }
 
-        // Extraire le message de la réponse en tenant compte des différentes structures possibles
         let newMessage;
         if (response.data && response.data.message) {
           newMessage = response.data.message;
@@ -439,16 +359,10 @@ export default {
           newMessage = response;
         }
 
-        console.log('Message de réponse extrait:', newMessage);
-
-        // Vérifier que le message a un ID
         const newMessageId = newMessage._id || newMessage.id;
         if (!newMessageId) {
-          console.error('Réponse reçue sans ID:', newMessage);
           throw new Error('Réponse invalide reçue du serveur');
         }
-
-        // Normaliser la structure du message pour compatibilité
         const formattedMessage = {
           ...newMessage,
           _id: newMessageId.toString(),
@@ -456,7 +370,6 @@ export default {
           reponseA: messageData.parentMessageId.toString()
         };
 
-        // Normaliser l'expéditeur si présent
         if (formattedMessage.expediteur) {
           const expediteurId = formattedMessage.expediteur._id || formattedMessage.expediteur.id;
           if (expediteurId) {
@@ -468,10 +381,8 @@ export default {
           }
         }
 
-        // Ajouter le nouveau message à la liste
         this.messagesData.push(formattedMessage);
 
-        // Réinitialiser l'état de réponse
         this.replyingToMessage = null;
 
         this.$toast.success('Réponse envoyée avec succès');
@@ -496,35 +407,26 @@ export default {
      * @param {Object} message - Message auquel répondre
      */
     handleReplyToMessage(message) {
-      console.log('PrivateMessage.vue a reçu une demande de réponse au message:', message);
       
-      // Récupérer l'ID du message auquel répondre
       let messageId = null;
       
-      // Traiter différentes structures de message possibles
       if (typeof message === 'object') {
         if (message._id) {
           messageId = message._id;
         } else if (message.id) {
           messageId = message.id;
         } else if (message.messageId) {
-          // Dans certains cas, l'ID peut être dans une propriété messageId
           messageId = message.messageId;
         }
       } else if (typeof message === 'string') {
-        // Si on reçoit directement un ID de message
         messageId = message;
       }
       
       if (!messageId) {
-        console.error('Impossible de répondre : ID du message parent invalide ou manquant', message);
         return;
       }
       
-      // Pour une compatibilité maximale, stocker juste l'ID du message
       this.replyingToMessage = messageId;
-      
-      console.log('Préparation de la réponse au message privé. ID:', messageId);
     },
 
     /**
@@ -533,32 +435,27 @@ export default {
      */
     async handleEditMessage(message) {
       try {
-        // Vérifier si l'utilisateur est autorisé à modifier le message
         if (message.auteur._id !== this.currentUserId) {
           this.$toast.error('Vous ne pouvez pas modifier ce message');
           return;
         }
         
-        // Obtenir le nouveau contenu du message (à implémenter, peut utiliser un prompt)
         const newContent = prompt('Modifier le message:', message.contenu);
         
         if (!newContent || newContent.trim() === '') {
           return;
         }
         
-        // Vérifier si nous avons un ID de conversation
         if (!this.conversationId) {
           throw new Error('ID de conversation manquant');
         }
         
-        // Modifier le message via le service
         await messagePrivateService.updatePrivateMessage(
           this.conversationId,
           message._id,
           newContent.trim()
         );
         
-        // Mettre à jour le message dans la liste locale
         const index = this.messagesData.findIndex(m => m._id === message._id);
         if (index !== -1) {
           this.messagesData[index] = {
@@ -605,13 +502,10 @@ export default {
           return;
         }
 
-        // Supprimer le message via le service
         await messagePrivateService.deletePrivateMessage(
           this.conversationId,
           message._id
         );
-
-        // Supprimer le message de la liste locale
         this.messagesData = this.messagesData.filter(m => m._id !== message._id);
 
         this.$toast.success('Message supprimé avec succès');
@@ -630,33 +524,26 @@ export default {
         
         if (conversations && conversations.length > 0) {
           const firstConversation = conversations[0];
-          console.log('Première conversation trouvée:', firstConversation);
           
-          // Trouver l'utilisateur cible (celui qui n'est pas l'utilisateur courant)
           const targetParticipant = firstConversation.participants.find(
             p => p._id !== this.currentUserId
           );
           
           if (targetParticipant) {
-            // Mettre à jour les propriétés nécessaires
             this.privateMessageTarget = {
               _id: firstConversation._id,
               nom: this.getAuthorName(targetParticipant),
               type: 'conversation'
             };
             
-            // Émettre l'ID de conversation au parent
             this.$emit('update:conversationId', firstConversation._id);
             
-            // Charger les messages de cette conversation
             this.loadPrivateMessages(firstConversation._id);
           }
         } else {
-          console.log('Aucune conversation disponible');
           this.isLoading = false;
         }
       } catch (error) {
-        console.error('Erreur lors du chargement de la première conversation:', error);
         this.isLoading = false;
       }
     },
@@ -668,13 +555,10 @@ export default {
      * @param {Object} param0.message - Message mis à jour
      */
     handleMessageUpdate({ index, message }) {
-      console.log('PrivateMessage: handleMessageUpdate appelé avec index:', index, 'et message:', message);
       if (index !== -1 && index < this.messagesData.length) {
-        // Créer une nouvelle copie du tableau pour assurer la réactivité dans Vue 3
         const updatedMessages = [...this.messagesData];
         updatedMessages[index] = message;
         this.messagesData = updatedMessages;
-        console.log('Message mis à jour dans messagesData à l\'index', index);
       }
     },
     
@@ -683,9 +567,6 @@ export default {
      * Méthode de compatibilité pour l'ancien système d'événements
      */
     handleReactionAdded({ messageId, emoji, updatedMessage }) {
-      console.log('PrivateMessage: handleReactionAdded appelé, messageId:', messageId, 'emoji:', emoji);
-      // Cette méthode est maintenue pour la compatibilité
-      // La mise à jour réelle est gérée par handleMessageUpdate
     }
   },
 
@@ -699,13 +580,12 @@ export default {
       });
     }
     
-    // Si aucune conversation n'est sélectionnée, charger la première de la liste
     if (!this.userId && !this.conversationId) {
       this.loadFirstConversation();
     }
   },
 
-  beforeDestroy() {
+  beforeDestroy() { 
     const messagesSection = this.$refs.messagesSection;
     if (messagesSection) {
       messagesSection.removeEventListener('scroll', this.loadMoreMessages);
@@ -729,11 +609,9 @@ export default {
   overflow-y: auto;
   padding: 1rem;
   scroll-behavior: smooth;
-  margin-bottom: 70px; /* Espace pour la zone de texte */
-  
-  /* Masquer la barre de défilement tout en gardant la fonctionnalité */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* Internet Explorer et Edge */
+  margin-bottom: 70px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .input-section {
@@ -744,7 +622,6 @@ export default {
   border-top: 1px solid var(--color-border, #2a2d31);
 }
 
-/* Copie exacte des styles de Message.vue */
 :deep(.messages-list) {
   display: flex;
   flex-direction: column;
@@ -802,7 +679,7 @@ export default {
 
 :deep(.message-body) {
   flex: 1;
-  min-width: 0; /* Pour éviter le débordement du contenu */
+  min-width: 0;
 }
 
 :deep(.message-header) {
