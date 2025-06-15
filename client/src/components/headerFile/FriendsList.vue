@@ -55,26 +55,18 @@ export default {
     const userProfiles = ref({});
     const fetchingProfiles = ref(false);
 
-    // Récupérer l'ID de l'utilisateur connecté en utilisant authService
     const getCurrentUserId = async () => {
       try {
-        console.log('Tentative de récupération de l\'utilisateur connecté...');
-        
-        // Vérifier d'abord si l'utilisateur est authentifié
         const isLoggedIn = await authService.isAuthenticated();
         if (!isLoggedIn) {
           console.warn('Utilisateur non authentifié selon authService.isAuthenticated()');
           return null;
         }
         
-        // Utiliser le checkAuthStatus de authService qui récupère les données utilisateur
         const userData = await authService.checkAuthStatus();
-        console.log('Réponse de checkAuthStatus:', userData);
         
         if (userData && userData.data && userData.data.user) {
           const userId = userData.data.user.id || userData.data.user._id;
-          console.log('ID utilisateur récupéré:', userId);
-          // Stocker l'ID dans localStorage pour une récupération plus rapide ultérieurement
           localStorage.setItem('userId', userId);
           return userId;
         }
@@ -86,29 +78,22 @@ export default {
       }
     };
 
-    // Charger les conversations et extraire les contacts uniques
     const loadContacts = async () => {
       try {
         loading.value = true;
         error.value = null;
         contacts.value = [];
         
-        // Récupérer l'ID de l'utilisateur actuel via l'API
         currentUserId.value = await getCurrentUserId();
         if (!currentUserId.value) {
           throw new Error('Utilisateur non connecté');
         }
         
-        console.log('ID utilisateur courant:', currentUserId.value);
         
-        // Récupérer toutes les conversations privées
         const response = await messagePrivateService.getAllPrivateConversations();
-        console.log('Réponse reçue dans le composant:', response);
         
-        // Initialisation du tableau pour stocker les contacts uniques
         const uniqueContacts = [];
         
-        // Traiter les données reçues de l'API
         if (!response || !Array.isArray(response)) {
           console.warn('Format de réponse invalide:', response);
           error.value = 'Format de réponse invalide';
@@ -116,25 +101,17 @@ export default {
           return;
         }
         
-        console.log(`Traitement de ${response.length} conversations`);
-        
-        // Parcourir chaque conversation
         response.forEach(conversation => {
-          // Vérifier que nous avons un ID de conversation valide
           const conversationId = conversation._id || conversation.id;
           if (!conversationId) {
             console.warn('Conversation sans ID détectée', conversation);
-            return; // Ignorer cette conversation
+            return;
           }
           
-          // Initialiser les utilisateurs de la conversation
           let users = [];
           
-          // Extraire les utilisateurs selon la structure de la conversation
           if (conversation.participants && Array.isArray(conversation.participants)) {
-            // Structure avec participants
             users = conversation.participants.map(p => {
-              // Normaliser la structure de l'utilisateur
               const user = p.utilisateur || p;
               return {
                 id: (user._id || user.id).toString(),
@@ -146,7 +123,6 @@ export default {
               };
             });
           } else {
-            // Structure alternative: vérifier la présence d'utilisateurs directs
             if (conversation.user) {
               users.push({
                 id: (conversation.user._id || conversation.user.id).toString(),
@@ -170,18 +146,11 @@ export default {
             }
           }
           
-          console.log(`Conversation ${conversationId} contient ${users.length} utilisateurs:`, users);
-          
-          // Filtrer pour trouver l'interlocuteur (l'autre utilisateur)
           const otherUsers = users.filter(user => user.id !== currentUserId.value);
           
-          // Si on a trouvé un interlocuteur, l'ajouter à notre liste de contacts
           if (otherUsers.length > 0) {
-            const otherUser = otherUsers[0]; // Prendre le premier interlocuteur trouvé
+            const otherUser = otherUsers[0];
             
-            console.log(`Interlocuteur trouvé: ${otherUser.username} (${otherUser.id})`);
-            
-            // Créer l'objet contact à ajouter à la liste
             const contact = {
               _id: otherUser.id,
               username: otherUser.username,
@@ -192,33 +161,24 @@ export default {
               conversationId: conversationId
             };
             
-            // Ajouter des infos supplémentaires si disponibles
             if (conversation.lastMessage) {
               contact.lastMessage = conversation.lastMessage;
             }
             
-            // Vérifier que ce contact n'existe pas déjà
             const exists = uniqueContacts.some(c => c._id === contact._id);
             if (!exists) {
               uniqueContacts.push(contact);
-              console.log(`Contact ajouté: ${contact.username || contact._id}`);
             }
           } else {
             console.warn('Aucun interlocuteur trouvé dans la conversation', conversation);
           }
         });
         
-        // Mettre à jour la liste des contacts
         contacts.value = uniqueContacts;
-        console.log('Liste finale des contacts:', contacts.value);
-        console.log('Contacts extraits:', contacts.value);
         
-        // Ouvrir automatiquement la conversation avec le premier ami si des contacts existent
         if (contacts.value.length > 0) {
-          // On utilise setTimeout pour s'assurer que ce code s'exécute une fois que Vue a fini de rendre la liste
           setTimeout(() => {
             openConversation(contacts.value[0]._id);
-            console.log('Ouverture automatique de la conversation avec le premier contact:', contacts.value[0].username || contacts.value[0].prenom);
           }, 100);   
         }
         
@@ -226,7 +186,6 @@ export default {
         console.error('Erreur lors du chargement des contacts:', err);
         error.value = err.message || 'Erreur lors du chargement des contacts';
         
-        // Pour développement - données de test en cas d'erreur
         contacts.value = [
           { _id: '1', username: 'Alice', prenom: 'Alice', nom: 'Dupont', status: 'online' },
           { _id: '2', username: 'Bob', prenom: 'Bob', nom: 'Martin', status: 'offline' },
@@ -237,17 +196,11 @@ export default {
       }
     };
     
-    // Fonction utilitaire pour traiter les expéditeurs et destinataires des messages
     const processMessageParticipants = (message, contactsMap, currentUserId) => {
-      // Récupérer l'ID de conversation si disponible
-      // Le message peut venir d'une conversation directement
       const conversationId = message.conversation || message.conversationId || message._id;
-      console.log('processMessageParticipants - conversationId:', conversationId);
       
-      // Pour stocker temporairement les informations sur l'utilisateur courant (pour les cas où nous avons besoin de ses données)
       let currentUserInfo = null;
       
-      // Traiter l'expéditeur
       if (message.expediteur) {
         const expediteurId = typeof message.expediteur === 'object' ? 
           message.expediteur._id : message.expediteur;
@@ -255,7 +208,6 @@ export default {
         const expediteur = typeof message.expediteur === 'object' ? 
           message.expediteur : { _id: expediteurId };
         
-        // Si c'est l'utilisateur actuel, stocker ses informations mais ne pas l'ajouter à la liste des contacts
         if (expediteurId && expediteurId.toString() === currentUserId) {
           currentUserInfo = {
             _id: expediteurId,
@@ -264,7 +216,6 @@ export default {
             nom: expediteur.nom || expediteur.lastName
           };
         }
-        // Si c'est un autre utilisateur, l'ajouter normalement
         else if (expediteurId) {
           contactsMap.set(expediteurId.toString(), {
             _id: expediteurId,
@@ -273,12 +224,11 @@ export default {
             nom: expediteur.nom || expediteur.lastName,
             profilePicture: expediteur.profilePicture,
             status: expediteur.status || 'offline',
-            conversationId: conversationId // Ajout de l'ID de conversation
+            conversationId: conversationId
           });
         }
       }
       
-      // Traiter le destinataire
       if (message.destinataire) {
         const destinataireId = typeof message.destinataire === 'object' ? 
           message.destinataire._id : message.destinataire;
@@ -286,16 +236,14 @@ export default {
         const destinataire = typeof message.destinataire === 'object' ? 
           message.destinataire : { _id: destinataireId };
         
-        // Si c'est l'utilisateur actuel, stocker ses informations mais ne pas l'ajouter à la liste des contacts
         if (destinataireId && destinataireId.toString() === currentUserId) {
           currentUserInfo = {
             _id: destinataireId,
             username: destinataire.username || 'Moi',
             prenom: destinataire.prenom || destinataire.firstName,
             nom: destinataire.nom || destinataire.lastName
-          };
+          }; 
         }
-        // Si c'est un autre utilisateur, l'ajouter normalement
         else if (destinataireId) {
           contactsMap.set(destinataireId.toString(), {
             _id: destinataireId,
@@ -304,15 +252,12 @@ export default {
             nom: destinataire.nom || destinataire.lastName,
             profilePicture: destinataire.profilePicture,
             status: destinataire.status || 'offline',
-            conversationId: conversationId // Ajout de l'ID de conversation
+            conversationId: conversationId
           });
         }
       }
       
-      // Lorsque nous avons à la fois l'utilisateur courant et une conversation, nous devons créer une entrée spéciale
-      // qui représente la conversation elle-même plutôt que l'utilisateur
       if (message.conversation && (message.expediteur || message.destinataire)) {
-        // Vérifier si nous avons un expéditeur ou un destinataire qui n'est pas l'utilisateur courant
         const otherUser = contactsMap.get(
           message.expediteur && message.expediteur._id && message.expediteur._id.toString() !== currentUserId ? 
             message.expediteur._id.toString() : 
@@ -320,21 +265,17 @@ export default {
         );
         
         if (otherUser) {
-          // Nous pouvons enrichir cette entrée avec des informations supplémentaires
           otherUser.conversationId = message.conversation;
         }
       }
     };
 
-    // Obtenir le nom d'affichage du contact (prénom + nom ou username)
     const getContactName = (contact) => {
-      // Vérification de sécurité: si le contact est l'utilisateur actuel (ne devrait jamais arriver)
       if (contact._id === currentUserId.value) {
         console.warn('Tentative d\'affichage de l\'utilisateur actuel comme contact', contact);
         return 'Moi';
       }
       
-      // Préférence pour prénom + nom si disponibles
       if (contact.prenom && contact.nom) {
         return `${contact.prenom} ${contact.nom}`;
       } else if (contact.firstName && contact.lastName) {
@@ -345,35 +286,22 @@ export default {
         return contact.otherUserName;
       }
       
-      // Dernier recours: utiliser l'ID de l'utilisateur
       return `User-${contact._id.substring(0, 6)}`;
     };
 
-    // Ouvrir une conversation avec un contact
     const openConversation = (contactId) => {
-      // Trouver le contact dans la liste
       const contact = contacts.value.find(c => c._id === contactId);
       if (!contact) {
         console.error('Contact non trouvé:', contactId);
         return;
       }
       
-      // Vérifier si ce contact est une conversation déjà existante
-      // Certains contacts dans la liste sont des conversations avec leur propre ID
       const conversationId = contact.conversationId || contact._id;
       
-      console.log('Détails de la conversation sélectionnée:', {
-        contactId: contactId,
-        conversationId: conversationId,
-        contactName: contact.username || contact.nom || 'Utilisateur',
-        isConversation: !!contact.conversationId
-      });
-      
-      // Émettre un événement personnalisé pour être capturé par le composant parent
       const event = new CustomEvent('open-private-conversation', {
         detail: {
-          userId: contactId,          // ID de l'utilisateur/contact
-          conversationId: conversationId, // ID de la conversation si disponible
+          userId: contactId,
+          conversationId: conversationId,
           targetUser: contact
         },
         bubbles: true
@@ -381,24 +309,15 @@ export default {
       document.dispatchEvent(event);
     };
 
-    // Afficher le modal pour créer une nouvelle conversation
     const showNewMessageModal = () => {
-      // Afficher un modal pour rechercher un utilisateur et démarrer une conversation
       console.log('Ouverture du modal pour une nouvelle conversation');
     };
     
-    // Démarrer une conversation avec un utilisateur trouvé via la barre de recherche
-    const startConversation = async (user) => { // Rendre la méthode asynchrone
-      console.log('Démarrage d\'une conversation avec l\'utilisateur (depuis SearchBar):', user);
+    const startConversation = async (user) => { 
       try {
-        // Appeler le service pour créer ou récupérer la conversation
-        // user._id est l'ID de l'utilisateur sélectionné dans la barre de recherche
         const conversation = await messagePrivateService.createOrGetConversation(user._id);
-        console.log('Conversation créée ou récupérée par le service:', conversation);
 
         if (conversation && conversation._id && conversation.participants) {
-          // Trouver l'autre participant dans la conversation retournée par le backend
-          // currentUserId.value est l'ID de l'utilisateur actuellement connecté
           const otherParticipantEntry = conversation.participants.find(
             p => p.utilisateur && p.utilisateur._id && p.utilisateur._id.toString() !== currentUserId.value
           );
@@ -411,58 +330,43 @@ export default {
           
           const otherUserDetails = otherParticipantEntry.utilisateur; // Contient _id, username, firstName, lastName, profilePicture
 
-          // Vérifier si ce contact (l'autre utilisateur) est déjà dans notre liste `contacts.value`
           let contactInList = contacts.value.find(c => c._id === otherUserDetails._id);
 
           if (contactInList) {
-            // Le contact existe, s'assurer que son conversationId est à jour
-            console.log('Contact existant trouvé:', contactInList.username, 'Mise à jour de conversationId.');
             contactInList.conversationId = conversation._id;
           } else {
-            // Le contact n'est pas dans la liste, l'ajouter
-            console.log('Nouveau contact à ajouter à la liste:', otherUserDetails.username);
             contactInList = {
               _id: otherUserDetails._id,
               username: otherUserDetails.username,
-              prenom: otherUserDetails.firstName, // S'aligner sur la population du backend (firstName)
-              nom: otherUserDetails.lastName,   // S'aligner sur la population du backend (lastName)
+              prenom: otherUserDetails.firstName,
+              nom: otherUserDetails.lastName,
               profilePicture: otherUserDetails.profilePicture,
-              status: otherUserDetails.status || 'online', // 'status' pourrait ne pas être dans la population standard
+              status: otherUserDetails.status || 'online',
               conversationId: conversation._id
             };
-            contacts.value.unshift(contactInList); // Ajouter au début pour une meilleure visibilité
+            contacts.value.unshift(contactInList);
           }
           
-          // Appeler openConversation avec l'ID de l'autre utilisateur
-          // openConversation s'attend à l'ID de l'utilisateur contact, pas l'ID de la conversation
           openConversation(otherUserDetails._id);
 
         } else {
-          console.error('Réponse invalide du service createOrGetConversation:', conversation);
           error.value = "Impossible de démarrer la conversation: réponse invalide du serveur.";
         }
       } catch (err) {
-        console.error('Erreur détaillée lors du démarrage de la conversation:', err);
         error.value = err.message || 'Une erreur est survenue lors du démarrage de la conversation.';
       }
     };
 
-    // Charger les contacts au montage du composant
     onMounted(() => {
       loadContacts();
-      // Démarrer un intervalle pour rafraîchir les statuts des utilisateurs
       const statusInterval = setInterval(() => {
         refreshUserProfiles();
-      }, 60000); // Rafraîchir toutes les 60 secondes
-      
-      // Nettoyer l'intervalle quand le composant est démonté
+      }, 60000);
       return () => clearInterval(statusInterval);
     });
     
-    // Réexposer loadContacts pour pouvoir le rappeler si nécessaire depuis l'extérieur
     const refreshContacts = () => {
       loadContacts();
-      // Rafraîchir les profils en même temps
       refreshUserProfiles();
     };
 
@@ -487,7 +391,6 @@ export default {
         
         const data = await response.json();
         if (data.success && data.data && data.data.user) {
-          // Mettre à jour le cache des profils utilisateurs
           userProfiles.value[userId] = data.data.user;
           return data.data.user;
         }
@@ -511,7 +414,6 @@ export default {
           
           const userId = contact._id;
           
-          // Récupérer le profil utilisateur
           await fetchUserProfile(userId);
         }
       } catch (error) {
@@ -529,28 +431,24 @@ export default {
     const getUserStatusClass = (contact) => {
       if (!contact || !contact._id) return 'offline';
       
-      // Vérifie si on a récupéré le profil de cet utilisateur
       const userProfile = userProfiles.value[contact._id];
-      if (!userProfile) return contact.status || 'offline'; // Utilise le statut de base si le profil n'est pas encore disponible
+      if (!userProfile) return contact.status || 'offline';
       
-      // Vérification explicite de la connexion
       const estConnecte = userProfile.estConnecte === true;
       
-      // Si l'utilisateur n'est pas connecté, statut gris (offline)
       if (!estConnecte) return 'offline';
       
-      // Utilisateur connecté, détermine la couleur selon le statut
       const status = userProfile.status || '';
       
       switch (status) {
         case 'en ligne':
-          return 'online';  // Vert
+          return 'online';
         case 'absent':
-          return 'idle';    // Orange 
+          return 'idle';
         case 'ne pas déranger':
-          return 'dnd';     // Rouge
+          return 'dnd';
         default:
-          return 'online';  // Par défaut: Vert
+          return 'online';
       }
     };
     

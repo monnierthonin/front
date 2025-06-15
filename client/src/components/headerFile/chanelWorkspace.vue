@@ -98,7 +98,6 @@ export default {
       saveWorkspaceId() {
         if (this.workspaceId) {
           localStorage.setItem('currentWorkspaceId', this.workspaceId);
-          console.log('ID du workspace sauvegardé dans localStorage:', this.workspaceId);
         }
       },
       
@@ -111,7 +110,6 @@ export default {
         if (!canal.membres || !Array.isArray(canal.membres) || !this.userId) return false;
         
         return canal.membres.some(membre => {
-          // Gérer le cas où membre est un objet ou directement l'ID
           const membreId = (typeof membre === 'object') ? (membre._id || membre.id) : membre;
           return membreId === this.userId;
         });
@@ -122,18 +120,14 @@ export default {
        * @returns {Boolean} - True si l'utilisateur est propriétaire, admin ou modérateur
        */
       hasAdminAccess() {
-        // Si on n'a pas l'utilisateur ou le workspace, impossible de vérifier
         if (!this.userId || !this.workspace) return false;
         
-        // Si l'utilisateur est le propriétaire du workspace
         if (this.isUserWorkspaceOwner()) return true;
         
-        // Si userRole est déjà défini, l'utiliser
         if (this.userRole) {
           return ['admin', 'moderateur'].includes(this.userRole);
         }
         
-        // Sinon, vérifier si l'utilisateur est admin ou modérateur dans la liste des membres
         const membres = this.workspace.membres || this.workspace.users || [];
         const currentUser = membres.find(membre => {
           const membreId = typeof membre === 'object' ? (membre._id || membre.id || membre.userId) : membre;
@@ -142,11 +136,9 @@ export default {
         
         if (!currentUser) return false;
         
-        // Récupérer le rôle en tenant compte des différentes possibilités de nommage
         const userRole = currentUser.role || currentUser.rôle || currentUser.Role || currentUser.Rôle;
         this.userRole = userRole;
         
-        // Vérifier si le rôle est admin ou modérateur
         return userRole && ['admin', 'moderateur'].includes(userRole);
       },
       
@@ -157,13 +149,11 @@ export default {
       isUserWorkspaceOwner() {
         if (!this.userId || !this.workspace || !this.workspace.proprietaire) return false;
         
-        // Si propriétaire est un objet
         if (typeof this.workspace.proprietaire === 'object') {
           const ownerId = this.workspace.proprietaire._id || this.workspace.proprietaire.id;
           return this.userId === ownerId;
         }
         
-        // Si propriétaire est directement l'ID
         return this.userId === this.workspace.proprietaire;
       },
       
@@ -217,13 +207,10 @@ export default {
         
         const notificationStore = useNotificationStore();
         
-        // Initialiser les écouteurs de notifications si pas déjà fait dans le store
         notificationStore.initNotificationListeners();
         
-        // Charger les notifications pour ce workspace spécifiquement
         notificationStore.fetchWorkspaceNotifications(this.workspaceId);
         
-        // Charger les notifications spécifiques pour chaque canal
         if (this.canaux && this.canaux.length > 0) {
           this.canaux.forEach(canal => {
             notificationStore.fetchChannelNotifications(this.workspaceId, canal._id);
@@ -242,13 +229,8 @@ export default {
       }
     },
     created() {
-      // Récupérer l'ID de l'utilisateur du token
       this.getUserIdFromToken();
-      
-      // Récupérer les informations du workspace
       this.fetchWorkspaceInfo();
-
-      // Initialiser les notifications des canaux
       this.setupChannelNotifications();
     },
     watch: {
@@ -257,15 +239,12 @@ export default {
           if (newVal) {
             this.isLoading = false
             
-            // Si un canal a été chargé et qu'aucun canal n'est actif,
-            // sélectionner le premier canal par défaut
             if (newVal.length > 0 && !this.canalActifId) {
               this.$nextTick(() => {
                 this.selectionnerCanal(newVal[0]);
               });
             }
             
-            // Mettre à jour les notifications pour les nouveaux canaux
             this.setupChannelNotifications();
           }
         },
