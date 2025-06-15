@@ -1,4 +1,3 @@
-// URL de base de l'API avec le préfixe correct v1
 const API_URL = 'http://localhost:3000/api/v1';
 
 /**
@@ -13,16 +12,14 @@ const searchService = {
    */
   async searchUsers(query = '', all = false) {
     try {
-      // Construire l'URL avec les paramètres de recherche
       const url = `${API_URL}/search/users?q=${encodeURIComponent(query)}${all ? '&all=true' : ''}`;
       
-      // Appeler l'API avec les cookies HTTP-only pour l'authentification
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include' // Inclure les cookies pour l'authentification
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -33,7 +30,6 @@ const searchService = {
         throw new Error(`Erreur HTTP ${response.status}: ${responseText}`);
       }
 
-      // Convertir la réponse en JSON
       const responseText = await response.text();
       
       let data;
@@ -43,7 +39,6 @@ const searchService = {
         throw new Error('Impossible de parser la réponse du serveur');
       }
       
-      // Vérifier que les données reçues ont la structure attendue
       if (data && data.status === 'success' && data.data && data.data.users) {
         return data.data.users;
       }
@@ -64,13 +59,12 @@ const searchService = {
     try {
       const url = `${API_URL}/search/workspaces?q=${encodeURIComponent(query)}`;
       
-      // Utiliser uniquement les cookies pour l'authentification
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include' // Inclure les cookies pour l'authentification
+        credentials: 'include'
       });
 
       if (!response.ok) {

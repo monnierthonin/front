@@ -16,7 +16,6 @@ export default {
     Header
   },
   async created() {
-    // Initialiser le thème, le statut et la photo de profil au chargement de l'application
     await this.loadUserProfile();
   },
   methods: {
@@ -24,27 +23,20 @@ export default {
       const token = localStorage.getItem('token');
       
       if (token) {
-        // Si un utilisateur est connecté, récupérer son profil pour obtenir le thème
         try {
           const response = await userService.getProfile();
           if (response && response.data) {
-            // Récupérer et gérer le thème
-            let theme = 'dark'; // Par défaut sombre
+            let theme = 'dark';
             
-            // Si le thème existe dans le profil, le convertir
             if (response.data.theme) {
               theme = response.data.theme === 'sombre' ? 'dark' : 'light';
             }
             
-            // Sauvegarder dans localStorage pour les futurs chargements
             localStorage.setItem('theme', theme);
             
-            // Appliquer le thème
             this.applyTheme(theme);
             
-            // Récupérer et stocker le statut de l'utilisateur
             if (response.data.status) {
-              // Convertir le statut du français vers l'anglais
               let status;
               switch(response.data.status) {
                 case 'en ligne':
@@ -59,36 +51,28 @@ export default {
                 default:
                   status = 'online';
               }
-              // Stocker le statut pour une utilisation par d'autres composants
               localStorage.setItem('userStatus', status);
             }
             
-            // Récupérer et stocker la photo de profil
             if (response.data.profilePicture) {
               localStorage.setItem('profilePicture', response.data.profilePicture);
             } else {
-              // Si aucune photo de profil n'est définie, utiliser l'image par défaut
               localStorage.setItem('profilePicture', 'default.jpg');
             }
             
-            // Vérifier si c'est une connexion récente en regardant le localStorage
             const justLoggedIn = localStorage.getItem('justLoggedIn');
             if (justLoggedIn === 'true') {
-              // Réinitialiser le flag
               localStorage.removeItem('justLoggedIn');
               
-              // Émettre l'événement de connexion réussie - maintenant que nous avons les données de profil
               eventBus.emit(APP_EVENTS.USER_LOGGED_IN);
             }
             
-            // Dans tous les cas, informer les composants du changement de photo de profil
             eventBus.emit(APP_EVENTS.PROFILE_PICTURE_UPDATED, response.data.profilePicture || 'default.jpg');
           }
         } catch (error) {
           this.applyDefaultTheme();
         }
       } else {
-        // Si personne n'est connecté, appliquer le thème par défaut (sombre)
         this.applyDefaultTheme();
       }
     },
@@ -114,7 +98,6 @@ export default {
   },
   computed: {
     isAuthPage() {
-      // Ne pas afficher le Header sur la page d'authentification et les pages de réinitialisation de mot de passe
       return this.$route.path === '/auth' ||
              this.$route.path === '/mot-de-passe-oublie' ||
              this.$route.path.startsWith('/reinitialiser-mot-de-passe/');

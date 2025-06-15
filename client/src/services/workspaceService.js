@@ -1,4 +1,3 @@
-// URL de base de l'API avec le préfixe correct v1
 const API_URL = 'http://localhost:3000/api/v1';
 
 /**
@@ -11,8 +10,6 @@ const workspaceService = {
    */
   async getUserWorkspaces() {
     try {
-      // Appeler l'API pour récupérer les workspaces dont l'utilisateur est membre
-      // Le cookie HTTP-only sera automatiquement inclus avec credentials: 'include'
       const response = await fetch(`${API_URL}/workspaces`, {
         method: 'GET',
         headers: {
@@ -31,22 +28,17 @@ const workspaceService = {
 
       const data = await response.json();
       
-      // Vérifier que les données reçues ont la structure attendue
       if (data && data.status === 'success') {
-        // Récupérer les workspaces depuis data.workspaces (nouvelle structure)
         const workspaces = data.data && data.data.workspaces ? data.data.workspaces : [];
         
         return workspaces.map(workspace => ({
           _id: workspace._id || workspace.id,
           nom: workspace.nom || workspace.name || 'Sans nom',
-          // Ajouter d'autres propriétés si nécessaire pour l'affichage
         }));
       }
       
-      // Si les données ne sont pas au format attendu, retourner un tableau vide
       return [];
     } catch (error) {
-      // En cas d'erreur, on retourne un tableau vide
       return [];
     }
   },
@@ -87,7 +79,6 @@ const workspaceService = {
    */
   async searchPublicWorkspaces(query = '') {
     try {
-      // Utiliser l'endpoint de recherche des workspaces publics
       const response = await fetch(`${API_URL}/workspaces/recherche/public?query=${encodeURIComponent(query)}`, {
         method: 'GET',
         headers: {
@@ -156,8 +147,6 @@ const workspaceService = {
    */
   async updateWorkspaceStatus(id, isPublic) {
     try {
-      // Appel à l'API pour mettre à jour le statut du workspace
-      // Utiliser le champ 'visibilite' au lieu de 'estPublic'
       const response = await fetch(`${API_URL}/workspaces/${id}`, {
         method: 'PATCH',
         headers: {
@@ -165,7 +154,7 @@ const workspaceService = {
         },
         credentials: 'include',
         body: JSON.stringify({ 
-          visibilite: isPublic ? 'public' : 'prive' // Valeur correcte attendue par l'API
+          visibilite: isPublic ? 'public' : 'prive'
         })
       });
 
@@ -185,7 +174,6 @@ const workspaceService = {
     }
   },
   
-  // Récupérer l'ID utilisateur via l'API au lieu de décoder le token
   async getUserId() {
     try {
       const response = await fetch(`${API_URL}/auth/me`, {

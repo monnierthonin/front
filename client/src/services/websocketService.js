@@ -1,6 +1,3 @@
-// Service de gestion des connexions WebSocket utilisant l'API WebSocket native
-
-// URL du serveur WebSocket (même URL que l'API, mais avec le protocole ws:// ou wss://)
 const SOCKET_URL = 'ws://localhost:3000/ws';
 
 class WebSocketService {
@@ -12,7 +9,7 @@ class WebSocketService {
     this.reconnectInterval = null;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
-    this.reconnectDelay = 1000; // 1 seconde par défaut
+    this.reconnectDelay = 1000;
   }
 
   /**
@@ -25,19 +22,15 @@ class WebSocketService {
       try {
 
         
-        // Construire l'URL avec le token d'authentification
         const wsUrl = `${SOCKET_URL}?token=${encodeURIComponent(token)}`;
         
-        // Créer une nouvelle connexion WebSocket
         this.socket = new WebSocket(wsUrl);
 
-        // Événement de connexion réussie
         this.socket.onopen = () => {
 
           this.connected = true;
           this.reconnectAttempts = 0;
           
-          // Réabonner aux canaux précédemment suivis en cas de reconnexion
           this.channelSubscriptions.forEach(channel => {
             this.joinChannel(channel.workspaceId, channel.channelId);
           });
@@ -45,22 +38,19 @@ class WebSocketService {
           resolve(true);
         };
 
-        // Événement de déconnexion
         this.socket.onclose = (event) => {
 
           this.connected = false;
           
-          // Tentative de reconnexion automatique
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectInterval = setTimeout(() => {
               this.reconnectAttempts++;
 
               this.connect(token);
-            }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts)); // Backoff exponentiel
+            }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts));
           }
         };
 
-        // Événement d'erreur
         this.socket.onerror = (error) => {
 
           if (!this.connected) {
@@ -68,13 +58,11 @@ class WebSocketService {
           }
         };
 
-        // Écouter les messages entrants
         this.socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
 
             
-            // Traiter les différents types de messages
             if (data.type === 'message' || data.type === 'new_message') {
               this.handleIncomingMessage(data.payload || data);
             }
@@ -100,7 +88,6 @@ class WebSocketService {
       this.connected = false;
       this.channelSubscriptions.clear();
       
-      // Arrêter les tentatives de reconnexion
       if (this.reconnectInterval) {
         clearTimeout(this.reconnectInterval);
         this.reconnectInterval = null;
@@ -164,7 +151,6 @@ class WebSocketService {
     
     this.sendMessage('leave_channel', { workspaceId, channelId });
     
-    // Supprimer l'abonnement de la liste
     this.channelSubscriptions.forEach(sub => {
       if (sub.workspaceId === workspaceId && sub.channelId === channelId) {
         this.channelSubscriptions.delete(sub);
@@ -188,17 +174,12 @@ class WebSocketService {
     
     this.messageHandlers.get(channelKey).add(callback);
     
-    // Rejoindre le canal si pas déjà fait
     this.joinChannel(workspaceId, channelId);
     
-
-    
-    // Retourner une fonction pour se désabonner
     return () => {
       if (this.messageHandlers.has(channelKey)) {
         this.messageHandlers.get(channelKey).delete(callback);
         
-        // Si plus aucun abonnement pour ce canal, le quitter
         if (this.messageHandlers.get(channelKey).size === 0) {
           this.leaveChannel(workspaceId, channelId);
         }
@@ -211,7 +192,6 @@ class WebSocketService {
    * @param {Object} message - Message reçu
    */
   handleIncomingMessage(message) {
-    // Vérifier si le message a les propriétés nécessaires
     if (!message || !message.workspaceId || !message.canalId) {
 
       return;
@@ -219,7 +199,6 @@ class WebSocketService {
 
     const channelKey = `${message.workspaceId}:${message.canalId}`;
     
-    // Distribuer le message à tous les abonnés de ce canal
     if (this.messageHandlers.has(channelKey)) {
       this.messageHandlers.get(channelKey).forEach(callback => {
         try {
@@ -232,6 +211,5 @@ class WebSocketService {
   }
 }
 
-// Exporter une instance unique du service
 const websocketService = new WebSocketService();
 export default websocketService;
