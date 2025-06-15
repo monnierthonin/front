@@ -107,7 +107,6 @@ export default {
       this.loading = true;
       
       try {
-        // Appel de l'API pour réinitialiser le mot de passe
         const response = await fetch(`http://localhost:3000/api/v1/auth/reinitialiser-mot-de-passe/${this.resetToken}`, {
           method: 'POST',
           headers: {
@@ -129,15 +128,12 @@ export default {
         this.resetSuccess = true;
         this.successMessage = 'Mot de passe réinitialisé avec succès!';
         
-        // Redirection vers la page de connexion après 3 secondes
         setTimeout(() => {
           this.$router.push('/auth');
         }, 3000);
       } catch (error) {
         this.errorMessage = error.message || 'Une erreur est survenue. Veuillez réessayer.';
-        console.error('Erreur de réinitialisation de mot de passe:', error);
         
-        // Si le token est invalide ou expiré
         if (error.message.includes('token') && (error.message.includes('invalide') || error.message.includes('expiré'))) {
           this.tokenValid = false;
         }
@@ -147,7 +143,6 @@ export default {
     }
   },
   mounted() {
-    // Vérifier que le token est présent
     if (!this.resetToken) {
       this.tokenValid = false;
       this.errorMessage = 'Token de réinitialisation manquant';
