@@ -72,7 +72,6 @@ export default {
       this.loading = true;
       
       try {
-        // Appel de l'API pour demander la réinitialisation
         const response = await fetch('http://localhost:3000/api/v1/auth/mot-de-passe-oublie', {
           method: 'POST',
           headers: {

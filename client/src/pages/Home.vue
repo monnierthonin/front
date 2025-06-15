@@ -1,7 +1,6 @@
 <template>
   <FriendsList :workspaceId="workspaceId" />
   <div class="home">
-    <!-- Afficher les messages de canal ou les messages privés selon le mode actif -->
     <Message 
       v-if="!showPrivateMessages" 
       :workspaceId="workspaceId" 
@@ -16,7 +15,6 @@
       @update:conversationId="updateConversationId"
     />
     
-    <!-- N'afficher la zone de texte que pour les messages de canal -->
     <textBox 
       v-if="!showPrivateMessages" 
       :workspaceId="workspaceId"
@@ -56,12 +54,11 @@ export default {
       selectedUserId: null,
       selectedConversationId: null,
       selectedTargetUser: null,
-      currentChannel: null, // Canal actif actuel
-      currentChannelId: null // ID du canal actif
+      currentChannel: null,
+      currentChannelId: null
     }
   },
   watch: {
-    // Surveiller les changements d'ID de workspace dans l'URL
     '$route.params.id': {
       immediate: true,
       handler(newId) {
@@ -73,15 +70,11 @@ export default {
     }
   },
   mounted() {
-    // Écouter l'événement pour ouvrir une conversation privée
     document.addEventListener('open-private-conversation', this.handlePrivateConversation);
-    
-    // Écouter l'événement pour changer de canal actif
     document.addEventListener('change-active-channel', this.handleChannelChange);
   },
   
   beforeUnmount() {
-    // Nettoyer les écouteurs d'événements
     document.removeEventListener('open-private-conversation', this.handlePrivateConversation);
     document.removeEventListener('change-active-channel', this.handleChannelChange);
   },
@@ -94,12 +87,9 @@ export default {
     handleChannelChange(event) {
       const { channel } = event.detail;
       
-      console.log('Changement de canal actif:', channel);
-      
       this.currentChannel = channel;
       this.currentChannelId = channel?._id || null;
       
-      // Si nous avons un canal actif, charger ses messages
       if (this.currentChannel && this.workspaceId) {
         this.loadChannelMessages(this.workspaceId, this.currentChannel._id);
       }
@@ -116,15 +106,10 @@ export default {
       }
       
       try {
-        console.log(`Envoi de message au canal ${this.currentChannelId}:`, messageText);
-        
-        // Importer dynamiquement le service de messages
         const messageService = await import('../services/messageService.js');
         
-        // Envoyer le message
         await messageService.default.sendMessage(this.workspaceId, this.currentChannelId, messageText);
         
-        // Recharger les messages après l'envoi
         this.refreshChannelMessages();
       } catch (error) {
         console.error('Erreur lors de l\'envoi du message:', error);
@@ -166,13 +151,6 @@ export default {
     handlePrivateConversation(event) {
       const { userId, conversationId, targetUser } = event.detail;
       
-      console.log('Conversation privée demandée:', {
-        userId,
-        conversationId: conversationId || 'Non disponible',
-        targetUserName: targetUser ? (targetUser.username || targetUser.nom || 'Inconnu') : 'Inconnu'
-      });
-      
-      // Définir les propriétés pour la conversation privée
       this.selectedUserId = userId;
       this.selectedConversationId = conversationId;
       this.selectedTargetUser = targetUser;
@@ -193,7 +171,6 @@ export default {
      * @param {String} newConversationId - Nouvel ID de conversation
      */
     updateConversationId(newConversationId) {
-      console.log('Mise à jour de l\'ID de conversation:', newConversationId);
       this.selectedConversationId = newConversationId;
     },
     
@@ -202,17 +179,12 @@ export default {
       
       this.isLoading = true;
       try {
-        // Réinitialiser les données du workspace précédent
         this.messages = [];
-        
-        // Charger les données du nouveau workspace
         const workspaceService = await import('../services/workspaceService.js');
         const response = await workspaceService.default.getWorkspaceById(this.workspaceId);
         
         if (response && response.data) {
-          // Mettre à jour les données du workspace
           
-          // Si le workspace a des canaux par défaut, charger leurs messages
           if (response.data.canaux && response.data.canaux.length > 0) {
             const messageService = await import('../services/messageService.js');
             const defaultChannel = response.data.canaux[0];
@@ -221,7 +193,6 @@ export default {
           }
         }
       } catch (error) {
-        // Gestion silencieuse des erreurs
       } finally {
         this.isLoading = false;
       }

@@ -64,37 +64,28 @@ export default {
       
       try {
         if (this.isLogin) {
-          // Logique de connexion
-          console.log('Tentative de connexion avec:', form)
           const response = await authService.login({
             email: form.email,
             password: form.password
           })
           
           this.successMessage = 'Connexion réussie!'
-          console.log('Connexion réussie:', response)
           
-          // Charger et appliquer le thème de l'utilisateur avant la redirection
           await this.loadUserTheme()
           
-          // Rediriger vers la page d'accueil après 1 seconde
           setTimeout(() => {
             this.$router.push('/')
           }, 1000)
         } else {
-          // Logique d'inscription
-          console.log('Tentative d\'inscription avec:', form)
           const response = await authService.register({
             username: form.username,
             email: form.email,
             password: form.password,
-            confirmPassword: form.confirmPassword // Ajouter la confirmation du mot de passe
+            confirmPassword: form.confirmPassword
           })
           
           this.successMessage = 'Inscription réussie! Un email de vérification a été envoyé.'
-          console.log('Inscription réussie:', response)
           
-          // Passer en mode connexion après 2 secondes
           setTimeout(() => {
             this.isLogin = true
           }, 2000)
@@ -112,15 +103,12 @@ export default {
       this.successMessage = ''
     },
     loginWithGoogle() {
-      // Utiliser le service d'authentification pour l'OAuth Google
       authService.initiateOAuthLogin('google');
     },
     loginWithMicrosoft() {
-      // Utiliser le service d'authentification pour l'OAuth Microsoft
       authService.initiateOAuthLogin('microsoft');
     },
     loginWithFacebook() {
-      // Utiliser le service d'authentification pour l'OAuth Facebook
       authService.initiateOAuthLogin('facebook');
     },
     
@@ -129,23 +117,17 @@ export default {
      */
     async loadUserTheme() {
       try {
-        // Récupérer le profil de l'utilisateur depuis l'API
         const response = await userService.getProfile();
         
         if (response && response.data) {
-          // Convertir le thème du français vers l'anglais
-          let theme = 'dark'; // Par défaut sombre
+          let theme = 'dark';
           
-          // Si le thème existe dans le profil, le convertir
           if (response.data.theme) {
             theme = response.data.theme === 'sombre' ? 'dark' : 'light';
-            console.log('Thème récupéré après connexion:', response.data.theme, '->', theme);
           }
           
-          // Sauvegarder dans localStorage pour les futurs chargements
           localStorage.setItem('theme', theme);
           
-          // Appliquer le thème directement
           if (theme === 'dark') {
             document.documentElement.classList.remove('light-theme');
             document.documentElement.classList.add('dark-theme');
@@ -156,7 +138,6 @@ export default {
         }
       } catch (error) {
         console.error('Erreur lors du chargement du thème après connexion:', error);
-        // En cas d'erreur, appliquer le thème par défaut (sombre)
         localStorage.setItem('theme', 'dark');
         document.documentElement.classList.remove('light-theme');
         document.documentElement.classList.add('dark-theme');
