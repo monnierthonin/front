@@ -51,7 +51,7 @@
  *   description: Gestion des notifications
  *
  * @swagger
- * /api/notifications:
+ * /api/v1/notifications:
  *   get:
  *     summary: Récupérer toutes les notifications non lues
  *     tags: [Notifications]
@@ -84,7 +84,7 @@
  *         description: Erreur serveur
  *
  * @swagger
- * /api/notifications/nombre:
+ * /api/v1/notifications/nombre:
  *   get:
  *     summary: Compter toutes les notifications non lues
  *     tags: [Notifications]
@@ -113,7 +113,7 @@
  *         description: Erreur serveur
  *
  * @swagger
- * /api/notifications/canal/{canalId}/nombre:
+ * /api/v1/notifications/canal/{canalId}/nombre:
  *   get:
  *     summary: Compter les notifications non lues pour un canal spécifique
  *     tags: [Notifications]
@@ -153,7 +153,7 @@
  *         description: Erreur serveur
  *
  * @swagger
- * /api/notifications/conversation/{conversationId}/nombre:
+ * /api/v1/notifications/conversation/{conversationId}/nombre:
  *   get:
  *     summary: Compter les notifications non lues pour une conversation spécifique
  *     tags: [Notifications]
@@ -189,7 +189,7 @@
  *         description: Erreur serveur
  *
  * @swagger
- * /api/notifications/canaux/{workspaceId}:
+ * /api/v1/notifications/canaux/{workspaceId}:
  *   get:
  *     summary: Récupérer tous les canaux avec des messages non lus
  *     tags: [Notifications]
@@ -236,7 +236,7 @@
  *         description: Erreur serveur
  *
  * @swagger
- * /api/notifications/preferences:
+ * /api/v1/notifications/preferences:
  *   get:
  *     summary: Récupérer les préférences de notification de l'utilisateur
  *     tags: [Notifications]
@@ -311,7 +311,7 @@
  *         description: Erreur serveur
  *
  * @swagger
- * /api/notifications/{id}/lue:
+ * /api/v1/notifications/{id}/lue:
  *   patch:
  *     summary: Marquer une notification comme lue
  *     tags: [Notifications]
@@ -348,7 +348,7 @@
  *         description: Erreur serveur
  *
  * @swagger
- * /api/notifications/canal/{canalId}/lues:
+ * /api/v1/notifications/canal/{canalId}/lues:
  *   patch:
  *     summary: Marquer toutes les notifications d'un canal comme lues
  *     tags: [Notifications]
@@ -388,7 +388,7 @@
  *         description: Erreur serveur
  *
  * @swagger
- * /api/notifications/conversation/{conversationId}/lues:
+ * /api/v1/notifications/conversation/{conversationId}/lues:
  *   patch:
  *     summary: Marquer toutes les notifications d'une conversation comme lues
  *     tags: [Notifications]
