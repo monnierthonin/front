@@ -32,9 +32,7 @@
         </ul>
       </div>
       <div class="botom-header">
-        <!-- Log pour déboguer -->
-        <div style="display:none;">{{ console.log('Rendu du composant Header, isAdmin =', isAdmin) }}</div>
-        <div class="boutonModeration" v-if="isAdmin"><!-- Section administration (uniquement pour les admins) -->
+        <div class="boutonModeration" v-if="isAdmin">
           <router-link to="/admin">
             <button class="moderationButton"><img src="../../assets/styles/image/moderation.png" alt="moderation" class="moderation"></button>
           </router-link>
@@ -46,7 +44,6 @@
         </div>
       </div>
     </nav>
-    <!-- Modal pour l'ajout et la recherche de workspaces -->
     <WorkspaceModal 
       :is-open="isWorkspaceModalOpen" 
       @close="closeWorkspaceModal"
@@ -74,7 +71,7 @@ export default {
   data() {
     return {
       currentProfilePicture: localStorage.getItem('profilePicture') || 'default.jpg',
-      isAdmin: false, // A remplacer par la vraie valeur (en fonction de l'utilisateur)
+      isAdmin: false,
       workspaces: [],
       loading: true,
       errorMessage: '',
@@ -86,73 +83,50 @@ export default {
   computed: {
     profileImageUrl() {
       if (this.currentProfilePicture) {
-        // Si c'est déjà une URL complète, l'utiliser directement
         if (this.currentProfilePicture.startsWith('http://') || this.currentProfilePicture.startsWith('https://')) {
           return this.currentProfilePicture;
         }
-        // Sinon, construire l'URL (ancien format)
         else if (this.currentProfilePicture !== 'default.jpg') {
           return `http://localhost:3000/uploads/profiles/${this.currentProfilePicture}`;
         }
       }
-      // Utilisation de l'image importée par défaut
       return defaultProfileImg;
     }
   },
 
   created() {
-    // S'abonner à l'événement de mise à jour de la photo de profil
     eventBus.on(APP_EVENTS.PROFILE_PICTURE_UPDATED, (newProfilePicture) => {
-      console.log('Header a reçu l\'événement de mise à jour de la photo de profil:', newProfilePicture);
       this.currentProfilePicture = newProfilePicture;
     });
     
-    // S'abonner à l'événement de connexion
     eventBus.on(APP_EVENTS.USER_LOGGED_IN, () => {
-      console.log('---- EVENT: Utilisateur connecté, rechargement du profil et des workspaces ----');
-      console.log('Header a reçu l\'événement de connexion');
-      // Récupérer la nouvelle photo de profil du localStorage
       this.currentProfilePicture = localStorage.getItem('profilePicture') || 'default.jpg';
       this.isAuthenticated = true;
-      console.log('État isAdmin avant loadUserProfile:', this.isAdmin);
       this.loadUserProfile();
-      console.log('État isAdmin avant checkSuperAdminRole:', this.isAdmin);
-      this.checkSuperAdminRole(); // Vérifier à nouveau le rôle admin après connexion
+      this.checkSuperAdminRole();
       this.loadWorkspaces();
     });
     
-    // S'abonner à l'événement de déconnexion
     eventBus.on(APP_EVENTS.USER_LOGGED_OUT, () => {
-      console.log('Header a reçu l\'événement de déconnexion');
       this.isAuthenticated = false;
       this.isAdmin = false;
       this.currentUserId = null;
       this.workspaces = [];
     });
     
-    // Écouter l'événement global de suppression d'un workspace
     this.$root.$on('workspace-deleted', (workspaceId) => {
-      console.log('Header a reçu l\'événement de suppression du workspace:', workspaceId);
-      // Mettre à jour la liste des workspaces
       this.workspaces = this.workspaces.filter(w => w._id !== workspaceId);
     });
   },
   
   async mounted() {
-    console.log('---- MOUNTED: Header component ----');
-    // Vérifier si l'utilisateur est connecté via l'API
     try {
       const isAuthenticated = await authService.isAuthenticated();
       this.isAuthenticated = isAuthenticated;
       
       if (isAuthenticated) {
-        // Charger le profil utilisateur
         await this.loadUserProfile();
-        console.log('État isAdmin après loadUserProfile:', this.isAdmin);
-        // Charger les workspaces
         await this.loadWorkspaces();
-        
-        // Initialiser les notifications
         this.setupNotifications();
       }
     } catch (error) {
@@ -165,39 +139,29 @@ export default {
      * Charge le profil de l'utilisateur connecté
      */
     async loadUserProfile() {
-      console.log('---- DÉBUT: Chargement du profil utilisateur ----');
       try {
-        // Appeler l'API pour récupérer les informations de l'utilisateur connecté
-        console.log('Envoi de la requête pour charger le profil...');
         const response = await fetch('http://localhost:3000/api/v1/auth/me', {
           method: 'GET',
           credentials: 'include'
         });
         
-        console.log('Réponse reçue, status:', response.status);
         if (!response.ok) {
           throw new Error(`Erreur lors de la récupération du profil: ${response.status}`);
         }
         
         const data = await response.json();
-        console.log('Données profil utilisateur reçues:', JSON.stringify(data, null, 2));
         
         if (data && data.status === 'success' && data.data && data.data.user) {
           const user = data.data.user;
           
-          // Stocker l'ID utilisateur
           this.currentUserId = user.id || user._id;
           
-          // Vérifier si l'utilisateur a le rôle admin
           if (user.role === 'admin') {
-            console.log('✅ Utilisateur avec rôle admin détecté, isAdmin mis à TRUE');
             this.isAdmin = true;
           } else {
-            console.log('❌ Utilisateur sans rôle admin');
             this.isAdmin = false;
           }
           
-          // Mettre à jour la photo de profil si disponible
           if (user.profilePicture) {
             this.currentProfilePicture = user.profilePicture;
             localStorage.setItem('profilePicture', user.profilePicture);
@@ -213,28 +177,21 @@ export default {
      * Vérifie si l'utilisateur a le rôle superadmin (admin)
      */
     async checkSuperAdminRole() {
-      console.log('---- DÉBUT: Vérification du rôle admin ----');
       try {
-        // Faire une requête au serveur pour récupérer les informations de l'utilisateur courant
-        console.log('Envoi de la requête pour vérifier le rôle admin...');
         const response = await fetch('http://localhost:3000/api/v1/users/profile', {
           method: 'GET',
           credentials: 'include'
         });
         
-        console.log('Réponse reçue, status:', response.status);
         if (!response.ok) {
           console.error('Erreur lors de la vérification du rôle admin: ', response.status);
           return;
         }
         
         const data = await response.json();
-        console.log('Données utilisateur reçues:', JSON.stringify(data, null, 2));
         
-        // Extraire les données du profil selon la structure correcte
         let userData = null;
         
-        // Structure attendue: {success: true, data: {...}} ou {data: {user: {...}}}
         if (data.success && data.data) {
           userData = data.data;
         } else if (data.data && data.data.user) {
@@ -242,16 +199,11 @@ export default {
         }
         
         if (userData) {
-          // Vérifier si le champ role existe et s'il est égal à 'admin'
           const hasAdminRole = userData.role === 'admin';
-          console.log('Rôle détecté:', userData.role, 'Est admin?', hasAdminRole);
           this.isAdmin = hasAdminRole;
-          console.log('isAdmin mis à jour:', this.isAdmin);
           
-          // Force la mise à jour du DOM
           this.$forceUpdate();
         } else {
-          console.warn('Profil utilisateur introuvable dans la réponse:', data);
           this.isAdmin = false;
         }
       } catch (error) {
@@ -259,22 +211,15 @@ export default {
         this.isAdmin = false;
       }
     },
-    // Ouvrir le modal de gestion des workspaces
     openWorkspaceModal() {
       this.isWorkspaceModalOpen = true;
     },
-
-    // Fermer le modal
     closeWorkspaceModal() {
       this.isWorkspaceModalOpen = false;
     },
-
-    // Gérer la création d'un nouveau workspace
     handleWorkspaceCreated(workspace) {
       this.loadWorkspaces();
     },
-
-    // Gérer l'ajout à un workspace existant
     handleWorkspaceJoined(workspace) {
       this.loadWorkspaces();
     },
@@ -284,80 +229,63 @@ export default {
         this.loading = true;
         this.errorMessage = '';
         
-        // Si l'utilisateur est authentifié, essayer de récupérer ses workspaces
         if (this.isAuthenticated) {
-          // Appel au service pour récupérer les workspaces
           this.workspaces = await workspaceService.getUserWorkspaces();
-          console.log('Workspaces chargés depuis l\'API:', this.workspaces);
         } else {
-          // Si l'utilisateur n'est pas authentifié, afficher un tableau vide
           this.workspaces = [];
         }
       } catch (error) {
         console.error('Erreur lors du chargement des workspaces:', error);
         this.errorMessage = 'Impossible de charger vos workspaces';
-        this.workspaces = []; // En cas d'erreur, ne pas afficher de workspaces par défaut
+        this.workspaces = []; 
       } finally {
         this.loading = false;
       }
     },
     
-    // Générer une couleur en fonction du nom du workspace
     getWorkspaceColor(workspace) {
-      // Liste de couleurs prédéfinies
       const colors = [
         '#7289da', '#43b581', '#f04747', '#faa61a', '#b9bbbe',
         '#2c2f33', '#99aab5', '#e91e63', '#9c27b0', '#3f51b5'
       ];
       
-      // Utiliser le hash du nom pour choisir une couleur
       const hash = this.hashString(workspace.nom || 'Workspace');
       const colorIndex = Math.abs(hash) % colors.length;
       
       return { backgroundColor: colors[colorIndex] };
     },
     
-    // Récupérer les initiales du nom du workspace
     getWorkspaceInitiale(workspace) {
       if (!workspace || !workspace.nom) return '?';
       
       const words = workspace.nom.split(' ');
       if (words.length === 1) {
-        // Si un seul mot, prendre les deux premières lettres
         return words[0].substring(0, 2).toUpperCase();
       } else {
-        // Sinon prendre la première lettre de chaque mot (max 2)
         return (words[0][0] + (words[1] ? words[1][0] : '')).toUpperCase();
       }
     },
     
-    // Fonction simple pour calculer un hash à partir d'une chaîne
     hashString(str) {
       let hash = 0;
       for (let i = 0; i < str.length; i++) {
         hash = ((hash << 5) - hash) + str.charCodeAt(i);
-        hash |= 0; // Convertir en entier 32 bits
+        hash |= 0;
       }
       return hash;
     },
     
-    // Naviguer vers un workspace
     goToWorkspace(id) {
-      // Naviguer vers la page dédiée au workspace avec l'ID spécifié
       this.$router.push({ name: 'Workspace', params: { id } });
     },
 
-    // Configuration du système de notification
     setupNotifications() {
       const notificationStore = useNotificationStore();
       
-      // Initialiser les écouteurs de notifications
       notificationStore.initNotificationListeners();
       
-      // Charger les notifications non lues
       notificationStore.fetchTotalNonLus();
       
-      // Pour chaque workspace, charger ses notifications
       if (this.workspaces && this.workspaces.length > 0) {
         this.workspaces.forEach(workspace => {
           notificationStore.fetchWorkspaceNotifications(workspace._id);
@@ -365,7 +293,6 @@ export default {
       }
     },
     
-    // Vérifier si un workspace a des notifications non lues
     hasWorkspaceNotifications(workspaceId) {
       const notificationStore = useNotificationStore();
       return notificationStore.hasWorkspaceNotifications(workspaceId);

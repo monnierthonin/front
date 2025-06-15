@@ -40,8 +40,8 @@
     data() {
       return {
         isLoading: true,
-        userProfiles: {}, // Stockage des profils utilisateurs récupérés
-        fetchingProfiles: false // Indicateur de chargement des profils
+        userProfiles: {},
+        fetchingProfiles: false
       }
     },
     computed: {
@@ -76,7 +76,6 @@
           
           const data = await response.json()
           if (data.success && data.data && data.data.user) {
-            // Mettre à jour le cache des profils utilisateurs
             this.userProfiles[userId] = data.data.user
             return data.data.user
           }
@@ -100,7 +99,6 @@
             
             const userId = membre.utilisateur._id
             
-            // Vérifie si on a déjà récupéré ce profil
             if (!this.userProfiles[userId]) {
               await this.fetchUserProfile(userId)
             }
@@ -120,32 +118,27 @@
       getUserStatusClass(membre) {
         if (!membre) return 'offline'
         
-        // Récupération de l'ID utilisateur
         const userId = membre.utilisateur?._id
         if (!userId) return 'offline'
         
-        // Vérifie si on a récupéré le profil de cet utilisateur
         const userProfile = this.userProfiles[userId]
-        if (!userProfile) return 'offline' // Par défaut offline si le profil n'est pas encore chargé
+        if (!userProfile) return 'offline' 
         
-        // Vérification explicite de la connexion
         const estConnecte = userProfile.estConnecte === true
         
-        // Si l'utilisateur n'est pas connecté, statut gris (offline)
         if (!estConnecte) return 'offline'
         
-        // Utilisateur connecté, détermine la couleur selon le statut
         const status = userProfile.status || ''
         
         switch (status) {
           case 'en ligne':
-            return 'online'  // Vert
+            return 'online'  
           case 'absent':
-            return 'idle'    // Orange 
+            return 'idle'    
           case 'ne pas déranger':
-            return 'dnd'     // Rouge
+            return 'dnd'     
           default:
-            return 'online'  // Par défaut: Vert
+            return 'online'  
         }
       }
     },
@@ -154,7 +147,6 @@
         handler(newVal) {
           if (newVal) {
             this.isLoading = false
-            // Récupère les profils utilisateurs quand la liste des membres change
             this.$nextTick(() => {
               this.fetchAllUserProfiles()
             })
@@ -164,7 +156,6 @@
       }
     },
     
-    // Lors de la création du composant, récupérer les profils utilisateurs
     mounted() {
       if (this.membres && this.membres.length > 0) {
         this.fetchAllUserProfiles()
@@ -176,7 +167,7 @@
   <style scoped>
   .User-sidebar {
     position: fixed;
-    right: 0px; /* Largeur du header */
+    right: 0px; 
     top: 0;
     height: 100vh;
     width: var(--whidth-userChanel);
